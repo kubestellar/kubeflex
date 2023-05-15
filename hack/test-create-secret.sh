@@ -19,6 +19,5 @@ create_or_update_certs_secret() {
 VKS_NS=cp1-system
 VKS_HOME=certs
 
-ls certs
 create_or_update_certs_secret
 

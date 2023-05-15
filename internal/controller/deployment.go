@@ -21,7 +21,7 @@ const (
 	APIServerDeploymentName = "kube-apiserver"
 	securePort              = 9443
 	// temp values - to be injected by operator
-	DBPassword    = "FAKE"
+	DBPassword    = "nqhCF7WFiZ"
 	DBReleaseName = "mypsql"
 	DBNamespace   = "vks-system"
 )

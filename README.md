@@ -17,3 +17,15 @@ psql -h mypsql-postgresql.vks-system.svc -U postgres
 
 ```shell
 kubectl create secret generic k8s-certs-test --from-file=apiserver-kubelet-client.crt=/path/to/.ssh/id_rsa
+
+### How to view certs info
+
+```shell
+openssl x509 -noout -text -in certs/apiserver.crt 
+```
+
+### Get decoded value from secret
+
+```shell
+kubectl get secret -n vks1-system k8s-certs -o jsonpath='{.data.ca\.crt}' | base64 -d
+```
