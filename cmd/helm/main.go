@@ -23,6 +23,7 @@ import (
 	"helm.sh/helm/v3/pkg/cli/values"
 	"helm.sh/helm/v3/pkg/downloader"
 	"helm.sh/helm/v3/pkg/getter"
+	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/repo"
 	"helm.sh/helm/v3/pkg/strvals"
 )
@@ -50,6 +51,18 @@ func main() {
 	RepoUpdate()
 	// Install charts
 	InstallChart(releaseName, repoName, chartName, args)
+
+	// check status
+	for {
+		release, err := checkStatus()
+		if err != nil {
+			fmt.Printf("Err >>>> %#v", err)
+			os.Exit(-1)
+		}
+		fmt.Printf("Status: %s", release.Info.Status)
+		time.Sleep(2 * time.Second)
+	}
+
 }
 
 // RepoAdd adds repo with given name and url
@@ -232,4 +245,13 @@ func isChartInstallable(ch *chart.Chart) (bool, error) {
 func debug(format string, v ...interface{}) {
 	format = fmt.Sprintf("[debug] %s\n", format)
 	log.Output(2, fmt.Sprintf(format, v...))
+}
+
+func checkStatus() (*release.Release, error) {
+	actionConfig := new(action.Configuration)
+	if err := actionConfig.Init(settings.RESTClientGetter(), settings.Namespace(), os.Getenv("HELM_DRIVER"), debug); err != nil {
+		log.Fatal(err)
+	}
+	client := action.NewGet(actionConfig)
+	return client.Run(releaseName)
 }

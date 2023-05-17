@@ -19,7 +19,7 @@ import (
 
 func main() {
 	// Set up file paths
-	certsDir := "./certs"
+	certsDir := "./_certs"
 	caCrtPath := filepath.Join(certsDir, "ca.crt")
 	caKeyPath := filepath.Join(certsDir, "ca.key")
 	apiServerKubeletClientCrtPath := filepath.Join(certsDir, "apiserver-kubelet-client.crt")
