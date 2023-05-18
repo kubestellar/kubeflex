@@ -77,6 +77,11 @@ func (r *ControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, err
 	}
 
+	if err = r.ReconcileCertsSecret(ctx, hcp.Name, &v1.OwnerReference{
+		Kind: hcp.Kind, APIVersion: hcp.APIVersion, Name: hcp.Name, UID: hcp.UID}); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	if err = r.ReconcileAPIServerDeployment(ctx, hcp.Name, &v1.OwnerReference{
 		Kind: hcp.Kind, APIVersion: hcp.APIVersion, Name: hcp.Name, UID: hcp.UID}); err != nil {
 		return ctrl.Result{}, err

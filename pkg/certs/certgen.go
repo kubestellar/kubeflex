@@ -11,7 +11,13 @@ import (
 	"math/big"
 	"time"
 
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clog "sigs.k8s.io/controller-runtime/pkg/log"
+)
+
+const (
+	CertsSecretName = "k8s-certs"
 )
 
 type Certs struct {
@@ -54,6 +60,29 @@ func (c *Certs) generateAllCerts(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+func (c *Certs) GenerateCertsSecret(ctx context.Context, namespace string) *v1.Secret {
+	return &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      CertsSecretName,
+			Namespace: namespace,
+		},
+		Type: v1.SecretTypeOpaque,
+		Data: map[string][]byte{
+			"ca.key":                       c.caPEMKey,
+			"ca.crt":                       c.caPEMCert,
+			"apiserver.key":                c.apiServerPEMKey,
+			"apiserver.crt":                c.apiServerPEMCert,
+			"apiserver-kubelet-client.key": c.kubeletPEMKey,
+			"apiserver-kubelet-client.crt": c.kubeletPEMCert,
+			"front-proxy-ca.crt":           c.caPEMCert, // TODO - we may need to generate its own CA for front-proxy
+			"front-proxy-client.key":       c.frontProxyPEMKey,
+			"front-proxy-client.crt":       c.frontProxyPEMCert,
+			"sa.key":                       c.saPEMKey,
+			"sa.pub":                       c.saPEMPubKey,
+		},
+	}
 }
 
 func (c *Certs) generateCA(ctx context.Context) (err error) {
