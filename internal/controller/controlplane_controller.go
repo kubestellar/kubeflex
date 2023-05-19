@@ -35,6 +35,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	tenancyv1alpha1 "mcc.ibm.org/kubeflex/api/v1alpha1"
+	"mcc.ibm.org/kubeflex/pkg/certs"
+)
+
+const (
+	CpPort = 9443        // TODO - figure how to manage ports
+	CpHost = "localhost" // TODO - figure how to manage hosts
 )
 
 // ControlPlaneReconciler reconciles a ControlPlane object
@@ -71,19 +77,40 @@ func (r *ControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, err
 	}
 	hcp := hostedControlPlane.DeepCopy()
+	ownerRef := &v1.OwnerReference{
+		Kind:       hcp.Kind,
+		APIVersion: hcp.APIVersion,
+		Name:       hcp.Name,
+		UID:        hcp.UID,
+	}
+	confGen := certs.ConfigGen{
+		CpName: hcp.Name,
+		CpHost: CpHost,
+		CpPort: CpPort,
+	}
 
-	if err = r.ReconcileNamespace(ctx, hcp.Name, &v1.OwnerReference{
-		Kind: hcp.Kind, APIVersion: hcp.APIVersion, Name: hcp.Name, UID: hcp.UID}); err != nil {
+	if err = r.ReconcileNamespace(ctx, hcp.Name, ownerRef); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if err = r.ReconcileCertsSecret(ctx, hcp.Name, &v1.OwnerReference{
-		Kind: hcp.Kind, APIVersion: hcp.APIVersion, Name: hcp.Name, UID: hcp.UID}); err != nil {
+	crts, err := r.ReconcileCertsSecret(ctx, hcp.Name, ownerRef)
+	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if err = r.ReconcileAPIServerDeployment(ctx, hcp.Name, &v1.OwnerReference{
-		Kind: hcp.Kind, APIVersion: hcp.APIVersion, Name: hcp.Name, UID: hcp.UID}); err != nil {
+	// reconcile kubeconfig for admin
+	confGen.Target = certs.Admin
+	if err = r.ReconcileKubeconfigSecret(ctx, crts, confGen, ownerRef); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// reconcile kubeconfig for cm
+	confGen.Target = certs.ControllerManager
+	if err = r.ReconcileKubeconfigSecret(ctx, crts, confGen, ownerRef); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if err = r.ReconcileAPIServerDeployment(ctx, hcp.Name, ownerRef); err != nil {
 		return ctrl.Result{}, err
 	}
 

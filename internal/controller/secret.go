@@ -13,7 +13,7 @@ import (
 	"mcc.ibm.org/kubeflex/pkg/util"
 )
 
-func (r *ControlPlaneReconciler) ReconcileCertsSecret(ctx context.Context, name string, owner *metav1.OwnerReference) error {
+func (r *ControlPlaneReconciler) ReconcileCertsSecret(ctx context.Context, name string, owner *metav1.OwnerReference) (*certs.Certs, error) {
 	_ = clog.FromContext(ctx)
 	namespace := util.GenerateNamespaceFromControlPlaneName(name)
 
@@ -28,7 +28,44 @@ func (r *ControlPlaneReconciler) ReconcileCertsSecret(ctx context.Context, name 
 	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(csecret), csecret, &client.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			csecret, err := generateCertsSecret(ctx, namespace)
+			csecret, crts, err := generateCertsSecret(ctx, namespace)
+			if err != nil {
+				return nil, err
+			}
+			util.EnsureOwnerRef(csecret, owner)
+			err = r.Client.Create(context.TODO(), csecret, &client.CreateOptions{})
+			if err != nil {
+				return nil, err
+			}
+			return crts, nil
+		}
+		return nil, err
+	}
+	return nil, nil
+}
+
+func (r *ControlPlaneReconciler) ReconcileKubeconfigSecret(ctx context.Context, crts *certs.Certs, conf certs.ConfigGen, owner *metav1.OwnerReference) error {
+	// TODO - temp hack - we should make this independent of the certs gen.
+	// Should gen kconfig from certs secret otherwise it may fail if certs are not generated before this func
+	if crts == nil {
+		return nil
+	}
+	_ = clog.FromContext(ctx)
+	namespace := util.GenerateNamespaceFromControlPlaneName(conf.CpName)
+
+	// create certs secret object
+	csecret := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      certs.AdminConfSecret,
+			Namespace: namespace,
+		},
+	}
+
+	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(csecret), csecret, &client.GetOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			conf.CpNamespace = namespace
+			csecret, err = certs.GenerateKubeConfigSecret(ctx, crts, conf)
 			if err != nil {
 				return err
 			}
@@ -43,10 +80,10 @@ func (r *ControlPlaneReconciler) ReconcileCertsSecret(ctx context.Context, name 
 	return nil
 }
 
-func generateCertsSecret(ctx context.Context, namespace string) (*v1.Secret, error) {
+func generateCertsSecret(ctx context.Context, namespace string) (*v1.Secret, *certs.Certs, error) {
 	c, err := certs.New(ctx)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return c.GenerateCertsSecret(ctx, namespace), nil
+	return c.GenerateCertsSecret(ctx, namespace), c, nil
 }
