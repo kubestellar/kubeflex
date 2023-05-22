@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/go-logr/logr"
 	homedir "github.com/mitchellh/go-homedir"
 
 	corev1 "k8s.io/api/core/v1"
@@ -16,19 +15,16 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/klog/v2/klogr"
 
 	"mcc.ibm.org/kubeflex/pkg/helm"
 )
 
-func Init(kubeconfig string) {
+func Init(ctx context.Context, kubeconfig string) {
 	ensureSystemNamespace(kubeconfig, ChartNamespace)
-	ensureSystemDB()
+	ensureSystemDB(ctx)
 }
 
-func ensureSystemDB() {
-	ctx := logr.NewContext(context.Background(), klogr.New())
-
+func ensureSystemDB(ctx context.Context) {
 	h := &helm.HelmHandler{
 		URL:         URL,
 		RepoName:    RepoName,

@@ -102,8 +102,7 @@ func (h *HelmHandler) repoAdd() error {
 	}
 
 	if f.Has(h.RepoName) {
-		//return fmt.Errorf("repo with name %s already exists", h.RepoName)
-		h.log.Info("repo already exists", "repoName", h.RepoName)
+		h.log.V(3).Info("repo already exists", "repoName", h.RepoName)
 	}
 
 	c := repo.Entry{
@@ -126,7 +125,7 @@ func (h *HelmHandler) repoAdd() error {
 	if err := f.WriteFile(repoFile, 0644); err != nil {
 		log.Fatal(err)
 	}
-	h.log.Info("repo has been added to your repositories", "name", h.RepoName)
+	h.log.V(3).Info("repo has been added to your repositories", "name", h.RepoName)
 	return nil
 }
 
@@ -147,7 +146,7 @@ func (h *HelmHandler) repoUpdate() error {
 		repos = append(repos, r)
 	}
 
-	h.log.Info("getting the latest from chart repositories")
+	h.log.V(3).Info("getting the latest from chart repositories")
 	var wg sync.WaitGroup
 	for _, re := range repos {
 		wg.Add(1)
@@ -156,12 +155,12 @@ func (h *HelmHandler) repoUpdate() error {
 			if _, err := re.DownloadIndexFile(); err != nil {
 				h.log.Error(err, "...Unable to get an update from the chart repository", "name", re.Config.Name, "url", re.Config.URL)
 			} else {
-				h.log.Info("successfully got an update from the chart repository", "name", re.Config.Name)
+				h.log.V(3).Info("successfully got an update from the chart repository", "name", re.Config.Name)
 			}
 		}(re)
 	}
 	wg.Wait()
-	h.log.Info("update complete!")
+	h.log.V(3).Info("update complete!")
 	return nil
 }
 
@@ -183,7 +182,7 @@ func (h *HelmHandler) chartInstall() error {
 		return err
 	}
 
-	h.log.Info("chart path", "path", cp)
+	h.log.V(3).Info("chart path", "path", cp)
 
 	p := getter.All(h.settings)
 	valueOpts := &values.Options{}
@@ -237,7 +236,7 @@ func (h *HelmHandler) chartInstall() error {
 	if err != nil {
 		return err
 	}
-	h.log.Info(release.Manifest)
+	h.log.V(3).Info(release.Manifest)
 	return nil
 }
 
@@ -265,7 +264,11 @@ func (h *HelmHandler) CheckStatus() (*release.Release, error) {
 
 func (h *HelmHandler) IsDeployed() bool {
 	rel, err := h.CheckStatus()
-	if err != nil && rel != nil {
+	if err != nil {
+		return false
+	}
+
+	if rel != nil {
 		if rel.Info.Status == release.StatusDeployed {
 			return true
 		}

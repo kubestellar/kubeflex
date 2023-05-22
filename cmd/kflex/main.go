@@ -1,10 +1,15 @@
 package main
 
 import (
+	"context"
+	"flag"
 	"fmt"
 	"os"
 
+	"github.com/go-logr/logr"
+	"github.com/go-logr/zapr"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 
 	in "mcc.ibm.org/kubeflex/cmd/kflex/init"
 )
@@ -22,16 +27,20 @@ func main() {
 		Long:  `Installs the default storage backend and the kubeflex operator`,
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-			//fmt.Printf("init called with parameter %#v and flag %v\n", args, cmd.Flag("flag").Value)
+			flag.Parse()
+			zapLogger, _ := zap.NewDevelopment(zap.AddCaller())
+			logger := zapr.NewLoggerWithOptions(zapLogger)
+			ctx := logr.NewContext(context.Background(), logger)
 			kubeconfig := ""
 			if cmd.Flags().Lookup("kubeconfig").Changed {
 				kubeconfig = cmd.Flag("kubeconfig").Value.String()
 			}
-			in.Init(kubeconfig)
+			in.Init(ctx, kubeconfig)
 		},
 	}
 
 	initCmd.Flags().StringP("kubeconfig", "k", "", "path to kubeconfig file")
+	initCmd.Flags().IntP("verbosity", "v", 0, "log level") // TODO - figure out how to inject verbosity
 
 	var createCmd = &cobra.Command{
 		Use:   "create",

@@ -22,8 +22,8 @@ const (
 	securePort              = 9443
 	// temp values - to be injected by operator
 	DBPassword    = "nqhCF7WFiZ"
-	DBReleaseName = "mypsql"
-	DBNamespace   = "vks-system"
+	DBReleaseName = "postgres"
+	DBNamespace   = "kflex-system"
 )
 
 func (r *ControlPlaneReconciler) ReconcileAPIServerDeployment(ctx context.Context, name string, owner *metav1.OwnerReference) error {
@@ -40,7 +40,11 @@ func (r *ControlPlaneReconciler) ReconcileAPIServerDeployment(ctx context.Contex
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			util.EnsureOwnerRef(deployment, owner)
-			err = r.Client.Create(context.TODO(), generateDeployment(namespace, name), &client.CreateOptions{})
+			deployment, err = r.generateDeployment(namespace, name)
+			if err != nil {
+				return err
+			}
+			err = r.Client.Create(context.TODO(), deployment, &client.CreateOptions{})
 			if err != nil {
 				return err
 			}
@@ -50,7 +54,11 @@ func (r *ControlPlaneReconciler) ReconcileAPIServerDeployment(ctx context.Contex
 	return nil
 }
 
-func generateDeployment(namespace, dbName string) *appsv1.Deployment {
+func (r *ControlPlaneReconciler) generateDeployment(namespace, dbName string) (*appsv1.Deployment, error) {
+	dbPassword, err := r.getDBPassword()
+	if err != nil {
+		return nil, err
+	}
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      APIServerDeploymentName,
@@ -78,7 +86,7 @@ func generateDeployment(namespace, dbName string) *appsv1.Deployment {
 						{
 							Name:    "kine",
 							Image:   "rancher/kine:v0.9.9-amd64",
-							Command: []string{"kine", "--endpoint", fmt.Sprintf("postgres://postgres:%s@%s-postgresql.%s.svc/%s?sslmode=disable", DBPassword, DBReleaseName, DBNamespace, dbName)},
+							Command: []string{"kine", "--endpoint", fmt.Sprintf("postgres://postgres:%s@%s-postgresql.%s.svc/%s?sslmode=disable", dbPassword, DBReleaseName, DBNamespace, dbName)},
 							Ports: []v1.ContainerPort{{
 								ContainerPort: 2379,
 							}},
@@ -193,5 +201,27 @@ func generateDeployment(namespace, dbName string) *appsv1.Deployment {
 			},
 		},
 	}
-	return deployment
+	return deployment, nil
+}
+
+func (r *ControlPlaneReconciler) getDBPassword() (string, error) {
+	// create certs secret object
+	pSecret := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      generatePSecretName(DBReleaseName),
+			Namespace: DBNamespace,
+		},
+	}
+
+	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(pSecret), pSecret, &client.GetOptions{})
+	if err != nil {
+		return "", err
+	}
+
+	return string(pSecret.Data["postgresql-password"]), nil
+}
+
+func generatePSecretName(releaseName string) string {
+	return fmt.Sprintf("%s-postgresql", releaseName)
+
 }
