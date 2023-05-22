@@ -28,7 +28,7 @@ func (r *ControlPlaneReconciler) ReconcileCertsSecret(ctx context.Context, name 
 	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(csecret), csecret, &client.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			csecret, crts, err := generateCertsSecret(ctx, namespace)
+			csecret, crts, err := generateCertsSecret(ctx, name, namespace)
 			if err != nil {
 				return nil, err
 			}
@@ -54,21 +54,15 @@ func (r *ControlPlaneReconciler) ReconcileKubeconfigSecret(ctx context.Context, 
 	namespace := util.GenerateNamespaceFromControlPlaneName(conf.CpName)
 
 	// create certs secret object
-	csecret := &v1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      certs.AdminConfSecret,
-			Namespace: namespace,
-		},
+	conf.CpNamespace = namespace
+	csecret, err := certs.GenerateKubeConfigSecret(ctx, crts, conf)
+	if err != nil {
+		return err
 	}
 
-	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(csecret), csecret, &client.GetOptions{})
+	err = r.Client.Get(context.TODO(), client.ObjectKeyFromObject(csecret), csecret, &client.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			conf.CpNamespace = namespace
-			csecret, err = certs.GenerateKubeConfigSecret(ctx, crts, conf)
-			if err != nil {
-				return err
-			}
 			util.EnsureOwnerRef(csecret, owner)
 			err = r.Client.Create(context.TODO(), csecret, &client.CreateOptions{})
 			if err != nil {
@@ -80,8 +74,8 @@ func (r *ControlPlaneReconciler) ReconcileKubeconfigSecret(ctx context.Context, 
 	return nil
 }
 
-func generateCertsSecret(ctx context.Context, namespace string) (*v1.Secret, *certs.Certs, error) {
-	c, err := certs.New(ctx)
+func generateCertsSecret(ctx context.Context, name, namespace string) (*v1.Secret, *certs.Certs, error) {
+	c, err := certs.New(ctx, []string{name})
 	if err != nil {
 		return nil, nil, err
 	}

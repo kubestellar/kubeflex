@@ -29,3 +29,11 @@ openssl x509 -noout -text -in certs/apiserver.crt
 ```shell
 kubectl get secret -n vks1-system k8s-certs -o jsonpath='{.data.ca\.crt}' | base64 -d
 ```
+
+### How to attach a ephemeral container to debug
+
+Example:
+
+```shell
+kubectl debug -n cp1-system -it kube-controller-manager-676c565f96-r952b --image=busybox:1.28 --target=kube-controller-manager
+```

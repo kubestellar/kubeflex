@@ -106,11 +106,20 @@ func (r *ControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	// reconcile kubeconfig for cm
 	confGen.Target = certs.ControllerManager
+	confGen.CpHost = hcp.Name
 	if err = r.ReconcileKubeconfigSecret(ctx, crts, confGen, ownerRef); err != nil {
 		return ctrl.Result{}, err
 	}
 
 	if err = r.ReconcileAPIServerDeployment(ctx, hcp.Name, ownerRef); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if err = r.ReconcileAPIServerService(ctx, hcp.Name, ownerRef); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if err = r.ReconcileCMDeployment(ctx, hcp.Name, ownerRef); err != nil {
 		return ctrl.Result{}, err
 	}
 

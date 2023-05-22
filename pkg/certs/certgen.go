@@ -35,19 +35,19 @@ type Certs struct {
 	saPEMPubKey       []byte
 }
 
-func New(ctx context.Context) (*Certs, error) {
+func New(ctx context.Context, extraDNSNames []string) (*Certs, error) {
 	c := &Certs{}
-	if err := c.generateAllCerts(ctx); err != nil {
+	if err := c.generateAllCerts(ctx, extraDNSNames); err != nil {
 		return nil, err
 	}
 	return c, nil
 }
 
-func (c *Certs) generateAllCerts(ctx context.Context) error {
+func (c *Certs) generateAllCerts(ctx context.Context, extraDNSNames []string) error {
 	if err := c.generateCA(ctx); err != nil {
 		return err
 	}
-	if err := c.generateAPIServerKeyAndCert(ctx); err != nil {
+	if err := c.generateAPIServerKeyAndCert(ctx, extraDNSNames); err != nil {
 		return err
 	}
 	if err := c.generateKubeletKeyAndCert(ctx); err != nil {
@@ -118,7 +118,7 @@ func (c *Certs) generateCA(ctx context.Context) (err error) {
 	return nil
 }
 
-func (c *Certs) generateAPIServerKeyAndCert(ctx context.Context) (err error) {
+func (c *Certs) generateAPIServerKeyAndCert(ctx context.Context, extraDNSNames []string) (err error) {
 	log := clog.FromContext(ctx)
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
@@ -128,15 +128,19 @@ func (c *Certs) generateAPIServerKeyAndCert(ctx context.Context) (err error) {
 
 	pubKeyHash := sha1.Sum(c.caTemplate.RawSubjectPublicKeyInfo)
 	authKeyId := []byte(pubKeyHash[:])
+
+	dnsNames := []string{"kubernetes",
+		"kubernetes.default",
+		"kubernetes.default.svc",
+		"kubernetes.default.svc.cluster",
+		"kubernetes.default.svc.cluster.local",
+		"localhost"}
+
+	dnsNames = append(dnsNames, extraDNSNames...)
 	certTemplate := x509.Certificate{
-		SerialNumber: big.NewInt(1658),
-		Subject:      pkix.Name{CommonName: "kube-apiserver"},
-		DNSNames: []string{"kubernetes",
-			"kubernetes.default",
-			"kubernetes.default.svc",
-			"kubernetes.default.svc.cluster",
-			"kubernetes.default.svc.cluster.local",
-			"localhost"},
+		SerialNumber:          big.NewInt(1658),
+		Subject:               pkix.Name{CommonName: "kube-apiserver"},
+		DNSNames:              dnsNames,
 		NotBefore:             time.Now().Add(-1 * time.Hour),
 		NotAfter:              time.Now().AddDate(10, 0, 0),
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageDataEncipherment,

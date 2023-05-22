@@ -19,7 +19,9 @@ import (
 
 const (
 	APIServerDeploymentName = "kube-apiserver"
-	securePort              = 9443
+	CMDeploymentName        = "kube-controller-manager"
+	SecurePort              = 9443
+	cmHealthzPort           = 10257
 	// temp values - to be injected by operator
 	DBPassword    = "nqhCF7WFiZ"
 	DBReleaseName = "postgres"
@@ -39,11 +41,11 @@ func (r *ControlPlaneReconciler) ReconcileAPIServerDeployment(ctx context.Contex
 	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(deployment), deployment, &client.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			util.EnsureOwnerRef(deployment, owner)
-			deployment, err = r.generateDeployment(namespace, name)
+			deployment, err = r.generateAPIServerDeployment(namespace, name)
 			if err != nil {
 				return err
 			}
+			util.EnsureOwnerRef(deployment, owner)
 			err = r.Client.Create(context.TODO(), deployment, &client.CreateOptions{})
 			if err != nil {
 				return err
@@ -54,7 +56,35 @@ func (r *ControlPlaneReconciler) ReconcileAPIServerDeployment(ctx context.Contex
 	return nil
 }
 
-func (r *ControlPlaneReconciler) generateDeployment(namespace, dbName string) (*appsv1.Deployment, error) {
+func (r *ControlPlaneReconciler) ReconcileCMDeployment(ctx context.Context, name string, owner *metav1.OwnerReference) error {
+	_ = clog.FromContext(ctx)
+	namespace := util.GenerateNamespaceFromControlPlaneName(name)
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      CMDeploymentName,
+			Namespace: namespace,
+		},
+	}
+
+	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(deployment), deployment, &client.GetOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			deployment, err = r.generateCMDeployment(name, namespace)
+			if err != nil {
+				return err
+			}
+			util.EnsureOwnerRef(deployment, owner)
+			err = r.Client.Create(context.TODO(), deployment, &client.CreateOptions{})
+			if err != nil {
+				return err
+			}
+		}
+		return err
+	}
+	return nil
+}
+
+func (r *ControlPlaneReconciler) generateAPIServerDeployment(namespace, dbName string) (*appsv1.Deployment, error) {
 	dbPassword, err := r.getDBPassword()
 	if err != nil {
 		return nil, err
@@ -123,7 +153,7 @@ func (r *ControlPlaneReconciler) generateDeployment(namespace, dbName string) (*
 								"--requestheader-extra-headers-prefix=X-Remote-Extra-",
 								"--requestheader-group-headers=X-Remote-Group",
 								"--requestheader-username-headers=X-Remote-User",
-								fmt.Sprintf("--secure-port=%d", securePort),
+								fmt.Sprintf("--secure-port=%d", SecurePort),
 								"--service-account-issuer=https://kubernetes.default.svc.cluster.local",
 								"--service-account-key-file=/etc/kubernetes/pki/sa.pub",
 								"--service-account-signing-key-file=/etc/kubernetes/pki/sa.key",
@@ -132,7 +162,7 @@ func (r *ControlPlaneReconciler) generateDeployment(namespace, dbName string) (*
 								"--tls-private-key-file=/etc/kubernetes/pki/apiserver.key",
 							},
 							Ports: []v1.ContainerPort{{
-								ContainerPort: securePort,
+								ContainerPort: SecurePort,
 							}},
 							Resources: v1.ResourceRequirements{
 								Limits: v1.ResourceList{
@@ -149,7 +179,7 @@ func (r *ControlPlaneReconciler) generateDeployment(namespace, dbName string) (*
 								ProbeHandler: v1.ProbeHandler{
 									HTTPGet: &v1.HTTPGetAction{
 										Path:   "/livez",
-										Port:   intstr.FromInt(securePort),
+										Port:   intstr.FromInt(SecurePort),
 										Scheme: v1.URISchemeHTTPS,
 									},
 								},
@@ -162,7 +192,7 @@ func (r *ControlPlaneReconciler) generateDeployment(namespace, dbName string) (*
 								ProbeHandler: v1.ProbeHandler{
 									HTTPGet: &v1.HTTPGetAction{
 										Path:   "/readyz",
-										Port:   intstr.FromInt(securePort),
+										Port:   intstr.FromInt(SecurePort),
 										Scheme: v1.URISchemeHTTPS,
 									},
 								},
@@ -174,7 +204,7 @@ func (r *ControlPlaneReconciler) generateDeployment(namespace, dbName string) (*
 								ProbeHandler: v1.ProbeHandler{
 									HTTPGet: &v1.HTTPGetAction{
 										Path:   "/livez",
-										Port:   intstr.FromInt(securePort),
+										Port:   intstr.FromInt(SecurePort),
 										Scheme: v1.URISchemeHTTPS,
 									},
 								},
@@ -197,6 +227,131 @@ func (r *ControlPlaneReconciler) generateDeployment(namespace, dbName string) (*
 							},
 						},
 					}},
+				},
+			},
+		},
+	}
+	return deployment, nil
+}
+
+func (r *ControlPlaneReconciler) generateCMDeployment(cpName, namespace string) (*appsv1.Deployment, error) {
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      CMDeploymentName,
+			Namespace: namespace,
+			Labels: map[string]string{
+				"component": "kube-controller-manager",
+				"tier":      "control-plane",
+			},
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: pointer.Int32(1),
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app": "kube-controller-manager",
+				},
+			},
+			Template: v1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"app": "kube-controller-manager",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name:            "kube-controller-manager",
+							Image:           "registry.k8s.io/kube-controller-manager:v1.27.1",
+							ImagePullPolicy: v1.PullIfNotPresent,
+							Command: []string{
+								"kube-controller-manager",
+								fmt.Sprintf("--master=https://%s:%d", cpName, SecurePort),
+								"--authentication-kubeconfig=/etc/kubernetes/kubeconfig",
+								"--authorization-kubeconfig=/etc/kubernetes/kubeconfig",
+								"--bind-address=0.0.0.0",
+								"--client-ca-file=/etc/kubernetes/pki/ca.crt",
+								"--cluster-name=kubernetes",
+								"--cluster-signing-cert-file=/etc/kubernetes/pki/ca.crt",
+								"--cluster-signing-key-file=/etc/kubernetes/pki/ca.key",
+								"--controllers=csrapproving,csrcleaner,csrsigning,namespace,root-ca-cert-publisher,serviceaccount,serviceaccount-token,bootstrapsigner,tokencleaner",
+								"--kubeconfig=/etc/kubernetes/kubeconfig",
+								"--leader-elect=true",
+								"--requestheader-client-ca-file=/etc/kubernetes/pki/front-proxy-ca.crt",
+								"--root-ca-file=/etc/kubernetes/pki/ca.crt",
+								"--service-account-private-key-file=/etc/kubernetes/pki/sa.key",
+								"--use-service-account-credentials=true",
+							},
+							Ports: []v1.ContainerPort{{
+								ContainerPort: SecurePort,
+							}},
+							Resources: v1.ResourceRequirements{
+								Limits: v1.ResourceList{
+									"cpu":    resource.MustParse("300m"),
+									"memory": resource.MustParse("128Mi"),
+								},
+								Requests: v1.ResourceList{
+									"cpu":    resource.MustParse("200m"),
+									"memory": resource.MustParse("64Mi"),
+								},
+							},
+							LivenessProbe: &v1.Probe{
+								FailureThreshold: 8,
+								ProbeHandler: v1.ProbeHandler{
+									HTTPGet: &v1.HTTPGetAction{
+										Path:   "/healthz",
+										Port:   intstr.FromInt(cmHealthzPort),
+										Scheme: v1.URISchemeHTTPS,
+									},
+								},
+								InitialDelaySeconds: 10,
+								PeriodSeconds:       10,
+								TimeoutSeconds:      15,
+							},
+							StartupProbe: &v1.Probe{
+								FailureThreshold: 24,
+								ProbeHandler: v1.ProbeHandler{
+									HTTPGet: &v1.HTTPGetAction{
+										Path:   "/healthz",
+										Port:   intstr.FromInt(cmHealthzPort),
+										Scheme: v1.URISchemeHTTPS,
+									},
+								},
+								InitialDelaySeconds: 10,
+								PeriodSeconds:       10,
+								TimeoutSeconds:      15,
+							},
+							VolumeMounts: []v1.VolumeMount{
+								{
+									MountPath: "/etc/kubernetes/pki",
+									Name:      "k8s-certs",
+									ReadOnly:  true,
+								},
+								{
+									MountPath: "/etc/kubernetes/",
+									Name:      "cm-kubeconfig",
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+					Volumes: []v1.Volume{
+						{
+							Name: "k8s-certs",
+							VolumeSource: v1.VolumeSource{
+								Secret: &v1.SecretVolumeSource{
+									SecretName: "k8s-certs",
+								},
+							},
+						},
+						{
+							Name: "cm-kubeconfig",
+							VolumeSource: v1.VolumeSource{
+								Secret: &v1.SecretVolumeSource{
+									SecretName: "cm-kubeconfig",
+								},
+							},
+						},
+					},
 				},
 			},
 		},
