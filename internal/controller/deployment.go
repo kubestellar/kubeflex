@@ -20,10 +20,9 @@ import (
 const (
 	APIServerDeploymentName = "kube-apiserver"
 	CMDeploymentName        = "kube-controller-manager"
-	SecurePort              = 9443
+	SecurePort              = 8443
 	cmHealthzPort           = 10257
 	// temp values - to be injected by operator
-	DBPassword    = "nqhCF7WFiZ"
 	DBReleaseName = "postgres"
 	DBNamespace   = "kflex-system"
 )

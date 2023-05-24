@@ -1,0 +1,12 @@
+apiVersion: tenancy.mcc.ibm.org/v1alpha1
+kind: ControlPlane
+metadata:
+  labels:
+    app.kubernetes.io/name: controlplane
+    app.kubernetes.io/instance: controlplane-sample
+    app.kubernetes.io/part-of: kubeflex
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: kubeflex
+  name: cp3
+spec:
+  # TODO(user): Add fields here
