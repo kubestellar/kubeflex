@@ -39,8 +39,7 @@ import (
 )
 
 const (
-	CpPort = 9443        // TODO - figure how to manage ports
-	CpHost = "localhost" // TODO - figure how to manage hosts
+// CpPort = 9443 // TODO - figure how to manage ports
 )
 
 // ControlPlaneReconciler reconciles a ControlPlane object
@@ -85,8 +84,8 @@ func (r *ControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 	confGen := certs.ConfigGen{
 		CpName: hcp.Name,
-		CpHost: CpHost,
-		CpPort: CpPort,
+		CpHost: hcp.Name,
+		CpPort: SecurePort,
 	}
 
 	if err = r.ReconcileNamespace(ctx, hcp.Name, ownerRef); err != nil {
@@ -116,6 +115,10 @@ func (r *ControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	if err = r.ReconcileAPIServerService(ctx, hcp.Name, ownerRef); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if err = r.ReconcileAPIServerIngress(ctx, hcp.Name, ownerRef); err != nil {
 		return ctrl.Result{}, err
 	}
 

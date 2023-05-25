@@ -15,6 +15,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+
+	"mcc.ibm.org/kubeflex/pkg/util"
 )
 
 type ConfigTarget int
@@ -136,7 +138,7 @@ func (c *ConfigGen) generateConfig() *clientcmdapi.Config {
 }
 
 func (c *ConfigGen) generateServerEndpoint() string {
-	return fmt.Sprintf("https://%s:%d", c.CpHost, c.CpPort)
+	return fmt.Sprintf("https://%s", util.GenerateDevLocalDNSName(c.CpName))
 }
 
 func (c *ConfigGen) generateClusterName() string {

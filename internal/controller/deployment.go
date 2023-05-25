@@ -20,7 +20,7 @@ import (
 const (
 	APIServerDeploymentName = "kube-apiserver"
 	CMDeploymentName        = "kube-controller-manager"
-	SecurePort              = 8443
+	SecurePort              = 9443
 	cmHealthzPort           = 10257
 	// temp values - to be injected by operator
 	DBReleaseName = "postgres"
@@ -152,6 +152,7 @@ func (r *ControlPlaneReconciler) generateAPIServerDeployment(namespace, dbName s
 								"--requestheader-extra-headers-prefix=X-Remote-Extra-",
 								"--requestheader-group-headers=X-Remote-Group",
 								"--requestheader-username-headers=X-Remote-User",
+								fmt.Sprintf("--bind-address=%s", "$(POD_IP)"),
 								fmt.Sprintf("--secure-port=%d", SecurePort),
 								"--service-account-issuer=https://kubernetes.default.svc.cluster.local",
 								"--service-account-key-file=/etc/kubernetes/pki/sa.pub",
@@ -159,6 +160,16 @@ func (r *ControlPlaneReconciler) generateAPIServerDeployment(namespace, dbName s
 								"--service-cluster-ip-range=10.96.0.0/12",
 								"--tls-cert-file=/etc/kubernetes/pki/apiserver.crt",
 								"--tls-private-key-file=/etc/kubernetes/pki/apiserver.key",
+							},
+							Env: []v1.EnvVar{
+								{
+									Name: "POD_IP",
+									ValueFrom: &v1.EnvVarSource{
+										FieldRef: &v1.ObjectFieldSelector{
+											FieldPath: "status.podIP",
+										},
+									},
+								},
 							},
 							Ports: []v1.ContainerPort{{
 								ContainerPort: SecurePort,

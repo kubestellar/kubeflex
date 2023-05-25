@@ -75,7 +75,7 @@ func (r *ControlPlaneReconciler) ReconcileKubeconfigSecret(ctx context.Context, 
 }
 
 func generateCertsSecret(ctx context.Context, name, namespace string) (*v1.Secret, *certs.Certs, error) {
-	c, err := certs.New(ctx, []string{name})
+	c, err := certs.New(ctx, []string{name, util.GenerateDevLocalDNSName(name)})
 	if err != nil {
 		return nil, nil, err
 	}
