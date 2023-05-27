@@ -2,20 +2,14 @@ package init
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"os"
-	"path/filepath"
-
-	homedir "github.com/mitchellh/go-homedir"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 
+	"mcc.ibm.org/kubeflex/pkg/client"
 	"mcc.ibm.org/kubeflex/pkg/helm"
 )
 
@@ -49,7 +43,7 @@ func ensureSystemDB(ctx context.Context) {
 }
 
 func ensureSystemNamespace(kubeconfig, namespace string) {
-	client := getClient(kubeconfig)
+	client := client.GetClientSet(kubeconfig)
 
 	_, err := client.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
 	if err != nil {
@@ -67,38 +61,4 @@ func ensureSystemNamespace(kubeconfig, namespace string) {
 		}
 	}
 
-}
-
-func getClient(kubeconfig string) kubernetes.Clientset {
-	config := getConfig(kubeconfig)
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating clientset: %v\n", err)
-		os.Exit(1)
-	}
-	return *clientset
-}
-
-func getConfig(kubeconfig string) *rest.Config {
-	flag.StringVar(&kubeconfig, "kubeconfig", "", "path to kubeconfig file")
-	flag.Parse()
-
-	if kubeconfig == "" {
-		kubeconfig = os.Getenv("KUBECONFIG")
-		if kubeconfig == "" {
-			home, err := homedir.Dir()
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error finding home directory: %v\n", err)
-				os.Exit(1)
-			}
-			kubeconfig = filepath.Join(home, ".kube", "config")
-		}
-	}
-
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error building kubeconfig: %v\n", err)
-		os.Exit(1)
-	}
-	return config
 }

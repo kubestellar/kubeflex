@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
+	cr "mcc.ibm.org/kubeflex/cmd/kflex/create"
 	in "mcc.ibm.org/kubeflex/cmd/kflex/init"
 )
 
@@ -27,10 +28,7 @@ func main() {
 		Long:  `Installs the default storage backend and the kubeflex operator`,
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-			flag.Parse()
-			zapLogger, _ := zap.NewDevelopment(zap.AddCaller())
-			logger := zapr.NewLoggerWithOptions(zapLogger)
-			ctx := logr.NewContext(context.Background(), logger)
+			ctx := createContext()
 			kubeconfig := ""
 			if cmd.Flags().Lookup("kubeconfig").Changed {
 				kubeconfig = cmd.Flag("kubeconfig").Value.String()
@@ -48,11 +46,19 @@ func main() {
 		Long:  `Create a control plane instance`,
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("create called with parameter %s and flag %v\n", args[0], cmd.Flag("flag").Value)
+			cp := cr.CP{
+				Ctx:  createContext(),
+				Name: args[0],
+			}
+			if cmd.Flags().Lookup("kubeconfig").Changed {
+				cp.Kubeconfig = cmd.Flag("kubeconfig").Value.String()
+			}
+			cp.Create()
 		},
 	}
 
-	createCmd.Flags().StringP("flag", "f", "", "A flag to be used with create")
+	createCmd.Flags().StringP("kubeconfig", "k", "", "path to kubeconfig file")
+	createCmd.Flags().IntP("verbosity", "v", 0, "log level") // TODO - figure out how to inject verbosity
 
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(createCmd)
@@ -61,4 +67,11 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+}
+
+func createContext() context.Context {
+	flag.Parse()
+	zapLogger, _ := zap.NewDevelopment(zap.AddCaller())
+	logger := zapr.NewLoggerWithOptions(zapLogger)
+	return logr.NewContext(context.Background(), logger)
 }

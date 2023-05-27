@@ -30,6 +30,7 @@ const (
 	ContrCMCN        = "system:kube-controller-manager"
 	AdminConfSecret  = "admin-kubeconfig"
 	CMConfSecret     = "cm-kubeconfig"
+	ConfSecretKey    = "kubeconfig"
 )
 
 type ConfigGen struct {
@@ -70,7 +71,7 @@ func (c *ConfigGen) genSecretManifest(ctx context.Context, conf []byte) *v1.Secr
 		},
 		Type: v1.SecretTypeOpaque,
 		Data: map[string][]byte{
-			"kubeconfig": conf,
+			ConfSecretKey: conf,
 		},
 	}
 }
