@@ -1,7 +1,6 @@
 package client
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -50,9 +49,6 @@ func GetClient(kubeconfig string) client.Client {
 }
 
 func getConfig(kubeconfig string) *rest.Config {
-	flag.StringVar(&kubeconfig, "kubeconfig", "", "path to kubeconfig file")
-	flag.Parse()
-
 	if kubeconfig == "" {
 		kubeconfig = os.Getenv("KUBECONFIG")
 		if kubeconfig == "" {

@@ -152,7 +152,7 @@ func (r *ControlPlaneReconciler) generateAPIServerDeployment(namespace, dbName s
 								"--requestheader-extra-headers-prefix=X-Remote-Extra-",
 								"--requestheader-group-headers=X-Remote-Group",
 								"--requestheader-username-headers=X-Remote-User",
-								fmt.Sprintf("--bind-address=%s", "$(POD_IP)"),
+								//	fmt.Sprintf("--bind-address=%s", "$(POD_IP)"),
 								fmt.Sprintf("--secure-port=%d", SecurePort),
 								"--service-account-issuer=https://kubernetes.default.svc.cluster.local",
 								"--service-account-key-file=/etc/kubernetes/pki/sa.pub",
@@ -219,7 +219,7 @@ func (r *ControlPlaneReconciler) generateAPIServerDeployment(namespace, dbName s
 									},
 								},
 								InitialDelaySeconds: 10,
-								PeriodSeconds:       10,
+								PeriodSeconds:       1,
 								TimeoutSeconds:      15,
 							},
 							VolumeMounts: []v1.VolumeMount{{

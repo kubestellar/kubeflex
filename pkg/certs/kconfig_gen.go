@@ -81,7 +81,7 @@ func (c *ConfigGen) generateConfigCerts() error {
 	switch c.Target {
 	case Admin:
 		subject = pkix.Name{CommonName: AdminCN, Organization: []string{Organization}}
-		c.authInfo = fmt.Sprintf("%s-admin", c.CpName)
+		c.authInfo = GenerateAuthInfoAdminName(c.CpName)
 		c.secretName = AdminConfSecret
 	case ControllerManager:
 		subject = pkix.Name{CommonName: ContrCMCN}
@@ -121,7 +121,7 @@ func (c *ConfigGen) generateConfigCerts() error {
 
 func (c *ConfigGen) generateConfig() *clientcmdapi.Config {
 	config := clientcmdapi.NewConfig()
-	config.Clusters[c.generateClusterName()] = &clientcmdapi.Cluster{
+	config.Clusters[GenerateClusterName(c.CpName)] = &clientcmdapi.Cluster{
 		Server:                   c.generateServerEndpoint(),
 		CertificateAuthorityData: c.caPEMCert,
 	}
@@ -129,12 +129,12 @@ func (c *ConfigGen) generateConfig() *clientcmdapi.Config {
 		ClientCertificateData: c.cert,
 		ClientKeyData:         c.key,
 	}
-	config.Contexts[c.generateContextName()] = &clientcmdapi.Context{
-		Cluster:   c.generateClusterName(),
+	config.Contexts[GenerateContextName(c.CpName)] = &clientcmdapi.Context{
+		Cluster:   GenerateClusterName(c.CpName),
 		Namespace: DefaultNamespace,
 		AuthInfo:  c.authInfo,
 	}
-	config.CurrentContext = c.generateContextName()
+	config.CurrentContext = GenerateContextName(c.CpName)
 	return config
 }
 
@@ -142,10 +142,14 @@ func (c *ConfigGen) generateServerEndpoint() string {
 	return fmt.Sprintf("https://%s", util.GenerateDevLocalDNSName(c.CpName))
 }
 
-func (c *ConfigGen) generateClusterName() string {
-	return fmt.Sprintf("%s-cluster", c.CpName)
+func GenerateClusterName(cpName string) string {
+	return fmt.Sprintf("%s-cluster", cpName)
 }
 
-func (c *ConfigGen) generateContextName() string {
-	return c.CpName
+func GenerateAuthInfoAdminName(cpName string) string {
+	return fmt.Sprintf("%s-admin", cpName)
+}
+
+func GenerateContextName(cpName string) string {
+	return cpName
 }
