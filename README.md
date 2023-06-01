@@ -51,3 +51,9 @@ You need either to add the entries in /etc/hosts (no wildcards can be used) or u
 ```
 cat /proc/<pid>/cmdline | sed -e "s/\x00/ /g"; echo
 ```
+
+### Manually install the helm chart
+
+```
+helm install postgres oci://registry-1.docker.io/bitnamicharts/postgresql --set primary.extendedConfiguration="max_connections = 1000" -n kflex-system
+```

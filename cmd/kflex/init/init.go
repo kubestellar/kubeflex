@@ -25,7 +25,7 @@ func ensureSystemDB(ctx context.Context) {
 		ChartName:   ChartName,
 		Namespace:   ChartNamespace,
 		ReleaseName: ReleaseName,
-		Args:        make(map[string]string),
+		Args:        Args,
 	}
 	err := helm.Init(ctx, h)
 	if err != nil {

@@ -20,7 +20,7 @@ import (
 const (
 	APIServerDeploymentName = "kube-apiserver"
 	CMDeploymentName        = "kube-controller-manager"
-	SecurePort              = 9443
+	SecurePort              = 9444
 	cmHealthzPort           = 10257
 	// temp values - to be injected by operator
 	DBReleaseName = "postgres"
@@ -176,12 +176,12 @@ func (r *ControlPlaneReconciler) generateAPIServerDeployment(namespace, dbName s
 							}},
 							Resources: v1.ResourceRequirements{
 								Limits: v1.ResourceList{
-									"cpu":    resource.MustParse("500m"),
+									"cpu":    resource.MustParse("1000m"),
 									"memory": resource.MustParse("512Mi"),
 								},
 								Requests: v1.ResourceList{
-									"cpu":    resource.MustParse("500m"),
-									"memory": resource.MustParse("512Mi"),
+									"cpu":    resource.MustParse("256m"),
+									"memory": resource.MustParse("250Mi"),
 								},
 							},
 							LivenessProbe: &v1.Probe{
@@ -196,6 +196,7 @@ func (r *ControlPlaneReconciler) generateAPIServerDeployment(namespace, dbName s
 								InitialDelaySeconds: 10,
 								PeriodSeconds:       10,
 								TimeoutSeconds:      15,
+								SuccessThreshold:    1,
 							},
 							ReadinessProbe: &v1.Probe{
 								FailureThreshold: 3,
@@ -206,8 +207,9 @@ func (r *ControlPlaneReconciler) generateAPIServerDeployment(namespace, dbName s
 										Scheme: v1.URISchemeHTTPS,
 									},
 								},
-								PeriodSeconds:  1,
-								TimeoutSeconds: 15,
+								PeriodSeconds:    1,
+								TimeoutSeconds:   15,
+								SuccessThreshold: 1,
 							},
 							StartupProbe: &v1.Probe{
 								FailureThreshold: 24,
@@ -219,7 +221,8 @@ func (r *ControlPlaneReconciler) generateAPIServerDeployment(namespace, dbName s
 									},
 								},
 								InitialDelaySeconds: 10,
-								PeriodSeconds:       1,
+								PeriodSeconds:       10,
+								SuccessThreshold:    1,
 								TimeoutSeconds:      15,
 							},
 							VolumeMounts: []v1.VolumeMount{{
@@ -229,6 +232,7 @@ func (r *ControlPlaneReconciler) generateAPIServerDeployment(namespace, dbName s
 							}},
 						},
 					},
+					PriorityClassName: "system-node-critical",
 					Volumes: []v1.Volume{{
 						Name: "k8s-certs",
 						VolumeSource: v1.VolumeSource{
@@ -383,7 +387,7 @@ func (r *ControlPlaneReconciler) getDBPassword() (string, error) {
 		return "", err
 	}
 
-	return string(pSecret.Data["postgresql-password"]), nil
+	return string(pSecret.Data["postgres-password"]), nil
 }
 
 func generatePSecretName(releaseName string) string {

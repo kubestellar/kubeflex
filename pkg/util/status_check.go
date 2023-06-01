@@ -26,10 +26,10 @@ func WaitForDeploymentReady(clientset kubernetes.Clientset, name, namespace stri
 		if !ok {
 			return nil
 		}
+		fmt.Printf("Got event: %s", event.Type)
 
 		switch event.Type {
-		case watch.Added:
-		case watch.Modified:
+		default:
 			deploy := event.Object.(*v1.Deployment)
 			if deploy.Status.ReadyReplicas == deploy.Status.Replicas {
 				fmt.Println("Deployment is ready")

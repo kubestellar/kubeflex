@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	neturl "net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -51,6 +52,13 @@ func Init(ctx context.Context, handler *HelmHandler) error {
 }
 
 func (h *HelmHandler) Install() error {
+	if isOCIURL(h.URL) {
+		if err := h.installOCIChart(); err != nil {
+			return err
+		}
+		return nil
+	}
+
 	// Add helm repo
 	if err := h.repoAdd(); err != nil {
 		return err
@@ -274,4 +282,69 @@ func (h *HelmHandler) IsDeployed() bool {
 		}
 	}
 	return false
+}
+
+func (h *HelmHandler) installOCIChart() error {
+	actionConfig := new(action.Configuration)
+	err := actionConfig.Init(h.settings.RESTClientGetter(), h.Namespace, os.Getenv("HELM_DRIVER"), func(format string, v ...interface{}) {
+	})
+	if err != nil {
+		return fmt.Errorf("error initializing OCI chart install action: %s", err)
+	}
+
+	client := action.NewInstall(actionConfig)
+	client.Namespace = h.Namespace
+	client.ReleaseName = h.ReleaseName
+
+	// Create a new OCIGetter object.
+	get, err := getter.NewOCIGetter()
+	if err != nil {
+		return fmt.Errorf("error creating a new OCI getter: %s", err)
+	}
+
+	// Download the chart.
+	b, err := get.Get(h.URL)
+	if err != nil {
+		return fmt.Errorf("error downloading the OCI chart: %s", err)
+	}
+
+	// Save the chart to a temporary directory.
+	tmpDir := os.TempDir()
+	defer os.Remove(tmpDir)
+
+	chartPath := filepath.Join(tmpDir, h.ChartName)
+	err = os.WriteFile(chartPath, b.Bytes(), 0644)
+	if err != nil {
+		return fmt.Errorf("error saving the OCI chart: %s", err)
+	}
+
+	chart, err := loader.Load(chartPath)
+	if err != nil {
+		return fmt.Errorf("error loading the OCI chart: %s", err)
+	}
+
+	// Add args
+	p := getter.All(h.settings)
+	valueOpts := &values.Options{}
+	vals, err := valueOpts.MergeValues(p)
+	if err != nil {
+		return err
+	}
+	if err := strvals.ParseInto(h.Args["set"], vals); err != nil {
+		return errors.Wrap(err, "failed parsing --set data")
+	}
+
+	_, err = client.Run(chart, vals)
+	if err != nil {
+		return fmt.Errorf("error installing the OCI chart: %s", err)
+	}
+	return nil
+}
+
+func isOCIURL(url string) bool {
+	u, err := neturl.Parse(url)
+	if err != nil {
+		return false
+	}
+	return u.Scheme == "oci"
 }

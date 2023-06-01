@@ -38,7 +38,10 @@ func (c *CPCreate) Create() {
 
 	clientset := kfclient.GetClientSet(c.Kubeconfig)
 	kubeconfig.WatchForSecretCreation(clientset, c.Name, certs.AdminConfSecret)
-	util.WaitForDeploymentReady(clientset, "kube-apiserver", util.GenerateNamespaceFromControlPlaneName(cp.Name))
+	if err := util.WaitForDeploymentReady(clientset, "kube-apiserver", util.GenerateNamespaceFromControlPlaneName(cp.Name)); err != nil {
+		fmt.Fprintf(os.Stderr, "Error waiting for deployment to become ready: %v\n", err)
+		os.Exit(1)
+	}
 
 	if err := kubeconfig.LoadAndMerge(c.Ctx, clientset, c.Name); err != nil {
 		fmt.Fprintf(os.Stderr, "Error loading and merging kubeconfig: %v\n", err)
