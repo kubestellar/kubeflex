@@ -21,7 +21,11 @@ func PrintStatus(message string, done chan bool, wg *sync.WaitGroup) {
 
 func printWithIcon(message string, colorAttr color.Attribute, done chan bool, wg *sync.WaitGroup) {
 	// Define the icons for waiting and done states
-	waitingIcons := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+	//waitingIcons := []string{"▁", "▂", "▃", "▄", "▅", "▆", "▇", "█", "▇", "▆"}
+	waitingIcons := []string{"◐", "◓", "◑", "◒"}
+	//waitingIcons := []string{"←", "↖", "↑", "↗", "→", "↘", "↓", "↙"}
+
+	//waitingIcons := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 	doneIcon := "✔"
 
 	// Create a color printer with the first color attribute

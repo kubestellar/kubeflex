@@ -21,7 +21,7 @@ func Init(ctx context.Context, kubeconfig string) {
 
 	util.PrintStatus("Installing shared backend DB...", done, &wg)
 
-	ensureSystemNamespace(kubeconfig, ChartNamespace)
+	ensureSystemNamespace(kubeconfig, util.DBNamespace)
 
 	ensureSystemDB(ctx)
 	done <- true
@@ -41,7 +41,7 @@ func ensureSystemDB(ctx context.Context) {
 		URL:         URL,
 		RepoName:    RepoName,
 		ChartName:   ChartName,
-		Namespace:   ChartNamespace,
+		Namespace:   util.DBNamespace,
 		ReleaseName: ReleaseName,
 		Args:        Args,
 	}

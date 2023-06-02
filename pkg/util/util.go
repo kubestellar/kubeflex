@@ -4,7 +4,7 @@ import "fmt"
 
 const (
 	DBReleaseName = "postgres"
-	DBNamespace   = "kflex-system"
+	DBNamespace   = "kubeflex-system"
 )
 
 func GenerateNamespaceFromControlPlaneName(name string) string {
