@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sync"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -11,11 +12,28 @@ import (
 
 	"mcc.ibm.org/kubeflex/pkg/client"
 	"mcc.ibm.org/kubeflex/pkg/helm"
+	"mcc.ibm.org/kubeflex/pkg/util"
 )
 
 func Init(ctx context.Context, kubeconfig string) {
+	done := make(chan bool)
+	var wg sync.WaitGroup
+
+	util.PrintStatus("Installing shared backend DB...", done, &wg)
+
 	ensureSystemNamespace(kubeconfig, ChartNamespace)
+
 	ensureSystemDB(ctx)
+	done <- true
+
+	util.PrintStatus("Waiting for shared backend DB to become ready...", done, &wg)
+	util.WaitForStatefulSetReady(
+		client.GetClientSet(kubeconfig),
+		util.GeneratePSReplicaSetName(util.DBReleaseName),
+		util.DBNamespace)
+
+	done <- true
+	wg.Wait()
 }
 
 func ensureSystemDB(ctx context.Context) {

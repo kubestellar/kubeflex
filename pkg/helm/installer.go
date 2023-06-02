@@ -59,17 +59,14 @@ func (h *HelmHandler) Install() error {
 		return nil
 	}
 
-	// Add helm repo
 	if err := h.repoAdd(); err != nil {
 		return err
 	}
 
-	// Update charts from the helm repo
 	if err := h.repoUpdate(); err != nil {
 		return err
 	}
 
-	// Install charts
 	if err := h.chartInstall(); err != nil {
 		return err
 	}
@@ -137,7 +134,6 @@ func (h *HelmHandler) repoAdd() error {
 	return nil
 }
 
-// RepoUpdate updates charts for all helm repos
 func (h *HelmHandler) repoUpdate() error {
 	repoFile := h.settings.RepositoryConfig
 
@@ -172,7 +168,6 @@ func (h *HelmHandler) repoUpdate() error {
 	return nil
 }
 
-// InstallChart
 func (h *HelmHandler) chartInstall() error {
 	actionConfig := new(action.Configuration)
 	if err := actionConfig.Init(h.settings.RESTClientGetter(), h.settings.Namespace(), os.Getenv("HELM_DRIVER"), debug); err != nil {
@@ -296,19 +291,16 @@ func (h *HelmHandler) installOCIChart() error {
 	client.Namespace = h.Namespace
 	client.ReleaseName = h.ReleaseName
 
-	// Create a new OCIGetter object.
 	get, err := getter.NewOCIGetter()
 	if err != nil {
 		return fmt.Errorf("error creating a new OCI getter: %s", err)
 	}
 
-	// Download the chart.
 	b, err := get.Get(h.URL)
 	if err != nil {
 		return fmt.Errorf("error downloading the OCI chart: %s", err)
 	}
 
-	// Save the chart to a temporary directory.
 	tmpDir := os.TempDir()
 	defer os.Remove(tmpDir)
 
@@ -323,7 +315,6 @@ func (h *HelmHandler) installOCIChart() error {
 		return fmt.Errorf("error loading the OCI chart: %s", err)
 	}
 
-	// Add args
 	p := getter.All(h.settings)
 	valueOpts := &values.Options{}
 	vals, err := valueOpts.MergeValues(p)

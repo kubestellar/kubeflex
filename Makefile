@@ -4,12 +4,45 @@ IMG ?= controller:latest
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.26.1
 
+# We need bash for some conditional logic below.
+SHELL := /usr/bin/env bash -e
+
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
 else
 GOBIN=$(shell go env GOBIN)
 endif
+
+ARCH := $(shell go env GOARCH)
+OS := $(shell go env GOOS)
+
+KUBE_MAJOR_VERSION := $(shell go mod edit -json | jq '.Require[] | select(.Path == "k8s.io/kubernetes") | .Version' --raw-output | sed 's/v\([0-9]*\).*/\1/')
+KUBE_MINOR_VERSION := $(shell go mod edit -json | jq '.Require[] | select(.Path == "k8s.io/kubernetes") | .Version' --raw-output | sed "s/v[0-9]*\.\([0-9]*\).*/\1/")
+GIT_COMMIT := $(shell git rev-parse --short HEAD || echo 'local')
+GIT_DIRTY := $(shell git diff --quiet && echo 'clean' || echo 'dirty')
+GIT_VERSION := $(shell go mod edit -json | jq '.Require[] | select(.Path == "k8s.io/kubernetes") | .Version' --raw-output)+kcp-$(shell git describe --tags --match='v*' --abbrev=14 "$(GIT_COMMIT)^{commit}" 2>/dev/null || echo v0.0.0-$(GIT_COMMIT))
+BUILD_DATE := $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
+LDFLAGS := \
+	-X k8s.io/client-go/pkg/version.gitCommit=${GIT_COMMIT} \
+	-X k8s.io/client-go/pkg/version.gitTreeState=${GIT_DIRTY} \
+	-X k8s.io/client-go/pkg/version.gitVersion=${GIT_VERSION} \
+	-X k8s.io/client-go/pkg/version.gitMajor=${KUBE_MAJOR_VERSION} \
+	-X k8s.io/client-go/pkg/version.gitMinor=${KUBE_MINOR_VERSION} \
+	-X k8s.io/client-go/pkg/version.buildDate=${BUILD_DATE} \
+	\
+	-X k8s.io/component-base/version.gitCommit=${GIT_COMMIT} \
+	-X k8s.io/component-base/version.gitTreeState=${GIT_DIRTY} \
+	-X k8s.io/component-base/version.gitVersion=${GIT_VERSION} \
+	-X k8s.io/component-base/version.gitMajor=${KUBE_MAJOR_VERSION} \
+	-X k8s.io/component-base/version.gitMinor=${KUBE_MINOR_VERSION} \
+	-X k8s.io/component-base/version.buildDate=${BUILD_DATE} \
+	-extldflags '-static'
+all: build
+.PHONY: all
+
+ldflags:
+	@echo $(LDFLAGS)
 
 # Setting SHELL to bash allows bash commands to be executed by recipes.
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
@@ -60,9 +93,9 @@ test: manifests generate fmt vet envtest ## Run tests.
 
 ##@ Build
 
-.PHONY: build
-build: manifests generate fmt vet ## Build manager binary.
-	go build -o bin/manager cmd/controller/main.go
+# .PHONY: build
+# build: manifests generate fmt vet ## Build manager binary.
+# 	go build -o bin/manager cmd/controller/main.go
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
@@ -155,3 +188,20 @@ $(CONTROLLER_GEN): $(LOCALBIN)
 envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
 $(ENVTEST): $(LOCALBIN)
 	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+
+.PHONY: verify-go-versions
+verify-go-versions:
+	hack/verify-go-versions.sh
+
+.PHONY: require-%
+require-%:
+	@if ! command -v $* 1> /dev/null 2>&1; then echo "$* not found in ${PATH}"; exit 1; fi
+
+.PHONY: build-all
+build-all:
+	GOOS=$(OS) GOARCH=$(ARCH) $(MAKE) build WHAT='./cmd/...'
+
+build: WHAT ?= ./cmd/...
+build: require-jq require-go require-git verify-go-versions ## Build the project
+	GOOS=$(OS) GOARCH=$(ARCH) CGO_ENABLED=0 go build $(BUILDFLAGS) -ldflags="$(LDFLAGS)" -o bin $(WHAT)
+.PHONY: build

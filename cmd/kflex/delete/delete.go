@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sync"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	tenancyv1alpha1 "mcc.ibm.org/kubeflex/api/v1alpha1"
@@ -13,6 +14,7 @@ import (
 	"mcc.ibm.org/kubeflex/cmd/kflex/common"
 	kfclient "mcc.ibm.org/kubeflex/pkg/client"
 	"mcc.ibm.org/kubeflex/pkg/kubeconfig"
+	"mcc.ibm.org/kubeflex/pkg/util"
 )
 
 type CPDelete struct {
@@ -20,8 +22,11 @@ type CPDelete struct {
 }
 
 func (c *CPDelete) Delete() {
+	done := make(chan bool)
 	cp := c.generateControlPlane()
+	var wg sync.WaitGroup
 
+	util.PrintStatus(fmt.Sprintf("Deleting control plane %s...", c.Name), done, &wg)
 	kconf, err := kubeconfig.LoadKubeconfig(c.Ctx)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error loading kubeconfig: %s\n", err)
@@ -41,11 +46,19 @@ func (c *CPDelete) Delete() {
 		os.Exit(1)
 	}
 
-	cl := kfclient.GetClient(c.Kubeconfig)
-	if err := cl.Delete(context.TODO(), cp, &client.DeleteOptions{}); err != nil {
+	kfcClient := kfclient.GetClient(c.Kubeconfig)
+	if err := kfcClient.Delete(context.TODO(), cp, &client.DeleteOptions{}); err != nil {
 		fmt.Fprintf(os.Stderr, "Error deleting instance: %s\n", err)
 		os.Exit(1)
 	}
+	done <- true
+
+	clientset := kfclient.GetClientSet(c.Kubeconfig)
+	util.PrintStatus(fmt.Sprintf("Waiting for control plane %s to be deleted...", c.Name), done, &wg)
+	util.WaitForNamespaceDeletion(clientset, util.GenerateNamespaceFromControlPlaneName(c.Name))
+
+	done <- true
+	wg.Wait()
 }
 
 func (c *CPDelete) generateControlPlane() *tenancyv1alpha1.ControlPlane {

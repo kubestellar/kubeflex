@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sync"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	tenancyv1alpha1 "mcc.ibm.org/kubeflex/api/v1alpha1"
@@ -24,6 +25,8 @@ type CPCreate struct {
 }
 
 func (c *CPCreate) Create() {
+	done := make(chan bool)
+	var wg sync.WaitGroup
 	cx := cont.CPCtx{}
 	cx.Context()
 
@@ -31,22 +34,30 @@ func (c *CPCreate) Create() {
 
 	cp := c.generateControlPlane()
 
+	util.PrintStatus(fmt.Sprintf("Creating new control plane %s...", c.Name), done, &wg)
 	if err := cl.Create(context.TODO(), cp, &client.CreateOptions{}); err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating instance: %v\n", err)
 		os.Exit(1)
 	}
+	done <- true
 
 	clientset := kfclient.GetClientSet(c.Kubeconfig)
+
+	util.PrintStatus("Waiting for API server to become ready...", done, &wg)
 	kubeconfig.WatchForSecretCreation(clientset, c.Name, certs.AdminConfSecret)
+
 	if err := util.WaitForDeploymentReady(clientset, "kube-apiserver", util.GenerateNamespaceFromControlPlaneName(cp.Name)); err != nil {
 		fmt.Fprintf(os.Stderr, "Error waiting for deployment to become ready: %v\n", err)
 		os.Exit(1)
 	}
+	done <- true
 
 	if err := kubeconfig.LoadAndMerge(c.Ctx, clientset, c.Name); err != nil {
 		fmt.Fprintf(os.Stderr, "Error loading and merging kubeconfig: %v\n", err)
 		os.Exit(1)
 	}
+
+	wg.Wait()
 }
 
 func (c *CPCreate) generateControlPlane() *tenancyv1alpha1.ControlPlane {

@@ -22,9 +22,6 @@ const (
 	CMDeploymentName        = "kube-controller-manager"
 	SecurePort              = 9444
 	cmHealthzPort           = 10257
-	// temp values - to be injected by operator
-	DBReleaseName = "postgres"
-	DBNamespace   = "kflex-system"
 )
 
 func (r *ControlPlaneReconciler) ReconcileAPIServerDeployment(ctx context.Context, name string, owner *metav1.OwnerReference) error {
@@ -115,7 +112,7 @@ func (r *ControlPlaneReconciler) generateAPIServerDeployment(namespace, dbName s
 						{
 							Name:    "kine",
 							Image:   "rancher/kine:v0.9.9-amd64",
-							Command: []string{"kine", "--endpoint", fmt.Sprintf("postgres://postgres:%s@%s-postgresql.%s.svc/%s?sslmode=disable", dbPassword, DBReleaseName, DBNamespace, dbName)},
+							Command: []string{"kine", "--endpoint", fmt.Sprintf("postgres://postgres:%s@%s-postgresql.%s.svc/%s?sslmode=disable", dbPassword, util.DBReleaseName, util.DBNamespace, dbName)},
 							Ports: []v1.ContainerPort{{
 								ContainerPort: 2379,
 							}},
@@ -377,8 +374,8 @@ func (r *ControlPlaneReconciler) getDBPassword() (string, error) {
 	// create certs secret object
 	pSecret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      generatePSecretName(DBReleaseName),
-			Namespace: DBNamespace,
+			Name:      util.GeneratePSecretName(util.DBReleaseName),
+			Namespace: util.DBNamespace,
 		},
 	}
 
@@ -388,9 +385,4 @@ func (r *ControlPlaneReconciler) getDBPassword() (string, error) {
 	}
 
 	return string(pSecret.Data["postgres-password"]), nil
-}
-
-func generatePSecretName(releaseName string) string {
-	return fmt.Sprintf("%s-postgresql", releaseName)
-
 }

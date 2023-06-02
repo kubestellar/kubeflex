@@ -33,7 +33,7 @@ func merge(existing, new *clientcmdapi.Config) error {
 		existing.Contexts[k] = v
 	}
 
-	if !isInitialConfigSet(existing) {
+	if !IsInitialConfigSet(existing) {
 		saveInitialContextName(existing)
 	}
 
@@ -80,8 +80,7 @@ func DeleteContext(config *clientcmdapi.Config, cpName string) error {
 }
 
 func SwitchToInitialContext(config *clientcmdapi.Config, removeExtension bool) error {
-	if !isInitialConfigSet(config) {
-		fmt.Println("initial context is not set")
+	if !IsInitialConfigSet(config) {
 		return nil
 	}
 	cm, err := unMarshallCM(config.Preferences.Extensions[ConfigExtensionName])
@@ -122,7 +121,7 @@ func saveInitialContextName(config *clientcmdapi.Config) {
 	}
 }
 
-func isInitialConfigSet(config *clientcmdapi.Config) bool {
+func IsInitialConfigSet(config *clientcmdapi.Config) bool {
 	if config.Preferences.Extensions != nil {
 		_, ok := config.Preferences.Extensions[ConfigExtensionName]
 		if ok {
