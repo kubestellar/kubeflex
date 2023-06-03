@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"os"
 
@@ -10,125 +9,126 @@ import (
 	"github.com/go-logr/zapr"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
-
 	"mcc.ibm.org/kubeflex/cmd/kflex/common"
 	cr "mcc.ibm.org/kubeflex/cmd/kflex/create"
 	cont "mcc.ibm.org/kubeflex/cmd/kflex/ctx"
 	del "mcc.ibm.org/kubeflex/cmd/kflex/delete"
 	in "mcc.ibm.org/kubeflex/cmd/kflex/init"
+	cluster "mcc.ibm.org/kubeflex/cmd/kflex/init/cluster"
+	initmanager "mcc.ibm.org/kubeflex/cmd/kflex/init/manager"
 )
 
-func main() {
-	var rootCmd = &cobra.Command{
-		Use:   "kflex",
-		Short: "CLI for kubeflex",
-		Long:  `A flexible and scalable solution for running Kubernetes control plane APIs`,
-	}
+var createkind bool
+var kubeconfig string
+var verbosity int
 
-	var initCmd = &cobra.Command{
-		Use:   "init",
-		Short: "Initialize kubeflex",
-		Long:  `Installs the default storage backend and the kubeflex operator`,
-		Args:  cobra.ExactArgs(0),
-		Run: func(cmd *cobra.Command, args []string) {
-			ctx := createContext()
-			kubeconfig := ""
-			if cmd.Flags().Lookup("kubeconfig").Changed {
-				kubeconfig = cmd.Flag("kubeconfig").Value.String()
-			}
-			in.Init(ctx, kubeconfig)
-		},
-	}
+var rootCmd = &cobra.Command{
+	Use:   "kflex",
+	Short: "CLI for kubeflex",
+	Long:  `A flexible and scalable solution for running Kubernetes control plane APIs`,
+}
 
-	initCmd.Flags().StringP("kubeconfig", "k", "", "path to kubeconfig file")
-	initCmd.Flags().IntP("verbosity", "v", 0, "log level") // TODO - figure out how to inject verbosity
+var initCmd = &cobra.Command{
+	Use:   "init",
+	Short: "Initialize kubeflex",
+	Long:  `Installs the default storage backend and the kubeflex operator`,
+	Args:  cobra.ExactArgs(0),
+	Run: func(cmd *cobra.Command, args []string) {
+		ctx := createContext()
+		if createkind {
+			cluster.CreateKindCluster()
+		}
+		in.Init(ctx, kubeconfig)
+		initmanager.InstallManager()
+	},
+}
 
-	var createCmd = &cobra.Command{
-		Use:   "create",
-		Short: "Create a control plane instance",
-		Long:  `Create a control plane instance`,
-		Args:  cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
-			cp := cr.CPCreate{
-				CP: common.CP{
-					Ctx:  createContext(),
-					Name: args[0],
-				},
-			}
-			if cmd.Flags().Lookup("kubeconfig").Changed {
-				cp.Kubeconfig = cmd.Flag("kubeconfig").Value.String()
-			}
-			cp.Create()
-		},
-	}
+var createCmd = &cobra.Command{
+	Use:   "create",
+	Short: "Create a control plane instance",
+	Long:  `Create a control plane instance`,
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		cp := cr.CPCreate{
+			CP: common.CP{
+				Ctx:        createContext(),
+				Name:       args[0],
+				Kubeconfig: kubeconfig,
+			},
+		}
+		cp.Create()
+	},
+}
 
-	createCmd.Flags().StringP("kubeconfig", "k", "", "path to kubeconfig file")
-	createCmd.Flags().IntP("verbosity", "v", 0, "log level") // TODO - figure out how to inject verbosity
+var deleteCmd = &cobra.Command{
+	Use:   "delete",
+	Short: "Delete a control plane instance",
+	Long:  `Delete a control plane instance`,
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		cp := del.CPDelete{
+			CP: common.CP{
+				Ctx:        createContext(),
+				Name:       args[0],
+				Kubeconfig: kubeconfig,
+			},
+		}
+		cp.Delete()
+	},
+}
 
-	var deleteCmd = &cobra.Command{
-		Use:   "delete",
-		Short: "Delete a control plane instance",
-		Long:  `Delete a control plane instance`,
-		Args:  cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
-			cp := del.CPDelete{
-				CP: common.CP{
-					Ctx:  createContext(),
-					Name: args[0],
-				},
-			}
-			if cmd.Flags().Lookup("kubeconfig").Changed {
-				cp.Kubeconfig = cmd.Flag("kubeconfig").Value.String()
-			}
-			cp.Delete()
-		},
-	}
+var ctxCmd = &cobra.Command{
+	Use:   "ctx",
+	Short: "switch Kubeconfig context to a control plane instance",
+	Long: `Running without an argument switches the context back to the initial context,
+			        while providing the control plane name as argument switches the context to
+					that control plane`,
+	Args: cobra.MaximumNArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		cpName := ""
+		if len(args) == 1 {
+			cpName = args[0]
+		}
+		cp := cont.CPCtx{
+			CP: common.CP{
+				Ctx:        createContext(),
+				Name:       cpName,
+				Kubeconfig: kubeconfig,
+			},
+		}
+		cp.Context()
+	},
+}
 
-	deleteCmd.Flags().StringP("kubeconfig", "k", "", "path to kubeconfig file")
-	deleteCmd.Flags().IntP("verbosity", "v", 0, "log level") // TODO - figure out how to inject verbosity
+func init() {
+	initCmd.Flags().StringVarP(&kubeconfig, "kubeconfig", "k", "", "path to kubeconfig file")
+	initCmd.Flags().IntVarP(&verbosity, "verbosity", "v", 0, "log level") // TODO - figure out how to inject verbosity
+	initCmd.Flags().BoolVarP(&createkind, "create-kind", "c", false, "Create and configure a kind cluster for installing Kubeflex")
 
-	var ctxCmd = &cobra.Command{
-		Use:   "ctx",
-		Short: "switch Kubeconfig context to a control plane instance",
-		Long: `Running without an argument switches the context back to the initial context, 
-		        while providing the control plane name as argument switches the context to 
-				that control plane`,
-		Args: cobra.MaximumNArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
-			cpName := ""
-			if len(args) == 1 {
-				cpName = args[0]
-			}
-			cp := cont.CPCtx{
-				CP: common.CP{
-					Ctx:  createContext(),
-					Name: cpName,
-				},
-			}
-			if cmd.Flags().Lookup("kubeconfig").Changed {
-				cp.Kubeconfig = cmd.Flag("kubeconfig").Value.String()
-			}
-			cp.Context()
-		},
-	}
+	createCmd.Flags().StringVarP(&kubeconfig, "kubeconfig", "k", "", "path to kubeconfig file")
+	createCmd.Flags().IntVarP(&verbosity, "verbosity", "v", 0, "log level") // TODO - figure out how to inject verbosity
 
-	ctxCmd.Flags().StringP("kubeconfig", "k", "", "path to kubeconfig file")
-	ctxCmd.Flags().IntP("verbosity", "v", 0, "log level") // TODO - figure out how to inject verbosity
+	deleteCmd.Flags().StringVarP(&kubeconfig, "kubeconfig", "k", "", "path to kubeconfig file")
+	deleteCmd.Flags().IntVarP(&verbosity, "verbosity", "v", 0, "log level") // TODO - figure out how to inject verbosity
+
+	ctxCmd.Flags().StringVarP(&kubeconfig, "kubeconfig", "k", "", "path to kubeconfig file")
+	ctxCmd.Flags().IntVarP(&verbosity, "verbosity", "v", 0, "log level") // TODO - figure out how to inject verbosity
 
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(createCmd)
 	rootCmd.AddCommand(deleteCmd)
 	rootCmd.AddCommand(ctxCmd)
+}
 
+func createContext() context.Context {
+	zapLogger, _ := zap.NewDevelopment(zap.AddCaller())
+	logger := zapr.NewLoggerWithOptions(zapLogger)
+	return logr.NewContext(context.Background(), logger)
+}
+
+func main() {
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-}
-
-func createContext() context.Context {
-	flag.Parse()
-	zapLogger, _ := zap.NewDevelopment(zap.AddCaller())
-	logger := zapr.NewLoggerWithOptions(zapLogger)
-	return logr.NewContext(context.Background(), logger)
 }
