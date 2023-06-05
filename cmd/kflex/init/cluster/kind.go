@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"text/template"
 
@@ -25,7 +26,7 @@ func checkIfKindInstalled() (bool, error) {
 	cmd := exec.Command("command", "-v", "kind")
 	err := cmd.Run()
 	if err != nil {
-		return false, nil
+		return false, fmt.Errorf("failed to check kind is installed: %v", err)
 	}
 	return true, nil
 }
@@ -39,6 +40,18 @@ func installKind() error {
 		return fmt.Errorf("failed to install kind: %v", err)
 	}
 	return nil
+}
+
+func checkKindInstanceExists() (bool, error) {
+	cmd := exec.Command("kind", "get", "clusters")
+	out, err := cmd.Output()
+	if err != nil {
+		return false, fmt.Errorf("failed to check kind instance exists: %v", err)
+	}
+	if strings.Contains(string(out), clusterName) {
+		return true, nil
+	}
+	return false, nil
 }
 
 // createKindInstance creates a kind cluster with the given name and config
@@ -181,12 +194,21 @@ func CreateKindCluster() {
 		done <- true
 	}
 
-	util.PrintStatus("Creating kind cluster...", done, &wg)
+	util.PrintStatus("Checking if a kubeflex kind instance already exists...", done, &wg)
+	ok, err = checkKindInstanceExists()
+	if err != nil {
+		log.Fatalf("Error checking if kind instance already exists: %v\n", err)
+	}
 	done <- true
 
-	err = createKindInstance(clusterName)
-	if err != nil {
-		log.Fatalf("Error creating kind instance: %v\n", err)
+	if !ok {
+		util.PrintStatus("Creating kind cluster...", done, &wg)
+		done <- true
+
+		err = createKindInstance(clusterName)
+		if err != nil {
+			log.Fatalf("Error creating kind instance: %v\n", err)
+		}
 	}
 
 	util.PrintStatus("Installing and patching nginx ingress...", done, &wg)
