@@ -21,11 +21,13 @@ A flexible and scalable solution for running Kubernetes control plane APIs.
 
 ## Prereqs
 
-- go version>=go1.19.2
+- go version>=go1.19.2 
 - git
 - make
 - docker
 - kind
+
+Make sure that `${HOME}/go/bin` is in your `$PATH`.
 
 ## Quickstart
 At this time the quickstart has only been tested on macOS (M1 MBP).
