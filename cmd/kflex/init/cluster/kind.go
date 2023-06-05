@@ -21,6 +21,26 @@ type KindConfig struct {
 	Name string
 }
 
+func checkIfKindInstalled() (bool, error) {
+	cmd := exec.Command("command", "-v", "kind")
+	err := cmd.Run()
+	if err != nil {
+		return false, nil
+	}
+	return true, nil
+}
+
+func installKind() error {
+	cmd := exec.Command("go", "install", "sigs.k8s.io/kind@v0.19.0")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
+	if err != nil {
+		return fmt.Errorf("failed to install kind: %v", err)
+	}
+	return nil
+}
+
 // createKindInstance creates a kind cluster with the given name and config
 func createKindInstance(name string) error {
 	// create a template for the kind config file
@@ -144,10 +164,27 @@ func installAndPatchNginxIngress() error {
 func CreateKindCluster() {
 	done := make(chan bool)
 	var wg sync.WaitGroup
+
+	util.PrintStatus("Checking if kind is installed...", done, &wg)
+	ok, err := checkIfKindInstalled()
+	if err != nil {
+		log.Fatalf("Error checking if kind is installed: %v\n", err)
+	}
+	done <- true
+
+	if !ok {
+		util.PrintStatus("Installing kind...", done, &wg)
+		err = installKind()
+		if err != nil {
+			log.Fatalf("Error installing kind: %v\n", err)
+		}
+		done <- true
+	}
+
 	util.PrintStatus("Creating kind cluster...", done, &wg)
 	done <- true
 
-	err := createKindInstance(clusterName)
+	err = createKindInstance(clusterName)
 	if err != nil {
 		log.Fatalf("Error creating kind instance: %v\n", err)
 	}
