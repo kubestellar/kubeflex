@@ -145,12 +145,12 @@ func CreateKindCluster() {
 	done := make(chan bool)
 	var wg sync.WaitGroup
 	util.PrintStatus("Creating kind cluster...", done, &wg)
+	done <- true
 
 	err := createKindInstance(clusterName)
 	if err != nil {
 		log.Fatalf("Error creating kind instance: %v\n", err)
 	}
-	done <- true
 
 	util.PrintStatus("Installing and patching nginx ingress...", done, &wg)
 	err = installAndPatchNginxIngress()
