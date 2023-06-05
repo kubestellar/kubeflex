@@ -28,6 +28,7 @@ A flexible and scalable solution for running Kubernetes control plane APIs.
 - kind
 
 ## Quickstart
+At this time the quickstart has only been tested on macOS (M1 MBP).
 
 Clone this repo, build the binaries and add the binary to your path:
 
@@ -35,7 +36,7 @@ Clone this repo, build the binaries and add the binary to your path:
 git clone git@github.ibm.com:dettori/kubeflex.git
 cd kubeflex
 make build-all
-export PATH=$PATH:$(pwd)/bin
+export PATH=$(pwd)/bin:$PATH
 ```
 
 Create kind cluster with ingress and install kubeflex controller:
@@ -82,50 +83,4 @@ To delete a control plane, use the `delete <control plane name>` command, e.g:
 
 ```shell
 kflex delete cp1
-```
-
-
-## Useful Debugging Hacks
-
-### How to open a psql command in-cluster
-
-```shell
-kubectl run -i --tty --rm debug -n vks-system --image=postgres --restart=Never -- bash
-psql -h mypsql-postgresql.vks-system.svc -U postgres
-```
-
-### How to create a secret with all certs
-
-```shell
-kubectl create secret generic k8s-certs-test --from-file=apiserver-kubelet-client.crt=/path/to/.ssh/id_rsa
-```
-
-### How to view certs info
-
-```shell
-openssl x509 -noout -text -in certs/apiserver.crt 
-```
-
-### Get decoded value from secret
-
-```shell
-kubectl get secret -n cp3-system admin-kubeconfig -o jsonpath='{.data.kubeconfig}' | base64 -d
-```
-
-### How to attach a ephemeral container to debug
-
-```shell
-kubectl debug -n cp1-system -it kube-controller-manager-676c565f96-r952b --image=busybox:1.28 --target=kube-controller-manager
-```
-
-### Getting all the command args for a process
-
-```
-cat /proc/<pid>/cmdline | sed -e "s/\x00/ /g"; echo
-```
-
-### Manually install the postgres helm chart
-
-```
-helm install postgres oci://registry-1.docker.io/bitnamicharts/postgresql --set primary.extendedConfiguration="max_connections = 1000" -n kflex-system
 ```
