@@ -5,4 +5,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: ko.local/manager
-  newTag: bbb394c
+  newTag: ef25975

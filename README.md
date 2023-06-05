@@ -23,7 +23,8 @@ A flexible and scalable solution for running Kubernetes control plane APIs.
 
 - go version>=go1.19.2 
 - git
-- make
+- make 
+- gcc
 - docker
 - kind
 
