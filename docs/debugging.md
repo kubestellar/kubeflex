@@ -24,6 +24,7 @@ openssl x509 -noout -text -in certs/apiserver.crt
 
 ```shell
 kubectl get secret -n cp3-system admin-kubeconfig -o jsonpath='{.data.kubeconfig}' | base64 -d
+kubectl get secrets -n cp1-system k8s-certs -o jsonpath='{.data.apiserver\.crt}' | base64 -d
 ```
 
 ### How to attach a ephemeral container to debug
@@ -42,4 +43,20 @@ cat /proc/<pid>/cmdline | sed -e "s/\x00/ /g"; echo
 
 ```
 helm install postgres oci://registry-1.docker.io/bitnamicharts/postgresql --set primary.extendedConfiguration="max_connections = 1000" -n kflex-system
+```
+
+### Getting resident memory for processes 
+
+```shell
+[root@lsfmx2 kubeflex]# hack/get-rss-info.sh kube-apiserver
+PID: 291353, Resident Memory: VmRSS:      320868 kB
+PID: 297828, Resident Memory: VmRSS:      247040 kB
+PID: 298746, Resident Memory: VmRSS:      246248 kB
+[root@lsfmx2 kubeflex]# hack/get-rss-info.sh kine
+PID: 297767, Resident Memory: VmRSS:       43536 kB
+PID: 298623, Resident Memory: VmRSS:       42784 kB
+[root@lsfmx2 kubeflex]# hack/get-rss-info.sh kube-controller-manager
+PID: 291369, Resident Memory: VmRSS:       83348 kB
+PID: 297144, Resident Memory: VmRSS:       51200 kB
+PID: 298672, Resident Memory: VmRSS:       52364 kB
 ```

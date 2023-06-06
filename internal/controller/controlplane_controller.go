@@ -23,6 +23,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -163,6 +164,7 @@ type eventHandler struct {
 func (r *ControlPlaneReconciler) eventHandlers() []eventHandler {
 	handlers := []eventHandler{
 		{obj: &corev1.Service{}, handler: &handler.EnqueueRequestForOwner{OwnerType: &tenancyv1alpha1.ControlPlane{}}},
+		{obj: &networkingv1.Ingress{}, handler: &handler.EnqueueRequestForOwner{OwnerType: &tenancyv1alpha1.ControlPlane{}}},
 		{obj: &appsv1.Deployment{}, handler: &handler.EnqueueRequestForOwner{OwnerType: &tenancyv1alpha1.ControlPlane{}}},
 		{obj: &appsv1.StatefulSet{}, handler: &handler.EnqueueRequestForOwner{OwnerType: &tenancyv1alpha1.ControlPlane{}}},
 		{obj: &corev1.Secret{}, handler: &handler.EnqueueRequestForOwner{OwnerType: &tenancyv1alpha1.ControlPlane{}}},

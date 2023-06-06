@@ -72,7 +72,6 @@ func ensureSystemNamespace(kubeconfig, namespace string) {
 				},
 			}
 			_, err = client.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
-			fmt.Println("In ensureSystemNamespace trying to create ns, err=%s", err)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error creating system namespace: %v\n", err)
 				os.Exit(1)

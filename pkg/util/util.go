@@ -3,8 +3,9 @@ package util
 import "fmt"
 
 const (
-	DBReleaseName = "postgres"
-	DBNamespace   = "kubeflex-system"
+	DBReleaseName     = "postgres"
+	DBNamespace       = "kubeflex-system"
+	IngressSecurePort = "9443"
 )
 
 func GenerateNamespaceFromControlPlaneName(name string) string {
