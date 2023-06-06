@@ -139,7 +139,7 @@ func (c *ConfigGen) generateConfig() *clientcmdapi.Config {
 }
 
 func (c *ConfigGen) generateServerEndpoint() string {
-	return fmt.Sprintf("https://%s", util.GenerateDevLocalDNSName(c.CpName))
+	return fmt.Sprintf("https://%s:%s", util.GenerateDevLocalDNSName(c.CpName), util.IngressSecurePort)
 }
 
 func GenerateClusterName(cpName string) string {

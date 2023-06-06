@@ -119,11 +119,11 @@ func (r *ControlPlaneReconciler) generateAPIServerDeployment(namespace, dbName s
 							Resources: v1.ResourceRequirements{
 								Limits: v1.ResourceList{
 									"cpu":    resource.MustParse("500m"),
-									"memory": resource.MustParse("512Mi"),
+									"memory": resource.MustParse("256Mi"),
 								},
 								Requests: v1.ResourceList{
-									"cpu":    resource.MustParse("500m"),
-									"memory": resource.MustParse("512Mi"),
+									"cpu":    resource.MustParse("250m"),
+									"memory": resource.MustParse("64Mi"),
 								},
 							},
 						},
@@ -149,7 +149,6 @@ func (r *ControlPlaneReconciler) generateAPIServerDeployment(namespace, dbName s
 								"--requestheader-extra-headers-prefix=X-Remote-Extra-",
 								"--requestheader-group-headers=X-Remote-Group",
 								"--requestheader-username-headers=X-Remote-User",
-								//	fmt.Sprintf("--bind-address=%s", "$(POD_IP)"),
 								fmt.Sprintf("--secure-port=%d", SecurePort),
 								"--service-account-issuer=https://kubernetes.default.svc.cluster.local",
 								"--service-account-key-file=/etc/kubernetes/pki/sa.pub",
@@ -297,7 +296,7 @@ func (r *ControlPlaneReconciler) generateCMDeployment(cpName, namespace string) 
 							}},
 							Resources: v1.ResourceRequirements{
 								Limits: v1.ResourceList{
-									"cpu":    resource.MustParse("300m"),
+									"cpu":    resource.MustParse("250m"),
 									"memory": resource.MustParse("128Mi"),
 								},
 								Requests: v1.ResourceList{
