@@ -60,3 +60,17 @@ PID: 291369, Resident Memory: VmRSS:       83348 kB
 PID: 297144, Resident Memory: VmRSS:       51200 kB
 PID: 298672, Resident Memory: VmRSS:       52364 kB
 ```
+
+For ocm single binary (which includes embedded etcd):
+
+```shell
+[root@lsfmx2 kubeflex]# hack/get-rss-info.sh server
+PID: 357032, Resident Memory: VmRSS:      253188 kB
+```
+
+For kcp (with default workspaces)
+
+```shell
+[root@lsfmx2 kubeflex]# hack/get-rss-info.sh kcp
+PID: 360147, Resident Memory: VmRSS:      360492 kB
+```

@@ -87,11 +87,3 @@ To delete a control plane, use the `delete <control plane name>` command, e.g:
 ```shell
 kflex delete cp1
 ```
-
-kubectl patch svc ingress-nginx-controller -n ingress-nginx --type json -p='[{"op": "replace", "path": "/spec/ports/0/port", "value": 9080}]'
-
-kubectl patch svc ingress-nginx-controller -n ingress-nginx --type json -p='[{"op": "replace", "path": "/spec/ports/1/port", "value": 9443}]'
-
-kubectl patch deployment ingress-nginx-controller -n ingress-nginx --type json 
--p='[{"op": "replace", "path": "/spec/template/spec/containers/0/ports/0/containerPort", "value": 9080}]'
--p='[{"op": "replace", "path": "/spec/template/spec/containers/0/ports/0/containerPort", "value": 9080}]'
