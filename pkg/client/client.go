@@ -29,9 +29,14 @@ func GetClientSet(kubeconfig string) kubernetes.Clientset {
 
 func GetClient(kubeconfig string) client.Client {
 	config := getConfig(kubeconfig)
-	// add the scheme for your custom API
 	scheme := runtime.NewScheme()
-	mapper, err := apiutil.NewDiscoveryRESTMapper(config)
+
+	httpClient, err := rest.HTTPClientFor(config)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating HTTPClient: %v\n", err)
+		os.Exit(1)
+	}
+	mapper, err := apiutil.NewDiscoveryRESTMapper(config, httpClient)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating NewDiscoveryRESTMapper: %v\n", err)
 		os.Exit(1)
