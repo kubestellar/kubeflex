@@ -33,14 +33,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	clog "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	tenancyv1alpha1 "mcc.ibm.org/kubeflex/api/v1alpha1"
 	"mcc.ibm.org/kubeflex/pkg/certs"
-)
-
-const (
-// CpPort = 9443 // TODO - figure how to manage ports
 )
 
 // ControlPlaneReconciler reconciles a ControlPlane object
@@ -148,7 +143,7 @@ func (r *ControlPlaneReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			RateLimiter: workqueue.NewItemExponentialFailureRateLimiter(1*time.Second, 10*time.Second),
 		})
 	for _, handler := range r.eventHandlers() {
-		b.Watches(&source.Kind{Type: handler.obj}, handler.handler)
+		b.Watches(handler.obj, handler.handler)
 	}
 	if _, err := b.Build(r); err != nil {
 		return fmt.Errorf("failed setting up with a controller manager %w", err)
@@ -162,14 +157,15 @@ type eventHandler struct {
 }
 
 func (r *ControlPlaneReconciler) eventHandlers() []eventHandler {
+
 	handlers := []eventHandler{
-		{obj: &corev1.Service{}, handler: &handler.EnqueueRequestForOwner{OwnerType: &tenancyv1alpha1.ControlPlane{}}},
-		{obj: &networkingv1.Ingress{}, handler: &handler.EnqueueRequestForOwner{OwnerType: &tenancyv1alpha1.ControlPlane{}}},
-		{obj: &appsv1.Deployment{}, handler: &handler.EnqueueRequestForOwner{OwnerType: &tenancyv1alpha1.ControlPlane{}}},
-		{obj: &appsv1.StatefulSet{}, handler: &handler.EnqueueRequestForOwner{OwnerType: &tenancyv1alpha1.ControlPlane{}}},
-		{obj: &corev1.Secret{}, handler: &handler.EnqueueRequestForOwner{OwnerType: &tenancyv1alpha1.ControlPlane{}}},
-		{obj: &corev1.ConfigMap{}, handler: &handler.EnqueueRequestForOwner{OwnerType: &tenancyv1alpha1.ControlPlane{}}},
-		{obj: &corev1.ServiceAccount{}, handler: &handler.EnqueueRequestForOwner{OwnerType: &tenancyv1alpha1.ControlPlane{}}},
+		{obj: &corev1.Service{}, handler: handler.EnqueueRequestForOwner(r.Scheme, r.RESTMapper(), &corev1.Service{}, handler.OnlyControllerOwner())},
+		{obj: &networkingv1.Ingress{}, handler: handler.EnqueueRequestForOwner(r.Scheme, r.RESTMapper(), &networkingv1.Ingress{}, handler.OnlyControllerOwner())},
+		{obj: &appsv1.Deployment{}, handler: handler.EnqueueRequestForOwner(r.Scheme, r.RESTMapper(), &appsv1.Deployment{}, handler.OnlyControllerOwner())},
+		{obj: &appsv1.StatefulSet{}, handler: handler.EnqueueRequestForOwner(r.Scheme, r.RESTMapper(), &appsv1.StatefulSet{}, handler.OnlyControllerOwner())},
+		{obj: &corev1.Secret{}, handler: handler.EnqueueRequestForOwner(r.Scheme, r.RESTMapper(), &corev1.Secret{}, handler.OnlyControllerOwner())},
+		{obj: &corev1.ConfigMap{}, handler: handler.EnqueueRequestForOwner(r.Scheme, r.RESTMapper(), &corev1.ConfigMap{}, handler.OnlyControllerOwner())},
+		{obj: &corev1.ServiceAccount{}, handler: handler.EnqueueRequestForOwner(r.Scheme, r.RESTMapper(), &corev1.ServiceAccount{}, handler.OnlyControllerOwner())},
 	}
 	return handlers
 }
