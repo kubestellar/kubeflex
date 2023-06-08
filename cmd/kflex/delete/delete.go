@@ -62,14 +62,14 @@ func (c *CPDelete) Delete() {
 		os.Exit(1)
 	}
 
-	kfcClient := kfclient.GetClient(c.Kubeconfig)
+	kfcClient := *(kfclient.GetClient(c.Kubeconfig))
 	if err := kfcClient.Delete(context.TODO(), cp, &client.DeleteOptions{}); err != nil {
 		fmt.Fprintf(os.Stderr, "Error deleting instance: %s\n", err)
 		os.Exit(1)
 	}
 	done <- true
 
-	clientset := kfclient.GetClientSet(c.Kubeconfig)
+	clientset := *(kfclient.GetClientSet(c.Kubeconfig))
 	util.PrintStatus(fmt.Sprintf("Waiting for control plane %s to be deleted...", c.Name), done, &wg)
 	util.WaitForNamespaceDeletion(clientset, util.GenerateNamespaceFromControlPlaneName(c.Name))
 

@@ -214,7 +214,12 @@ require-%:
 build-all:
 	GOOS=$(OS) GOARCH=$(ARCH) $(MAKE) build WHAT='./cmd/...'
 
-build: WHAT ?= ./cmd/...
-build: require-jq require-go require-git verify-go-versions ## Build the project
-	GOOS=$(OS) GOARCH=$(ARCH) CGO_ENABLED=0 go build $(BUILDFLAGS) -ldflags="$(LDFLAGS)" -o bin $(WHAT)
 .PHONY: build
+build: WHAT ?= ./cmd/...
+build: bin-dir require-jq require-go require-git verify-go-versions  ## Build the project
+	GOOS=$(OS) GOARCH=$(ARCH) CGO_ENABLED=0 go build $(BUILDFLAGS) -ldflags="$(LDFLAGS)" -o bin $(WHAT)
+
+.PHONY: bin-dir
+bin-dir:
+	echo "Hello"
+	mkdir -p bin
