@@ -33,7 +33,7 @@ Make sure that `${HOME}/go/bin` is in your `$PATH`.
 ## Quickstart
 At this time the quickstart has only been tested on macOS (arm64) and CentOS 7 (amd64) .
 
-Clone this repo, build the binaries and add the binary to your path:
+Clone this repo, build the binaries and add them to your path:
 
 ```shell
 git clone git@github.ibm.com:dettori/kubeflex.git
@@ -42,19 +42,20 @@ make build-all
 export PATH=$(pwd)/bin:$PATH
 ```
 
-Create kind cluster with ingress and install kubeflex controller:
+Create the hostimg kind cluster with ingress controller and install 
+the kubeflex controllers:
 
 ```shell
 kflex init --create-kind
 ```
 
-Create a control pkane
+Create a control plane:
 
 ```shell 
 kflex create cp1
 ```
 
-Interact with the new control plane, for example get namespaces and create a new one.
+Interact with the new control plane, for example get namespaces and create a new one:
 
 ```shell
 kubectl get ns
@@ -72,14 +73,14 @@ kubectl get ns
 To go back to the hosting cluster context, use the `ctx` command:
 
 ```shell
-kfkex ctx
+kflex ctx
 ```
 
 To switch back to a control plane context, use the 
 `create <control plane name>` command, e.g:
 
 ```shell
-kfkex ctx cp1
+kflex ctx cp1
 ```
 
 To delete a control plane, use the `delete <control plane name>` command, e.g:
