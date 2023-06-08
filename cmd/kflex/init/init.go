@@ -44,7 +44,7 @@ func Init(ctx context.Context, kubeconfig string) {
 
 	util.PrintStatus("Waiting for shared backend DB to become ready...", done, &wg)
 	util.WaitForStatefulSetReady(
-		client.GetClientSet(kubeconfig),
+		*(client.GetClientSet(kubeconfig)),
 		util.GeneratePSReplicaSetName(util.DBReleaseName),
 		util.DBNamespace)
 

@@ -26,8 +26,6 @@ import (
 	tenancyv1alpha1 "mcc.ibm.org/kubeflex/api/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	//"sigs.k8s.io/controller-runtime/pkg/client"
-
 	"mcc.ibm.org/kubeflex/cmd/kflex/common"
 	cont "mcc.ibm.org/kubeflex/cmd/kflex/ctx"
 	"mcc.ibm.org/kubeflex/pkg/certs"
@@ -46,7 +44,7 @@ func (c *CPCreate) Create() {
 	cx := cont.CPCtx{}
 	cx.Context()
 
-	cl := kfclient.GetClient(c.Kubeconfig)
+	cl := *(kfclient.GetClient(c.Kubeconfig))
 
 	cp := c.generateControlPlane()
 
@@ -57,7 +55,7 @@ func (c *CPCreate) Create() {
 	}
 	done <- true
 
-	clientset := kfclient.GetClientSet(c.Kubeconfig)
+	clientset := *(kfclient.GetClientSet(c.Kubeconfig))
 
 	util.PrintStatus("Waiting for API server to become ready...", done, &wg)
 	kubeconfig.WatchForSecretCreation(clientset, c.Name, certs.AdminConfSecret)

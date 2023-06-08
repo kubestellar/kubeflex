@@ -33,17 +33,17 @@ import (
 	tenancyv1alpha1 "mcc.ibm.org/kubeflex/api/v1alpha1"
 )
 
-func GetClientSet(kubeconfig string) kubernetes.Clientset {
+func GetClientSet(kubeconfig string) *kubernetes.Clientset {
 	config := getConfig(kubeconfig)
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating clientset: %v\n", err)
 		os.Exit(1)
 	}
-	return *clientset
+	return clientset
 }
 
-func GetClient(kubeconfig string) client.Client {
+func GetClient(kubeconfig string) *client.Client {
 	config := getConfig(kubeconfig)
 	scheme := runtime.NewScheme()
 
@@ -66,7 +66,7 @@ func GetClient(kubeconfig string) client.Client {
 		fmt.Fprintf(os.Stderr, "Error creating client: %v\n", err)
 		os.Exit(1)
 	}
-	return c
+	return &c
 }
 
 func getConfig(kubeconfig string) *rest.Config {
