@@ -221,5 +221,4 @@ build: bin-dir require-jq require-go require-git verify-go-versions  ## Build th
 
 .PHONY: bin-dir
 bin-dir:
-	echo "Hello"
 	mkdir -p bin
