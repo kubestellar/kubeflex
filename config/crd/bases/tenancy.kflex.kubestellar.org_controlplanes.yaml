@@ -5,9 +5,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.3
   creationTimestamp: null
-  name: controlplanes.tenancy.mcc.ibm.org
+  name: controlplanes.tenancy.kflex.kubestellar.org
 spec:
-  group: tenancy.mcc.ibm.org
+  group: tenancy.kflex.kubestellar.org
   names:
     kind: ControlPlane
     listKind: ControlPlaneList
@@ -35,9 +35,7 @@ spec:
           spec:
             description: ControlPlaneSpec defines the desired state of ControlPlane
             properties:
-              foo:
-                description: Foo is an example field of ControlPlane. Edit controlplane_types.go
-                  to remove/update
+              backend:
                 type: string
             type: object
           status:

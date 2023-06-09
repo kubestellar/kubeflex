@@ -22,10 +22,10 @@ import (
 	"sync"
 	"time"
 
-	"mcc.ibm.org/kubeflex/cmd/kflex/common"
-	"mcc.ibm.org/kubeflex/pkg/certs"
-	"mcc.ibm.org/kubeflex/pkg/kubeconfig"
-	"mcc.ibm.org/kubeflex/pkg/util"
+	"github.com/kubestellar/kubeflex/cmd/kflex/common"
+	"github.com/kubestellar/kubeflex/pkg/certs"
+	"github.com/kubestellar/kubeflex/pkg/kubeconfig"
+	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
 type CPCtx struct {

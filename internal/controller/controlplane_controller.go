@@ -34,8 +34,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	clog "sigs.k8s.io/controller-runtime/pkg/log"
 
-	tenancyv1alpha1 "mcc.ibm.org/kubeflex/api/v1alpha1"
-	"mcc.ibm.org/kubeflex/pkg/certs"
+	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
+	"github.com/kubestellar/kubeflex/pkg/certs"
 )
 
 // ControlPlaneReconciler reconciles a ControlPlane object
@@ -44,9 +44,9 @@ type ControlPlaneReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-//+kubebuilder:rbac:groups=tenancy.mcc.ibm.org,resources=controlplanes,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=tenancy.mcc.ibm.org,resources=controlplanes/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=tenancy.mcc.ibm.org,resources=controlplanes/finalizers,verbs=update
+//+kubebuilder:rbac:groups=tenancy.kflex.kubestellar.org,resources=controlplanes,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=tenancy.kflex.kubestellar.org,resources=controlplanes/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=tenancy.kflex.kubestellar.org,resources=controlplanes/finalizers,verbs=update
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch;delete

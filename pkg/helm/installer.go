@@ -194,7 +194,7 @@ func (h *HelmHandler) chartInstall() error {
 	if client.Version == "" && client.Devel {
 		client.Version = ">0.0.0-0"
 	}
-	//name, chart, err := client.NameAndChart(args)
+
 	client.ReleaseName = h.ReleaseName
 	cp, err := client.ChartPathOptions.LocateChart(fmt.Sprintf("%s/%s", h.RepoName, h.ChartName), h.settings)
 	if err != nil {
@@ -215,7 +215,6 @@ func (h *HelmHandler) chartInstall() error {
 		return errors.Wrap(err, "failed parsing --set data")
 	}
 
-	// Check chart dependencies to make sure all are present in /charts
 	chartRequested, err := loader.Load(cp)
 	if err != nil {
 		return err
@@ -227,9 +226,6 @@ func (h *HelmHandler) chartInstall() error {
 	}
 
 	if req := chartRequested.Metadata.Dependencies; req != nil {
-		// If CheckDependencies returns an error, we have unfulfilled dependencies.
-		// As of Helm 2.4.0, this is treated as a stopping condition:
-		// https://github.com/helm/helm/issues/2209
 		if err := action.CheckDependencies(chartRequested, req); err != nil {
 			if client.DependencyUpdate {
 				man := &downloader.Manager{

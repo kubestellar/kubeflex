@@ -32,7 +32,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
-	"mcc.ibm.org/kubeflex/pkg/util"
+	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
 type ConfigTarget int

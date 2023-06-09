@@ -25,8 +25,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	clog "sigs.k8s.io/controller-runtime/pkg/log"
 
-	"mcc.ibm.org/kubeflex/pkg/certs"
-	"mcc.ibm.org/kubeflex/pkg/util"
+	"github.com/kubestellar/kubeflex/pkg/certs"
+	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
 func (r *ControlPlaneReconciler) ReconcileCertsSecret(ctx context.Context, name string, owner *metav1.OwnerReference) (*certs.Certs, error) {

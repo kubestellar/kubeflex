@@ -22,15 +22,15 @@ import (
 	"os"
 	"sync"
 
+	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	tenancyv1alpha1 "mcc.ibm.org/kubeflex/api/v1alpha1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"mcc.ibm.org/kubeflex/cmd/kflex/common"
-	kfclient "mcc.ibm.org/kubeflex/pkg/client"
-	"mcc.ibm.org/kubeflex/pkg/kubeconfig"
-	"mcc.ibm.org/kubeflex/pkg/util"
+	"github.com/kubestellar/kubeflex/cmd/kflex/common"
+	kfclient "github.com/kubestellar/kubeflex/pkg/client"
+	"github.com/kubestellar/kubeflex/pkg/kubeconfig"
+	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
 type CPDelete struct {

@@ -6,7 +6,7 @@ import (
 	"os/user"
 	"testing"
 
-	"mcc.ibm.org/kubeflex/api/v1alpha1"
+	"github.com/kubestellar/kubeflex/api/v1alpha1"
 )
 
 var kubeconfig string

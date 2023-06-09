@@ -19,10 +19,10 @@ package controller
 import (
 	"context"
 
+	"github.com/kubestellar/kubeflex/pkg/util"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"mcc.ibm.org/kubeflex/pkg/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	clog "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -61,20 +61,12 @@ func generateAPIServerService(name, namespace string) *corev1.Service {
 			Namespace: namespace,
 		},
 		Spec: corev1.ServiceSpec{
-			// Type: "NodePort",
 			Selector: map[string]string{
 				"app": APIServerDeploymentName,
 			},
 			Ports: []corev1.ServicePort{
-				// {
-				// 	Port: 80,
-				// 	//NodePort: 30001,
-				// 	Name:     "http",
-				// 	Protocol: "TCP",
-				// },
 				{
-					Port: SecurePort,
-					//NodePort: 30002,
+					Port:     SecurePort,
 					Name:     "https",
 					Protocol: "TCP",
 				},

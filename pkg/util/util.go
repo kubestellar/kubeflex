@@ -31,7 +31,8 @@ func GenerateNamespaceFromControlPlaneName(name string) string {
 // GenerateDevLocalDNSName: generates the local dns name for test/dev
 // from the controlplane name
 func GenerateDevLocalDNSName(name string) string {
-	// We use localtest.me for resolving
+	// At this time we use localtest.me for resolving to localhost.
+	// TODO: make this configurable so that user can pick his preferred provider.
 	return fmt.Sprintf("%s.localtest.me", name)
 }
 

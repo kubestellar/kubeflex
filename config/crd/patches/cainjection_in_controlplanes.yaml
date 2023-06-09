@@ -4,4 +4,4 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     cert-manager.io/inject-ca-from: CERTIFICATE_NAMESPACE/CERTIFICATE_NAME
-  name: controlplanes.tenancy.mcc.ibm.org
+  name: controlplanes.tenancy.kflex.kubestellar.org

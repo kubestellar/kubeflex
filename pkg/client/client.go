@@ -30,7 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 
-	tenancyv1alpha1 "mcc.ibm.org/kubeflex/api/v1alpha1"
+	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 )
 
 func GetClientSet(kubeconfig string) *kubernetes.Clientset {

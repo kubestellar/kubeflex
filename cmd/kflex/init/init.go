@@ -26,9 +26,9 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"mcc.ibm.org/kubeflex/pkg/client"
-	"mcc.ibm.org/kubeflex/pkg/helm"
-	"mcc.ibm.org/kubeflex/pkg/util"
+	"github.com/kubestellar/kubeflex/pkg/client"
+	"github.com/kubestellar/kubeflex/pkg/helm"
+	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
 func Init(ctx context.Context, kubeconfig string) {
@@ -94,5 +94,4 @@ func ensureSystemNamespace(kubeconfig, namespace string) {
 			}
 		}
 	}
-
 }
