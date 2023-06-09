@@ -36,7 +36,7 @@ At this time the quickstart has only been tested on macOS (arm64) and CentOS 7 (
 Clone this repo, build the binaries and add them to your path:
 
 ```shell
-git clone git@github.ibm.com:dettori/kubeflex.git
+git clone https://github.com/kubestellar/kubeflex.git
 cd kubeflex
 make build-all
 export PATH=$(pwd)/bin:$PATH
