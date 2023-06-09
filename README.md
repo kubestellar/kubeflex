@@ -36,7 +36,7 @@ At this time the quickstart has only been tested on macOS (arm64) and CentOS 7 (
 Clone this repo, build the binaries and add them to your path:
 
 ```shell
-git clone git@github.ibm.com:dettori/kubeflex.git
+git clone https://github.com/kubestellar/kubeflex.git
 cd kubeflex
 make build-all
 export PATH=$(pwd)/bin:$PATH
@@ -62,8 +62,8 @@ kubectl get ns
 kubectl create ns myns
 ```
 
-Create a second control plane and check that you don't have the namespace created in the
-first one:
+Create a second control plane and check that the namespace created in the
+first control plane is not present:
 
 ```shell
 kflex create cp2
