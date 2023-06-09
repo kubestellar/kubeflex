@@ -1,13 +1,16 @@
 name: goreleaser
 
 on:
-  pull_request:
-    paths:
-    - .github/workflows/goreleaser.yml
-    - .goreleaser.yaml
-  push:
-    tags:
-    - 'v*'
+  release:
+    types:
+    - created
+  # pull_request:
+  #   paths:
+  #   - .github/workflows/goreleaser.yml
+  #   - .goreleaser.yaml
+  # push:
+  #   tags:
+  #   - 'v*'
 
 permissions:
   contents: write
@@ -28,7 +31,7 @@ jobs:
     - name: Set LDFLAGS
       run: echo LDFLAGS="$(make ldflags)" >> $GITHUB_ENV
     - name: Run GoReleaser on tag
-      if: github.event_name != 'pull_request'
+    #  if: github.event_name != 'pull_request'
       uses: goreleaser/goreleaser-action@v4
       with:
         distribution: goreleaser
@@ -36,15 +39,15 @@ jobs:
         args: release --timeout 60m
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    - name: Run GoReleaser on pull request
-      if: github.event_name == 'pull_request'
-      uses: goreleaser/goreleaser-action@v4
-      with:
-        distribution: goreleaser
-        version: latest
-        args: release --timeout 60m --snapshot
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    # - name: Run GoReleaser on pull request
+    #   if: github.event_name == 'pull_request'
+    #   uses: goreleaser/goreleaser-action@v4
+    #   with:
+    #     distribution: goreleaser
+    #     version: latest
+    #     args: release --timeout 60m --snapshot
+    #   env:
+    #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - uses: cytopia/upload-artifact-retry-action@v0.1.7
       if: ${{ always() }}
       with:
