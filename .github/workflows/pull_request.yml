@@ -32,3 +32,4 @@ jobs:
           item-id: ${{ steps.add-project.outputs.itemId }} # Use the item-id output of the previous step
           field-keys: Status,Date Posted
           field-values: In Progress,${{ steps.date.outputs.date }}
+
