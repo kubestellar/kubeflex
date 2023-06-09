@@ -62,8 +62,8 @@ kubectl get ns
 kubectl create ns myns
 ```
 
-Create a second control plane and check that you don't have the namespace created in the
-first one:
+Create a second control plane and check that the namespace created in the
+first control plane is not present:
 
 ```shell
 kflex create cp2
