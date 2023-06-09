@@ -10,7 +10,6 @@ builds:
   goarch:
   - amd64
   - arm64
-  - ppc64le
   ignore:
   - goos: darwin
     goarch: ppc64le
