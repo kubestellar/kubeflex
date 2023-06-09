@@ -20,6 +20,6 @@ archives:
   builds:
   - kflex
 release:
-  draft: true
+  draft: false
   prerelease: auto
   mode: keep-existing
