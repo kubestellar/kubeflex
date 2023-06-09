@@ -12,9 +12,6 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
       - name:
         uses: peterjgrainger/action-create-branch@v2.4.0
         env:
