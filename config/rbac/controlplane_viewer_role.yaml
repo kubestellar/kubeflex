@@ -12,7 +12,7 @@ metadata:
   name: controlplane-viewer-role
 rules:
 - apiGroups:
-  - tenancy.mcc.ibm.org
+  - tenancy.kflex.kubestellar.org
   resources:
   - controlplanes
   verbs:
@@ -20,7 +20,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - tenancy.mcc.ibm.org
+  - tenancy.kflex.kubestellar.org
   resources:
   - controlplanes/status
   verbs:

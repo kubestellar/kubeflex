@@ -11,7 +11,7 @@ A flexible and scalable solution for running Kubernetes control plane APIs.
     - etcd DB or Kine + Postgres DB
 - Flexibility in choice of API Server build:
     - upstream Kube (e.g. `registry.k8s.io/kube-apiserver:v1.27.1`)    
-    - trimmed down builds (e.g. [multicluster control plane](https://github.com/open-cluster-management-io/multicluster-controlplane))
+    - trimmed down API Server builds (e.g. [multicluster control plane](https://github.com/open-cluster-management-io/multicluster-controlplane))
 - Single binary CLI for improved user experience:
     - initialize, install operator, manage lifecycle of control planes and contexts
 

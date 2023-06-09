@@ -24,7 +24,7 @@ import (
 	"strings"
 	"sync"
 
-	"mcc.ibm.org/kubeflex/pkg/util"
+	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
 // ManagerCommand is the name of the manager command

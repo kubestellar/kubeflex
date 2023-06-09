@@ -23,15 +23,15 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
+	"github.com/kubestellar/kubeflex/cmd/kflex/common"
+	cr "github.com/kubestellar/kubeflex/cmd/kflex/create"
+	cont "github.com/kubestellar/kubeflex/cmd/kflex/ctx"
+	del "github.com/kubestellar/kubeflex/cmd/kflex/delete"
+	in "github.com/kubestellar/kubeflex/cmd/kflex/init"
+	cluster "github.com/kubestellar/kubeflex/cmd/kflex/init/cluster"
+	initmanager "github.com/kubestellar/kubeflex/cmd/kflex/init/manager"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
-	"mcc.ibm.org/kubeflex/cmd/kflex/common"
-	cr "mcc.ibm.org/kubeflex/cmd/kflex/create"
-	cont "mcc.ibm.org/kubeflex/cmd/kflex/ctx"
-	del "mcc.ibm.org/kubeflex/cmd/kflex/delete"
-	in "mcc.ibm.org/kubeflex/cmd/kflex/init"
-	cluster "mcc.ibm.org/kubeflex/cmd/kflex/init/cluster"
-	initmanager "mcc.ibm.org/kubeflex/cmd/kflex/init/manager"
 )
 
 var createkind bool
@@ -47,7 +47,7 @@ var rootCmd = &cobra.Command{
 var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Initialize kubeflex",
-	Long:  `Installs the default storage backend and the kubeflex operator`,
+	Long:  `Installs the default shared storage backend and the kubeflex operator`,
 	Args:  cobra.ExactArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := createContext()
@@ -62,8 +62,9 @@ var initCmd = &cobra.Command{
 var createCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a control plane instance",
-	Long:  `Create a control plane instance`,
-	Args:  cobra.ExactArgs(1),
+	Long: `Create a control plane instance and switches the Kubeconfig context to 
+	        the current instance`,
+	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		cp := cr.CPCreate{
 			CP: common.CP{
@@ -79,8 +80,9 @@ var createCmd = &cobra.Command{
 var deleteCmd = &cobra.Command{
 	Use:   "delete",
 	Short: "Delete a control plane instance",
-	Long:  `Delete a control plane instance`,
-	Args:  cobra.ExactArgs(1),
+	Long: `Delete a control plane instance and switches the context back to 
+	        the hosting cluster context`,
+	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		cp := del.CPDelete{
 			CP: common.CP{
@@ -136,6 +138,7 @@ func init() {
 	rootCmd.AddCommand(ctxCmd)
 }
 
+// TODO - work on passing the verbosity to the logger
 func createContext() context.Context {
 	zapLogger, _ := zap.NewDevelopment(zap.AddCaller())
 	logger := zapr.NewLoggerWithOptions(zapLogger)

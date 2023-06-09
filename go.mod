@@ -1,4 +1,4 @@
-module mcc.ibm.org/kubeflex
+module github.com/kubestellar/kubeflex
 
 go 1.19
 

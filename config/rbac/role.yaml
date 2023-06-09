@@ -102,7 +102,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - tenancy.mcc.ibm.org
+  - tenancy.kflex.kubestellar.org
   resources:
   - controlplanes
   verbs:
@@ -114,13 +114,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - tenancy.mcc.ibm.org
+  - tenancy.kflex.kubestellar.org
   resources:
   - controlplanes/finalizers
   verbs:
   - update
 - apiGroups:
-  - tenancy.mcc.ibm.org
+  - tenancy.kflex.kubestellar.org
   resources:
   - controlplanes/status
   verbs:

@@ -26,7 +26,7 @@ import (
 	"sync"
 	"text/template"
 
-	"mcc.ibm.org/kubeflex/pkg/util"
+	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
 const (

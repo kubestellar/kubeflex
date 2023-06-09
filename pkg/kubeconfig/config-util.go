@@ -23,12 +23,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-
-	//k8json "k8s.io/apimachinery/pkg/util/json"
-
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
-	"mcc.ibm.org/kubeflex/pkg/certs"
+	"github.com/kubestellar/kubeflex/pkg/certs"
 )
 
 const (
@@ -55,7 +52,6 @@ func merge(existing, new *clientcmdapi.Config) error {
 
 	// set the current context to the nex context
 	existing.CurrentContext = new.CurrentContext
-
 	return nil
 }
 
@@ -99,6 +95,8 @@ func SwitchToInitialContext(config *clientcmdapi.Config, removeExtension bool) e
 	if !IsInitialConfigSet(config) {
 		return nil
 	}
+	// found that the only way to unmarshal the runtime.Object into a ConfigMap
+	// was to use the unMarshallCM() function based on json marshal/unmarshal
 	cm, err := unMarshallCM(config.Preferences.Extensions[ConfigExtensionName])
 	if err != nil {
 		return fmt.Errorf("error unmarshaling config map %s", err)
@@ -120,10 +118,6 @@ func SwitchToInitialContext(config *clientcmdapi.Config, removeExtension bool) e
 func saveInitialContextName(config *clientcmdapi.Config) {
 	runtimeObjects := make(map[string]runtime.Object)
 	runtimeObjects[ConfigExtensionName] = &corev1.ConfigMap{
-		// TypeMeta: metav1.TypeMeta{
-		// 	Kind:       "ConfigMap",
-		// 	APIVersion: "v1",
-		// },
 		ObjectMeta: metav1.ObjectMeta{
 			Name: ConfigExtensionName,
 		},

@@ -28,6 +28,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+// TODO - refactor in a single base "WaitFor" function that can operate on the resource types
+// needed here
+
 func WaitForDeploymentReady(clientset kubernetes.Clientset, name, namespace string) error {
 	watcher, err := clientset.AppsV1().Deployments(namespace).Watch(context.Background(), metav1.ListOptions{
 		FieldSelector:   fmt.Sprintf("metadata.name=%s", name),
