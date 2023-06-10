@@ -34,7 +34,7 @@ jobs:
       with:
         distribution: goreleaser
         version: latest
-        args: release --timeout 60m -clean
+        args: release --timeout 60m --clean
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     # - name: Run GoReleaser on pull request
