@@ -15,11 +15,43 @@ builds:
     goarch: ppc64le
   env:
   - CGO_ENABLED=0
+- id: "manager"
+  main: ./cmd/manager
+  binary: bin/manager
+  ldflags:
+  - "{{ .Env.LDFLAGS }}"
+  goos:
+  - linux
+  goarch:
+  - amd64
+  - arm64
+  ignore:
+  - goos: darwin
+    goarch: ppc64le
+  env:
+  - CGO_ENABLED=0  
 archives:
 - id: kflex
   builds:
   - kflex
+kos:           
+  - repository: ghcr.io/kubestellar/kubeflex
+    main: ./cmd/manager
+    build: manager
+    tags:
+    - '{{.Version}}'
+    - latest
+    bare: true
+    preserve_import_paths: false
+    ldflags:
+    - "{{ .Env.LDFLAGS }}"
+    platforms:
+    - linux/amd64
+    - linux/arm64
+    env:
+    - CGO_ENABLED=0
 release:
   draft: false
   prerelease: auto
   mode: keep-existing
+
