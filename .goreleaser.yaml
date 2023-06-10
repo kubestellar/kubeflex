@@ -35,7 +35,8 @@ archives:
   builds:
   - kflex
 kos:           
-  - main: ./cmd/manager
+  - repository: ghcr.io/kubestellar/kubeflex
+    main: ./cmd/manager
     build: manager
     tags:
     - '{{.Version}}'
