@@ -19,7 +19,22 @@ archives:
 - id: kflex
   builds:
   - kflex
+kos:           
+  - main: ./cmd/manager
+    tags:
+    - '{{.Version}}'
+    - latest
+    bare: true
+    preserve_import_paths: false
+    ldflags:
+    - "{{ .Env.LDFLAGS }}"
+    platforms:
+    - linux/amd64
+    - linux/arm64
+    env:
+    - CGO_ENABLED=0
 release:
   draft: false
   prerelease: auto
   mode: keep-existing
+
