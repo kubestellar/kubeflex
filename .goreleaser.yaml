@@ -4,6 +4,7 @@ builds:
   binary: bin/kflex
   ldflags:
   - "{{ .Env.LDFLAGS }}"
+  - LDFLAGS=-X k8s.io/client-go/pkg/version.gitCommit=d5b7f94 -X k8s.io/client-go/pkg/version.gitTreeState=clean -X k8s.io/client-go/pkg/version.gitVersion=+kcp-v0.1.0 -X k8s.io/client-go/pkg/version.gitMajor= -X k8s.io/client-go/pkg/version.gitMinor= -X k8s.io/client-go/pkg/version.buildDate=2023-06-12T01:53:46Z -X k8s.io/component-base/version.gitCommit=d5b7f94 -X k8s.io/component-base/version.gitTreeState=clean -X k8s.io/component-base/version.gitVersion=+kcp-v0.1.0 -X k8s.io/component-base/version.gitMajor= -X k8s.io/component-base/version.gitMinor= -X k8s.io/component-base/version.buildDate=2023-06-12T01:53:46Z -extldflags -static
   goos:
   - linux
   - darwin
@@ -15,6 +16,7 @@ builds:
     goarch: ppc64le
   env:
   - CGO_ENABLED=0
+  - LDFLAGS=-X k8s.io/client-go/pkg/version.gitCommit=d5b7f94 -X k8s.io/client-go/pkg/version.gitTreeState=clean -X k8s.io/client-go/pkg/version.gitVersion=+kcp-v0.1.0 -X k8s.io/client-go/pkg/version.gitMajor= -X k8s.io/client-go/pkg/version.gitMinor= -X k8s.io/client-go/pkg/version.buildDate=2023-06-12T01:53:46Z -X k8s.io/component-base/version.gitCommit=d5b7f94 -X k8s.io/component-base/version.gitTreeState=clean -X k8s.io/component-base/version.gitVersion=+kcp-v0.1.0 -X k8s.io/component-base/version.gitMajor= -X k8s.io/component-base/version.gitMinor= -X k8s.io/component-base/version.buildDate=2023-06-12T01:53:46Z -extldflags -static
 - id: "manager"
   main: ./cmd/manager
   binary: bin/manager
@@ -30,6 +32,7 @@ builds:
     goarch: ppc64le
   env:
   - CGO_ENABLED=0  
+  - LDFLAGS=-X k8s.io/client-go/pkg/version.gitCommit=d5b7f94 -X k8s.io/client-go/pkg/version.gitTreeState=clean -X k8s.io/client-go/pkg/version.gitVersion=+kcp-v0.1.0 -X k8s.io/client-go/pkg/version.gitMajor= -X k8s.io/client-go/pkg/version.gitMinor= -X k8s.io/client-go/pkg/version.buildDate=2023-06-12T01:53:46Z -X k8s.io/component-base/version.gitCommit=d5b7f94 -X k8s.io/component-base/version.gitTreeState=clean -X k8s.io/component-base/version.gitVersion=+kcp-v0.1.0 -X k8s.io/component-base/version.gitMajor= -X k8s.io/component-base/version.gitMinor= -X k8s.io/component-base/version.buildDate=2023-06-12T01:53:46Z -extldflags -static
 archives:
 - id: kflex
   builds:
@@ -50,6 +53,7 @@ kos:
     - linux/arm64
     env:
     - CGO_ENABLED=0
+    - LDFLAGS=-X k8s.io/client-go/pkg/version.gitCommit=d5b7f94 -X k8s.io/client-go/pkg/version.gitTreeState=clean -X k8s.io/client-go/pkg/version.gitVersion=+kcp-v0.1.0 -X k8s.io/client-go/pkg/version.gitMajor= -X k8s.io/client-go/pkg/version.gitMinor= -X k8s.io/client-go/pkg/version.buildDate=2023-06-12T01:53:46Z -X k8s.io/component-base/version.gitCommit=d5b7f94 -X k8s.io/component-base/version.gitTreeState=clean -X k8s.io/component-base/version.gitVersion=+kcp-v0.1.0 -X k8s.io/component-base/version.gitMajor= -X k8s.io/component-base/version.gitMinor= -X k8s.io/component-base/version.buildDate=2023-06-12T01:53:46Z -extldflags -static
 release:
   draft: false
   prerelease: auto
