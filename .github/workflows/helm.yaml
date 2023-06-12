@@ -22,6 +22,8 @@ jobs:
 
     - name: Set up Helm
       uses: azure/setup-helm@v3
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Login to registry
       uses: docker/login-action@v2
