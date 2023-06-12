@@ -18,3 +18,4 @@ _certs
 
 bin
 dist/
+*.tgz
