@@ -30,10 +30,10 @@ jobs:
       with:
         registry: ${{ env.REGISTRY }}
         username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+        password: ${{ secrets.TOKEN }}
 
     - name: Package and push chart
       run: |
-        echo ${{ secrets.GITHUB_TOKEN }} | helm registry login ${{ env.REGISTRY }} --username ${{ github.actor }} --password-stdin  
+        echo ${{ secrets.TOKEN }} | helm registry login ${{ env.REGISTRY }} --username ${{ github.actor }} --password-stdin  
         helm package ${{ env.CHART_PATH }} --destination . --version v0.1.0
         helm push ./*.tgz oci://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
