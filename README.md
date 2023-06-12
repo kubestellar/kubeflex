@@ -1,4 +1,4 @@
-# KubeFlex
+# <img alt="Logo" width="90px" src="./docs/images/kubeflex-logo.png" style="vertical-align: middle;" />  KubeFlex
 
 A flexible and scalable solution for running Kubernetes control plane APIs.
 
@@ -14,10 +14,6 @@ A flexible and scalable solution for running Kubernetes control plane APIs.
     - trimmed down API Server builds (e.g. [multicluster control plane](https://github.com/open-cluster-management-io/multicluster-controlplane))
 - Single binary CLI for improved user experience:
     - initialize, install operator, manage lifecycle of control planes and contexts
-
-## Architecture
-
-![image info](./docs/images/kubeflex-arch.png)
 
 ## Prereqs
 
@@ -88,3 +84,7 @@ To delete a control plane, use the `delete <control plane name>` command, e.g:
 ```shell
 kflex delete cp1
 ```
+
+## Architecture
+
+![image info](./docs/images/kubeflex-arch.png)
