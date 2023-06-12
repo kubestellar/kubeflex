@@ -29,7 +29,7 @@ builds:
   - goos: darwin
     goarch: ppc64le
   env:
-  - CGO_ENABLED=0  
+  - CGO_ENABLED=0
 archives:
 - id: kflex
   builds:
