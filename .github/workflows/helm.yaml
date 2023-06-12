@@ -29,17 +29,19 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    # - name: Login to registry
-    #   uses: docker/login-action@v2
-    #   with:
-    #     registry: ${{ env.REGISTRY }}
-    #     username: ${{ github.actor }}
-    #     password: ${{ secrets.TOKEN }}
+    - name: Login to registry
+      uses: docker/login-action@v2
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${TOKEN}
+      env:
+        TOKEN: ${{ secrets.TOKEN }}    
 
     - name: Package and push chart
       run: |
-        echo ${TOKEN} | helm registry login ${{ env.REGISTRY }} --username ${{ github.actor }} --password-stdin  
+       # echo ${TOKEN} | helm registry login ${{ env.REGISTRY }} --username ${{ github.actor }} --password-stdin  
         helm package ${{ env.CHART_PATH }} --destination . --version v0.1.0
         helm push ./*.tgz oci://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-      env:
-        TOKEN: ${{ secrets.TOKEN }}  
+    #   env:
+    #     TOKEN: ${{ secrets.TOKEN }}  
