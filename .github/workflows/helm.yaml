@@ -32,5 +32,5 @@ jobs:
 
     - name: Package and push chart
       run: |
-        helm package ${{ env.CHART_PATH }} --destination . --version ${{ github.sha }}
+        helm package ${{ env.CHART_PATH }} --destination . --version v0.1.0
         helm push ./*.tgz oci://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
