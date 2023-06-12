@@ -24,6 +24,8 @@ jobs:
       run: 'git tag -d $(git tag -l | grep -v "^v")'
     - name: Set LDFLAGS
       run: echo LDFLAGS="$(make ldflags)" >> $GITHUB_ENV
+    - name: ko Login
+      run: echo ${{ secrets.TOKEN }} | ko login ghcr.io --username pdettori --password-stdin  
     - name: Run GoReleaser on tag
       uses: goreleaser/goreleaser-action@v4
       with:
