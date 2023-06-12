@@ -34,5 +34,6 @@ jobs:
 
     - name: Package and push chart
       run: |
+        echo ${{ secrets.GITHUB_TOKEN }} | helm registry login ${{ env.REGISTRY }} --username ${{ github.actor }} --password-stdin  
         helm package ${{ env.CHART_PATH }} --destination . --version v0.1.0
         helm push ./*.tgz oci://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
