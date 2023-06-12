@@ -1,0 +1,36 @@
+name: Package and Push Helm Chart
+
+on:
+    pull_request:
+        types: [closed]
+#   push:
+#     branches:
+#       - main
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/chart
+  CHART_PATH: ./charts/kubeflex
+
+jobs:
+  package-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v2
+
+    - name: Set up Helm
+      uses: azure/setup-helm@v1
+
+    - name: Login to registry
+      uses: docker/login-action@v1
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Package and push chart
+      run: |
+        helm package ${{ env.CHART_PATH }} --destination . --version ${{ github.sha }}
+        helm push ./*.tgz oci://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
