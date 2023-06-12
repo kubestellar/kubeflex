@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # Image URL to use all building/pushing image targets
-IMG ?= controller:latest
+IMG ?= ghcr.io/kubestellar/kubeflex/manager:latest
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.26.1
 
@@ -167,7 +167,6 @@ undeploy: ## Undeploy manager from the K8s cluster specified in ~/.kube/config. 
 
 .PHONY: chart
 chart: manifests kustomize
-	$(KUSTOMIZE) build config/crd > charts/kubeflex/templates/crd.yaml
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default > charts/kubeflex/templates/operator.yaml
 
