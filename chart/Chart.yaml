@@ -1,5 +1,5 @@
 apiVersion: v2
-name: kubeflex
+name: kubeflex-operator
 description: Helm chart to install the KubeFlex operator
 type: application
 version: 0.1.0
