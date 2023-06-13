@@ -34,6 +34,12 @@ kubectl debug -n ${NAMESPACE} -it ${NAME} --image=busybox:1.28 --target=${CONTAI
 
 ### Getting all the command args for a process
 
-```
+```shell
 cat /proc/<pid>/cmdline | sed -e "s/\x00/ /g"; echo
+```
+
+### Install the kubeflex operator with the OCI helm chart
+
+```shell
+helm install test -n kubeflex-system --create-namespace oci://ghcr.io/kubestellar/kubeflex/chart/kubeflex-operator --version v0.1.0
 ```

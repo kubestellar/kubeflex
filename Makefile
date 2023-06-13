@@ -168,7 +168,7 @@ undeploy: ## Undeploy manager from the K8s cluster specified in ~/.kube/config. 
 .PHONY: chart
 chart: manifests kustomize
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
-	$(KUSTOMIZE) build config/default > charts/kubeflex/templates/operator.yaml
+	$(KUSTOMIZE) build config/default > chart/templates/operator.yaml
 
 ##@ Build Dependencies
 
