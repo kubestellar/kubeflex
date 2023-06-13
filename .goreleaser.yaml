@@ -54,4 +54,13 @@ release:
   draft: false
   prerelease: auto
   mode: keep-existing
+brews:
+  - name: kubeflex
+    homepage: "https://github.com/kubestellar/kubeflex"
+    tap:
+      owner: kubestellar
+      name: kubeflex
+    commit_author:
+      name: pdettori
+      email: dettori@us.ibm.com  
 
