@@ -1,11 +1,11 @@
 name: Package and Push Helm Chart
 
 on:
-    pull_request:
-        types: [closed]
-#   push:
-#     branches:
-#       - main
+    # pull_request:
+    #     types: [closed]
+  push:
+    branches:
+      - main
 
 permissions:
     contents: write
@@ -34,10 +34,8 @@ jobs:
       with:
         registry: ${{ env.REGISTRY }}
         username: ${{ github.actor }}
-        password: ${TOKEN}
-      env:
-        TOKEN: ${{ secrets.TOKEN }}    
-
+        password: ${{ secrets.TOKEN }} 
+  
     - name: Package and push chart
       run: |
        # echo ${TOKEN} | helm registry login ${{ env.REGISTRY }} --username ${{ github.actor }} --password-stdin  
