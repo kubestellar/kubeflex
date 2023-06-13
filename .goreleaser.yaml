@@ -60,6 +60,9 @@ brews:
     tap:
       owner: kubestellar
       name: kubeflex
+      branch: brew
+      pull_request:
+        enabled: false
     commit_author:
       name: pdettori
       email: dettori@us.ibm.com  
