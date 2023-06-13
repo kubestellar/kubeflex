@@ -7,10 +7,6 @@ on:
     branches:
       - main
 
-permissions:
-    contents: write
-    packages: write
-
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}/chart
@@ -19,6 +15,9 @@ env:
 jobs:
   package-and-push:
     runs-on: ubuntu-latest
+    permissions:
+        contents: write
+        packages: write
 
     steps:
     - name: Check out code
@@ -34,12 +33,9 @@ jobs:
       with:
         registry: ${{ env.REGISTRY }}
         username: ${{ github.actor }}
-        password: ${{ secrets.TOKEN }} 
+        password: ${{ secrets.GITHUB_TOKEN }} 
   
     - name: Package and push chart
       run: |
-       # echo ${TOKEN} | helm registry login ${{ env.REGISTRY }} --username ${{ github.actor }} --password-stdin  
         helm package ${{ env.CHART_PATH }} --destination . --version v0.1.0
         helm push ./*.tgz oci://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-    #   env:
-    #     TOKEN: ${{ secrets.TOKEN }}  
