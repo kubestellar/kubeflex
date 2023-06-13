@@ -5,25 +5,34 @@ on:
     tags:
     - 'v*'
 
-permissions:
-  contents: write
-  packages: write
+env:
+  REGISTRY: ghcr.io
+  OPERATOR_IMAGE: kubestellar/kubeflex/manager
+  IMAGE_NAME: ${{ github.repository }}/chart
+  CHART_PATH: ./chart
 
 jobs:
   goreleaser:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
     steps:
     - name: Checkout
       uses: actions/checkout@v3
       with:
         fetch-depth: 0
+
     - uses: actions/setup-go@v4
       with:
         go-version: v1.19
+
     - name: Delete non-semver tags
       run: 'git tag -d $(git tag -l | grep -v "^v")'
+
     - name: Set LDFLAGS
       run: echo LDFLAGS="$(make ldflags)" >> $GITHUB_ENV
+
     - name: Run GoReleaser on tag
       uses: goreleaser/goreleaser-action@v4
       with:
@@ -33,4 +42,22 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         KO_TOKEN: ${{ secrets.TOKEN }}
+
+    - name: Set up Helm
+      uses: azure/setup-helm@v3
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Login to registry
+      uses: docker/login-action@v2
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Package and push chart
+      run: |
+        make chart IMG=${{ env.REGISTRY }}/${{ env.OPERATOR_IMAGE }}:${{github.ref_name}}
+        helm package ${{ env.CHART_PATH }} --destination . --version ${{github.ref_name}}
+        helm push ./*.tgz oci://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}    
 
