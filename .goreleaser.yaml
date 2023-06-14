@@ -64,6 +64,6 @@ brews:
       pull_request:
         enabled: false
     commit_author:
-      name: pdettori
-      email: dettori@us.ibm.com  
+      name: "{{ .Env.USER }}"
+      email: "{{ .Env.EMAIL }}"  
 
