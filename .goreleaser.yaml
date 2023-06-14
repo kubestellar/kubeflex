@@ -62,7 +62,7 @@ brews:
       name: kubeflex
       branch: brew
       pull_request:
-        enabled: true
+        enabled: false
     commit_author:
       name: pdettori
       email: dettori@us.ibm.com  
