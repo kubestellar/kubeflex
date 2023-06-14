@@ -10,7 +10,7 @@ class Kubeflex < Formula
   on_macos do
     if Hardware::CPU.intel?
       url "https://github.com/kubestellar/kubeflex/releases/download/v0.1.0/kubeflex_0.1.0_darwin_amd64.tar.gz"
-      sha256 "176204c9a173a0af94c5f2e3093ec17b2472f09230271100b330ddafab0b6f98"
+      sha256 "be473ebcae51521e31d2ab4d699ef2b33ea1db0fe8f3cc6e78b8f16e008f9064"
 
       def install
         bin.install "bin/kflex"
@@ -18,7 +18,7 @@ class Kubeflex < Formula
     end
     if Hardware::CPU.arm?
       url "https://github.com/kubestellar/kubeflex/releases/download/v0.1.0/kubeflex_0.1.0_darwin_arm64.tar.gz"
-      sha256 "ae2de60bfa9e03555bbf167b970a365bdee008836df8bbf3fbff5cb979e81e54"
+      sha256 "968960acb415627770f9b715437466c8cd7217b65f0482d1263923de03f502bd"
 
       def install
         bin.install "bin/kflex"
@@ -29,7 +29,7 @@ class Kubeflex < Formula
   on_linux do
     if Hardware::CPU.arm? && Hardware::CPU.is_64_bit?
       url "https://github.com/kubestellar/kubeflex/releases/download/v0.1.0/kubeflex_0.1.0_linux_arm64.tar.gz"
-      sha256 "eb07f55b6e966d0c083e84ed147d355cf9d701d9d905d1b41663b0bac529990c"
+      sha256 "15c5146c67aa33a1e1ed5c1cbdd2035a1608c8cc47c2bc60d5e2f9ddf4d4b2f7"
 
       def install
         bin.install "bin/kflex"
@@ -37,7 +37,7 @@ class Kubeflex < Formula
     end
     if Hardware::CPU.intel?
       url "https://github.com/kubestellar/kubeflex/releases/download/v0.1.0/kubeflex_0.1.0_linux_amd64.tar.gz"
-      sha256 "6469ce378afe57deaf69889be59683d80e4d6285c34331a089654a78c08367d7"
+      sha256 "51ebcd59936e0cb260a29c52f761799370085126850a29b4816020ef9097b964"
 
       def install
         bin.install "bin/kflex"
