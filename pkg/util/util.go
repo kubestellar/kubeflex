@@ -16,11 +16,17 @@ limitations under the License.
 
 package util
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/kubestellar/kubeflex/pkg/client"
+)
 
 const (
+	ProjectName       = "kubeflex"
 	DBReleaseName     = "postgres"
-	DBNamespace       = "kubeflex-system"
+	SystemNamespace   = "kubeflex-system"
 	IngressSecurePort = "9443"
 )
 
@@ -42,4 +48,22 @@ func GeneratePSecretName(releaseName string) string {
 
 func GeneratePSReplicaSetName(releaseName string) string {
 	return fmt.Sprintf("%s-postgresql", releaseName)
+}
+
+func GenerateOperatorDeploymentName() string {
+	return fmt.Sprintf("%s-controller-manager", ProjectName)
+}
+
+func ParseVersionNumber(versionString string) string {
+	versionParts := strings.Split(versionString, ".")
+	return versionParts[0] + "." + versionParts[1] + "." + versionParts[2]
+}
+
+func GetKubernetesClusterVersionInfo(kubeconfig string) (string, error) {
+	clientSet := client.GetClientSet(kubeconfig)
+	serverVersion, err := clientSet.Discovery().ServerVersion()
+	if err != nil {
+		return "", err
+	}
+	return serverVersion.String(), nil
 }

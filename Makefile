@@ -30,25 +30,28 @@ endif
 ARCH := $(shell go env GOARCH)
 OS := $(shell go env GOOS)
 
-KUBE_MAJOR_VERSION := $(shell go mod edit -json | jq '.Require[] | select(.Path == "k8s.io/kubernetes") | .Version' --raw-output | sed 's/v\([0-9]*\).*/\1/')
-KUBE_MINOR_VERSION := $(shell go mod edit -json | jq '.Require[] | select(.Path == "k8s.io/kubernetes") | .Version' --raw-output | sed "s/v[0-9]*\.\([0-9]*\).*/\1/")
+KUBE_CLIENT_MAJOR_VERSION := $(shell go mod edit -json | jq '.Require[] | select(.Path == "k8s.io/client-go") | .Version' --raw-output | sed 's/v\([0-9]*\).*/\1/')
+KUBE_CLIENT_MINOR_VERSION := $(shell go mod edit -json | jq '.Require[] | select(.Path == "k8s.io/client-go") | .Version' --raw-output | sed "s/v[0-9]*\.\([0-9]*\).*/\1/")
 GIT_COMMIT := $(shell git rev-parse --short HEAD || echo 'local')
 GIT_DIRTY := $(shell git diff --quiet && echo 'clean' || echo 'dirty')
-GIT_VERSION := $(shell go mod edit -json | jq '.Require[] | select(.Path == "k8s.io/kubernetes") | .Version' --raw-output)+kcp-$(shell git describe --tags --match='v*' --abbrev=14 "$(GIT_COMMIT)^{commit}" 2>/dev/null || echo v0.0.0-$(GIT_COMMIT))
+GIT_VERSION := $(shell go mod edit -json | jq '.Require[] | select(.Path == "k8s.io/client-go") | .Version' --raw-output)+kflex-$(shell git describe --tags --match='v*' --abbrev=14 "$(GIT_COMMIT)^{commit}" 2>/dev/null || echo v0.0.0-$(GIT_COMMIT))
 BUILD_DATE := $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
+MAIN_VERSION := $(shell git describe --tags --match='v*' --abbrev=14 "$(GIT_COMMIT)^{commit}")
 LDFLAGS := \
+	-X main.Version=${MAIN_VERSION}.${GIT_COMMIT} \
+	-X main.BuildDate=${BUILD_DATE} \
 	-X k8s.io/client-go/pkg/version.gitCommit=${GIT_COMMIT} \
 	-X k8s.io/client-go/pkg/version.gitTreeState=${GIT_DIRTY} \
 	-X k8s.io/client-go/pkg/version.gitVersion=${GIT_VERSION} \
-	-X k8s.io/client-go/pkg/version.gitMajor=${KUBE_MAJOR_VERSION} \
-	-X k8s.io/client-go/pkg/version.gitMinor=${KUBE_MINOR_VERSION} \
+	-X k8s.io/client-go/pkg/version.gitMajor=${KUBE_CLIENT_MAJOR_VERSION} \
+	-X k8s.io/client-go/pkg/version.gitMinor=${KUBE_CLIENT_MINOR_VERSION} \
 	-X k8s.io/client-go/pkg/version.buildDate=${BUILD_DATE} \
 	\
 	-X k8s.io/component-base/version.gitCommit=${GIT_COMMIT} \
 	-X k8s.io/component-base/version.gitTreeState=${GIT_DIRTY} \
 	-X k8s.io/component-base/version.gitVersion=${GIT_VERSION} \
-	-X k8s.io/component-base/version.gitMajor=${KUBE_MAJOR_VERSION} \
-	-X k8s.io/component-base/version.gitMinor=${KUBE_MINOR_VERSION} \
+	-X k8s.io/component-base/version.gitMajor=${KUBE_CLIENT_MAJOR_VERSION} \
+	-X k8s.io/component-base/version.gitMinor=${KUBE_CLIENT_MINOR_VERSION} \
 	-X k8s.io/component-base/version.buildDate=${BUILD_DATE} \
 	-extldflags '-static'
 all: build
@@ -167,7 +170,7 @@ undeploy: ## Undeploy manager from the K8s cluster specified in ~/.kube/config. 
 
 .PHONY: chart
 chart: manifests kustomize
-	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+	cd config/manager && $(KUSTOMIZE) edit set image controller=$(shell echo ${IMG} | sed 's/\(:.*\)v/\1/')
 	$(KUSTOMIZE) build config/default > chart/templates/operator.yaml
 
 ##@ Build Dependencies

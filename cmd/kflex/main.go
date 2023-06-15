@@ -29,7 +29,7 @@ import (
 	del "github.com/kubestellar/kubeflex/cmd/kflex/delete"
 	in "github.com/kubestellar/kubeflex/cmd/kflex/init"
 	cluster "github.com/kubestellar/kubeflex/cmd/kflex/init/cluster"
-	initmanager "github.com/kubestellar/kubeflex/cmd/kflex/init/manager"
+	"github.com/kubestellar/kubeflex/pkg/util"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )
@@ -37,11 +37,29 @@ import (
 var createkind bool
 var kubeconfig string
 var verbosity int
+var Version string
+var BuildDate string
 
 var rootCmd = &cobra.Command{
 	Use:   "kflex",
 	Short: "CLI for kubeflex",
 	Long:  `A flexible and scalable solution for running Kubernetes control plane APIs`,
+}
+
+var versionCmd = &cobra.Command{
+	Use:   "version",
+	Short: "Provide version info",
+	Long:  `Provide kubeflex version info for CLI`,
+	Args:  cobra.ExactArgs(0),
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Printf("Kubeflex version: %s %s\n", Version, BuildDate)
+		kubeVersionInfo, err := util.GetKubernetesClusterVersionInfo(kubeconfig)
+		if err != nil {
+			fmt.Printf("Could not connect to a Kubernetes cluster: %s\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Kubernetes version: %s\n", kubeVersionInfo)
+	},
 }
 
 var initCmd = &cobra.Command{
@@ -54,8 +72,7 @@ var initCmd = &cobra.Command{
 		if createkind {
 			cluster.CreateKindCluster()
 		}
-		in.Init(ctx, kubeconfig)
-		initmanager.InstallManager()
+		in.Init(ctx, kubeconfig, Version, BuildDate)
 	},
 }
 
@@ -97,7 +114,7 @@ var deleteCmd = &cobra.Command{
 
 var ctxCmd = &cobra.Command{
 	Use:   "ctx",
-	Short: "switch Kubeconfig context to a control plane instance",
+	Short: "Switch kubeconfig context to a control plane instance",
 	Long: `Running without an argument switches the context back to the initial context,
 			        while providing the control plane name as argument switches the context to
 					that control plane`,
@@ -119,6 +136,8 @@ var ctxCmd = &cobra.Command{
 }
 
 func init() {
+	versionCmd.Flags().StringVarP(&kubeconfig, "kubeconfig", "k", "", "path to kubeconfig file")
+
 	initCmd.Flags().StringVarP(&kubeconfig, "kubeconfig", "k", "", "path to kubeconfig file")
 	initCmd.Flags().IntVarP(&verbosity, "verbosity", "v", 0, "log level") // TODO - figure out how to inject verbosity
 	initCmd.Flags().BoolVarP(&createkind, "create-kind", "c", false, "Create and configure a kind cluster for installing Kubeflex")
@@ -132,6 +151,7 @@ func init() {
 	ctxCmd.Flags().StringVarP(&kubeconfig, "kubeconfig", "k", "", "path to kubeconfig file")
 	ctxCmd.Flags().IntVarP(&verbosity, "verbosity", "v", 0, "log level") // TODO - figure out how to inject verbosity
 
+	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(createCmd)
 	rootCmd.AddCommand(deleteCmd)
