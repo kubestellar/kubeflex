@@ -6,40 +6,35 @@ A flexible and scalable solution for running Kubernetes control plane APIs.
 
 - Provide lightweight Kube API Server instances and selected controllers as a service.
 - Provide a flexible architecture for the storage backend, e.g.:
-    - shared DB for API servers
-    - dedicated DB for each API server
+    - shared DB for API servers,
+    - dedicated DB for each API server,
     - etcd DB or Kine + Postgres DB
 - Flexibility in choice of API Server build:
-    - upstream Kube (e.g. `registry.k8s.io/kube-apiserver:v1.27.1`)    
+    - upstream Kube (e.g. `registry.k8s.io/kube-apiserver:v1.27.1`),    
     - trimmed down API Server builds (e.g. [multicluster control plane](https://github.com/open-cluster-management-io/multicluster-controlplane))
 - Single binary CLI for improved user experience:
-    - initialize, install operator, manage lifecycle of control planes and contexts
+    - initialize, install operator, manage lifecycle of control planes and contexts.
 
-## Prereqs
+## Installation
 
-- go version>=go1.19.2 
-- git
-- make 
-- gcc
-- docker
-- kind
+You need [kind](https://kind.sigs.k8s.io) installed. Note that a hosting kind cluster 
+is created automatically by the kubeflex CLI.
 
-Make sure that `${HOME}/go/bin` is in your `$PATH`.
+Download the latest kubeflex CLI binary release for your OS/Architecture from the 
+[release page](https://github.com/kubestellar/kubeflex/releases) and copy it
+to `/usr/local/bin` or another location in your `$PATH`.
 
-## Quickstart
-At this time the quickstart has only been tested on macOS (arm64) and CentOS 7 (amd64) .
-
-Clone this repo, build the binaries and add them to your path:
+If you have [Homebrew](https://brew.sh), use the following commands to install kubeflex:
 
 ```shell
-git clone https://github.com/kubestellar/kubeflex.git
-cd kubeflex
-make build-all
-export PATH=$(pwd)/bin:$PATH
+brew tap kubestellar/kubeflex https://github.com/kubestellar/kubeflex
+brew install kubeflex
 ```
 
-Create the hostimg kind cluster with ingress controller and install 
-the kubeflex controllers:
+## Quickstart
+
+Create the hosting kind cluster with ingress controller and install 
+the kubeflex operator:
 
 ```shell
 kflex init --create-kind

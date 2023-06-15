@@ -31,14 +31,15 @@ import (
 	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
-func Init(ctx context.Context, kubeconfig string) {
+func Init(ctx context.Context, kubeconfig, version, buildDate string) {
 	done := make(chan bool)
 	var wg sync.WaitGroup
 
+	util.PrintStatus(fmt.Sprintf("Kubeflex %s %s", version, buildDate), done, &wg)
+	done <- true
+
 	util.PrintStatus("Installing shared backend DB...", done, &wg)
-
 	ensureSystemNamespace(kubeconfig, util.SystemNamespace)
-
 	ensureSystemDB(ctx)
 	done <- true
 
@@ -50,7 +51,14 @@ func Init(ctx context.Context, kubeconfig string) {
 	done <- true
 
 	util.PrintStatus("Installing kubeflex operator...", done, &wg)
-	ensureKFlexOperator(ctx)
+	ensureKFlexOperator(ctx, version)
+	done <- true
+
+	util.PrintStatus("Waiting for kubeflex operator to become ready...", done, &wg)
+	util.WaitForDeploymentReady(
+		*(client.GetClientSet(kubeconfig)),
+		util.GenerateOperatorDeploymentName(),
+		util.SystemNamespace)
 	done <- true
 
 	wg.Wait()
@@ -80,9 +88,10 @@ func ensureSystemDB(ctx context.Context) {
 	}
 }
 
-func ensureKFlexOperator(ctx context.Context) {
+func ensureKFlexOperator(ctx context.Context, fullVersion string) {
+	version := util.ParseVersionNumber(fullVersion)
 	h := &helm.HelmHandler{
-		URL:         KflexOperatorURL,
+		URL:         fmt.Sprintf("%s:%s", KflexOperatorURL, version),
 		RepoName:    KflexOperatorRepoName,
 		ChartName:   KflexOperatorChartName,
 		Namespace:   util.SystemNamespace,
