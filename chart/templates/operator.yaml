@@ -427,7 +427,7 @@ spec:
         - --health-probe-bind-address=:8081
         - --metrics-bind-address=127.0.0.1:8080
         - --leader-elect
-        image: ghcr.io/kubestellar/kubeflex/manager:v0.1.0
+        image: ghcr.io/kubestellar/kubeflex/manager:0.1.0
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:

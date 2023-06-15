@@ -128,7 +128,7 @@ func (r *ControlPlaneReconciler) generateAPIServerDeployment(namespace, dbName s
 						{
 							Name:    "kine",
 							Image:   "rancher/kine:v0.9.9-amd64",
-							Command: []string{"kine", "--endpoint", fmt.Sprintf("postgres://postgres:%s@%s-postgresql.%s.svc/%s?sslmode=disable", dbPassword, util.DBReleaseName, util.DBNamespace, dbName)},
+							Command: []string{"kine", "--endpoint", fmt.Sprintf("postgres://postgres:%s@%s-postgresql.%s.svc/%s?sslmode=disable", dbPassword, util.DBReleaseName, util.SystemNamespace, dbName)},
 							Ports: []v1.ContainerPort{{
 								ContainerPort: 2379,
 							}},
@@ -390,7 +390,7 @@ func (r *ControlPlaneReconciler) getDBPassword() (string, error) {
 	pSecret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      util.GeneratePSecretName(util.DBReleaseName),
-			Namespace: util.DBNamespace,
+			Namespace: util.SystemNamespace,
 		},
 	}
 

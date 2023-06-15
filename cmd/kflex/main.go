@@ -29,7 +29,6 @@ import (
 	del "github.com/kubestellar/kubeflex/cmd/kflex/delete"
 	in "github.com/kubestellar/kubeflex/cmd/kflex/init"
 	cluster "github.com/kubestellar/kubeflex/cmd/kflex/init/cluster"
-	initmanager "github.com/kubestellar/kubeflex/cmd/kflex/init/manager"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )
@@ -55,7 +54,6 @@ var initCmd = &cobra.Command{
 			cluster.CreateKindCluster()
 		}
 		in.Init(ctx, kubeconfig)
-		initmanager.InstallManager()
 	},
 }
 

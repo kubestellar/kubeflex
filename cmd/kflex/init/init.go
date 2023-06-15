@@ -37,7 +37,7 @@ func Init(ctx context.Context, kubeconfig string) {
 
 	util.PrintStatus("Installing shared backend DB...", done, &wg)
 
-	ensureSystemNamespace(kubeconfig, util.DBNamespace)
+	ensureSystemNamespace(kubeconfig, util.SystemNamespace)
 
 	ensureSystemDB(ctx)
 	done <- true
@@ -46,20 +46,48 @@ func Init(ctx context.Context, kubeconfig string) {
 	util.WaitForStatefulSetReady(
 		*(client.GetClientSet(kubeconfig)),
 		util.GeneratePSReplicaSetName(util.DBReleaseName),
-		util.DBNamespace)
-
+		util.SystemNamespace)
 	done <- true
+
+	util.PrintStatus("Installing kubeflex operator...", done, &wg)
+	ensureKFlexOperator(ctx)
+	done <- true
+
 	wg.Wait()
 }
 
 func ensureSystemDB(ctx context.Context) {
 	h := &helm.HelmHandler{
-		URL:         URL,
-		RepoName:    RepoName,
-		ChartName:   ChartName,
-		Namespace:   util.DBNamespace,
-		ReleaseName: ReleaseName,
-		Args:        Args,
+		URL:         PostgresURL,
+		RepoName:    PostgresRepoName,
+		ChartName:   PostgresChartName,
+		Namespace:   util.SystemNamespace,
+		ReleaseName: PostgresReleaseName,
+		Args:        PostgresArgs,
+	}
+	err := helm.Init(ctx, h)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error initializing helm: %v\n", err)
+		os.Exit(1)
+	}
+
+	if !h.IsDeployed() {
+		err := h.Install()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error installing chart: %v\n", err)
+			os.Exit(1)
+		}
+	}
+}
+
+func ensureKFlexOperator(ctx context.Context) {
+	h := &helm.HelmHandler{
+		URL:         KflexOperatorURL,
+		RepoName:    KflexOperatorRepoName,
+		ChartName:   KflexOperatorChartName,
+		Namespace:   util.SystemNamespace,
+		ReleaseName: KflexOperatorReleaseName,
+		Args:        KflexOperatorArgs,
 	}
 	err := helm.Init(ctx, h)
 	if err != nil {
