@@ -310,7 +310,7 @@ func (h *HelmHandler) installOCIChart() error {
 
 	b, err := get.Get(h.URL)
 	if err != nil {
-		return fmt.Errorf("error downloading the OCI chart: %s", err)
+		return fmt.Errorf("error downloading the OCI chart %s : %s", h.URL, err)
 	}
 
 	tmpDir := os.TempDir()

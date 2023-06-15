@@ -22,7 +22,7 @@ const (
 	PostgresChartName   = "postgresql"
 	PostgresReleaseName = "postgres"
 
-	KflexOperatorURL         = "oci://ghcr.io/kubestellar/kubeflex/chart/kubeflex-operator:v0.1.0"
+	KflexOperatorURL         = "oci://ghcr.io/kubestellar/kubeflex/chart/kubeflex-operator"
 	KflexOperatorRepoName    = "kubestellar"
 	KflexOperatorChartName   = "kubeflex-operator"
 	KflexOperatorReleaseName = "kubeflex-operator"

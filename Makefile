@@ -38,7 +38,8 @@ GIT_VERSION := $(shell go mod edit -json | jq '.Require[] | select(.Path == "k8s
 BUILD_DATE := $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 MAIN_VERSION := $(shell git describe --tags --match='v*' --abbrev=14 "$(GIT_COMMIT)^{commit}")
 LDFLAGS := \
-	-X main.Version=${MAIN_VERSION} \
+	-X main.Version=${MAIN_VERSION}.${GIT_COMMIT} \
+	-X main.BuildDate=${BUILD_DATE} \
 	-X k8s.io/client-go/pkg/version.gitCommit=${GIT_COMMIT} \
 	-X k8s.io/client-go/pkg/version.gitTreeState=${GIT_DIRTY} \
 	-X k8s.io/client-go/pkg/version.gitVersion=${GIT_VERSION} \

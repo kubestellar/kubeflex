@@ -43,10 +43,3 @@ cat /proc/<pid>/cmdline | sed -e "s/\x00/ /g"; echo
 ```shell
 helm install test -n kubeflex-system --create-namespace oci://ghcr.io/kubestellar/kubeflex/chart/kubeflex-operator --version v0.1.0
 ```
-
-### Installing CLI as brew tap
-
-```shell
-brew tap kubestellar/kubeflex https://github.com/kubestellar/kubeflex
-brew install kubeflex
-```
