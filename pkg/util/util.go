@@ -20,7 +20,7 @@ import "fmt"
 
 const (
 	DBReleaseName     = "postgres"
-	DBNamespace       = "kubeflex-system"
+	SystemNamespace   = "kubeflex-system"
 	IngressSecurePort = "9443"
 )
 
