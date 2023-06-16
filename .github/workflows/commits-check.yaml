@@ -1,21 +1,26 @@
-name: Check PR Contains Only One Commit
+name: Check Squash Commits
+
 on:
   pull_request:
-    branches:
-      - main
+    types: [opened, synchronize]
 
 jobs:
-  check_pr_commits:
+  check-squash-commits:
     runs-on: ubuntu-latest
-    name: Check PR Contains Only One Commit
+    name: Check commits are squashed
     steps:
-      - uses: actions/checkout@v3
-      - name: Get the number of commits in the PR
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Check commits are squashed
         run: |
-          git fetch --update-shallow
-          number_of_commits=$(git rev-list --count HEAD)
-          echo "The number of commits in the PR is $number_of_commits"
-          if [ "$number_of_commits" != 1 ]; then
-            echo "The PR contains more than one commit. Please squash all commits before merging."
+          # Get the commit range for the pull request
+          COMMIT_RANGE="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+          
+          # Check if any commit in the range is not a squash commit
+          COMMITS_NOT_SQUASHED=$(git log --format=%s $COMMIT_RANGE | grep -v '^\(sparkles\|bug\|book\|memo\|warning\|seedling\|question\)(\(.*\)): ')
+          if [[ $COMMITS_NOT_SQUASHED ]]; then
+            echo "Error: The following commit(s) in this PR has not been squashed: "
+            echo "$COMMITS_NOT_SQUASHED"
             exit 1
           fi
