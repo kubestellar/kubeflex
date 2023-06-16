@@ -1,4 +1,4 @@
-name: PR Verifier
+name: pr-verifier
 
 on:
   # NB: using `pull_request_target` runs this in the context of

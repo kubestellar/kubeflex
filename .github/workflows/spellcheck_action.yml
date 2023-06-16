@@ -1,4 +1,4 @@
-name: Spellcheck Action
+name: spellcheck
 on:
   # So we can trigger manually if needed
   workflow_dispatch:
