@@ -9,7 +9,7 @@ on:
     types: [opened, edited, reopened, synchronize]
 
 jobs:
-  verify:
+  verify-pr:
     name: verify PR contents
     permissions:
       checks: write

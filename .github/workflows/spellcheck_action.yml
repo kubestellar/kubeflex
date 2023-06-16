@@ -12,7 +12,7 @@ on:
       - ".github/spellcheck/.wordlist.yml"
 
 jobs:
-  build:
+  spellchecker:
     name: Spellcheck
     runs-on: ubuntu-latest
     steps:
