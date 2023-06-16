@@ -1,0 +1,21 @@
+name: Check PR Contains Only One Commit
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  check_pr_commits:
+    runs-on: ubuntu-latest
+    name: Check PR Contains Only One Commit
+    steps:
+      - uses: actions/checkout@v3
+      - name: Get the number of commits in the PR
+        run: |
+          git fetch --update-shallow
+          number_of_commits=$(git rev-list --count HEAD)
+          echo "The number of commits in the PR is $number_of_commits"
+          if [ "$number_of_commits" != 1 ]; then
+            echo "The PR contains more than one commit. Please squash all commits before merging."
+            exit 1
+          fi

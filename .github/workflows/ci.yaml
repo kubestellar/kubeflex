@@ -1,0 +1,24 @@
+name: CI
+on:
+  pull_request:
+    branches:
+      - main
+      - "release-*"
+
+jobs:
+  ci-checks:
+    runs-on: ubuntu-latest
+    name: CI Checks
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
+        with:
+          go-version: '1.19'
+      - name: Lint
+        run: go fmt ./...
+      - name: Static analysis
+        run: go vet ./...
+      - name: Build
+        run: go build -v ./...
+      - name: Test
+        run: go test -v ./...
