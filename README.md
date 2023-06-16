@@ -1,6 +1,6 @@
 # <img alt="Logo" width="90px" src="./docs/images/kubeflex-logo.png" style="vertical-align: middle;" />  KubeFlex
 
-A flexible and scalable solution for running Kubernetes control plane APIs.
+A flexible and scalable platform for running Kubernetes control plane APIs.
 
 ## Goals
 
@@ -17,8 +17,9 @@ A flexible and scalable solution for running Kubernetes control plane APIs.
 
 ## Installation
 
-You need [kind](https://kind.sigs.k8s.io) installed. Note that a hosting kind cluster 
-is created automatically by the kubeflex CLI.
+[kind](https://kind.sigs.k8s.io) is required. Note that we plan to add support 
+for other Kube distros. Note that a hosting kind cluster is created automatically 
+by the kubeflex CLI.
 
 Download the latest kubeflex CLI binary release for your OS/Architecture from the 
 [release page](https://github.com/kubestellar/kubeflex/releases) and copy it
