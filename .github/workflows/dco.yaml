@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - "release-*"
 jobs:
   check:
     name: DCO Check
