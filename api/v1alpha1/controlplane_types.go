@@ -29,7 +29,8 @@ type ControlPlaneSpec struct {
 
 // ControlPlaneStatus defines the observed state of ControlPlane
 type ControlPlaneStatus struct {
-	// TODO - add status fields
+	Conditions         []ControlPlaneCondition `json:"conditions"`
+	ObservedGeneration int64                   `json:"observedGeneration"`
 }
 
 //+kubebuilder:object:root=true

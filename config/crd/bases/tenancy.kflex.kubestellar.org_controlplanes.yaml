@@ -40,6 +40,41 @@ spec:
             type: object
           status:
             description: ControlPlaneStatus defines the observed state of ControlPlane
+            properties:
+              conditions:
+                items:
+                  description: ControlPlaneCondition describes the state of a control
+                    plane at a certain point.
+                  properties:
+                    lastTransitionTime:
+                      format: date-time
+                      type: string
+                    lastUpdateTime:
+                      format: date-time
+                      type: string
+                    message:
+                      type: string
+                    reason:
+                      type: string
+                    status:
+                      type: string
+                    type:
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - lastUpdateTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              observedGeneration:
+                format: int64
+                type: integer
+            required:
+            - conditions
+            - observedGeneration
             type: object
         type: object
     served: true
