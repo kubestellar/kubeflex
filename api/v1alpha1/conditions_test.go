@@ -10,45 +10,17 @@ import (
 
 func TestAreConditionsEqual(t *testing.T) {
 	// Create two conditions with only the LastUpdateTime field different
-	c1 := ControlPlaneCondition{
-		Type:               "ConditionType",
-		Status:             corev1.ConditionTrue,
-		LastTransitionTime: metav1.Now(),
-		LastUpdateTime:     metav1.Now(),
-		Reason:             "Reason",
-		Message:            "Message",
-	}
-	c2 := ControlPlaneCondition{
-		Type:               "ConditionType",
-		Status:             corev1.ConditionTrue,
-		LastTransitionTime: metav1.Now(),
-		LastUpdateTime:     metav1.NewTime(time.Now().Add(1 * time.Hour)),
-		Reason:             "Reason",
-		Message:            "Message",
-	}
+	c1 := generateCondition("ConditionType", "Reason", "Message", corev1.ConditionTrue, metav1.Now(), metav1.Now())
+	c2 := generateCondition("ConditionType", "Reason", "Message", corev1.ConditionTrue, metav1.Now(),
+		addTime(1))
 
 	if !AreConditionsEqual(c1, c2) {
 		t.Errorf("AreConditionsEqual failed: expected true, but got false")
 	}
 
 	// Create two conditions with all fields different
-	c3 := ControlPlaneCondition{
-		Type:               "ConditionTypeA",
-		Status:             corev1.ConditionFalse,
-		LastTransitionTime: metav1.Now(),
-		LastUpdateTime:     metav1.Now(),
-		Reason:             "ReasonA",
-		Message:            "MessageA",
-	}
-	c4 := ControlPlaneCondition{
-		Type:               "ConditionTypeB",
-		Status:             corev1.ConditionTrue,
-		LastTransitionTime: metav1.NewTime(time.Now().Add(2 * time.Hour)),
-		LastUpdateTime:     metav1.NewTime(time.Now().Add(3 * time.Hour)),
-		Reason:             "ReasonB",
-		Message:            "MessageB",
-	}
-
+	c3 := generateCondition("ConditionTypeA", "ReasonA", "MessageA", corev1.ConditionTrue, metav1.Now(), addTime(1))
+	c4 := generateCondition("ConditionTypeB", "ReasonB", "MessageB", corev1.ConditionTrue, metav1.Now(), addTime(2))
 	if AreConditionsEqual(c3, c4) {
 		t.Errorf("AreConditionsEqual failed: expected false, but got true")
 	}
@@ -57,50 +29,19 @@ func TestAreConditionsEqual(t *testing.T) {
 func TestSetCondition(t *testing.T) {
 	// Create a slice of conditions and set a new condition
 	conditions1 := []ControlPlaneCondition{
-		{
-			Type:               "ConditionTypeA",
-			Status:             corev1.ConditionFalse,
-			LastTransitionTime: metav1.Now(),
-			LastUpdateTime:     metav1.Now(),
-			Reason:             "ReasonA",
-			Message:            "MessageA",
-		},
-		{
-			Type:               "ConditionTypeB",
-			Status:             corev1.ConditionTrue,
-			LastTransitionTime: metav1.NewTime(time.Now().Add(2 * time.Hour)),
-			LastUpdateTime:     metav1.NewTime(time.Now().Add(3 * time.Hour)),
-			Reason:             "ReasonB",
-			Message:            "MessageB",
-		},
+		generateCondition("ConditionTypeA", "ReasonA", "MessageA",
+			corev1.ConditionFalse, metav1.Now(), metav1.Now()),
+		generateCondition("ConditionTypeB", "ReasonB", "MessageB",
+			corev1.ConditionTrue, metav1.Now(), addTime(2)),
 	}
 
-	newCondition := ControlPlaneCondition{
-		Type:               "ConditionTypeA",
-		Status:             corev1.ConditionTrue,
-		LastTransitionTime: metav1.NewTime(time.Now().Add(4 * time.Hour)),
-		LastUpdateTime:     metav1.NewTime(time.Now().Add(5 * time.Hour)),
-		Reason:             "ReasonAUpdated",
-		Message:            "MessageAUpdated",
-	}
+	newCondition := generateCondition("ConditionTypeA", "ReasonAUpdated", "MessageAUpdated",
+		corev1.ConditionTrue, addTime(4), addTime(5))
 
 	expectedConditions := []ControlPlaneCondition{
-		{
-			Type:               "ConditionTypeA",
-			Status:             corev1.ConditionTrue,
-			LastTransitionTime: metav1.NewTime(time.Now().Add(4 * time.Hour)),
-			LastUpdateTime:     metav1.NewTime(time.Now().Add(5 * time.Hour)),
-			Reason:             "ReasonAUpdated",
-			Message:            "MessageAUpdated",
-		},
-		{
-			Type:               "ConditionTypeB",
-			Status:             corev1.ConditionTrue,
-			LastTransitionTime: metav1.NewTime(time.Now().Add(2 * time.Hour)),
-			LastUpdateTime:     metav1.NewTime(time.Now().Add(3 * time.Hour)),
-			Reason:             "ReasonB",
-			Message:            "MessageB",
-		},
+		newCondition,
+		generateCondition("ConditionTypeB", "ReasonB", "MessageB",
+			corev1.ConditionTrue, metav1.Now(), addTime(2)),
 	}
 
 	actualConditions := SetCondition(conditions1, newCondition)
@@ -113,40 +54,16 @@ func TestSetCondition(t *testing.T) {
 func TestAreConditionSlicesSame(t *testing.T) {
 	// Create two slices of conditions with the same elements in different orders
 	c1 := []ControlPlaneCondition{
-		{
-			Type:               "ConditionTypeA",
-			Status:             corev1.ConditionFalse,
-			LastTransitionTime: metav1.Now(),
-			LastUpdateTime:     metav1.Now(),
-			Reason:             "ReasonA",
-			Message:            "MessageA",
-		},
-		{
-			Type:               "ConditionTypeB",
-			Status:             corev1.ConditionTrue,
-			LastTransitionTime: metav1.NewTime(time.Now().Add(2 * time.Hour)),
-			LastUpdateTime:     metav1.NewTime(time.Now().Add(3 * time.Hour)),
-			Reason:             "ReasonB",
-			Message:            "MessageB",
-		},
+		generateCondition("ConditionTypeA", "ReasonA", "MessageA",
+			corev1.ConditionFalse, metav1.Now(), metav1.Now()),
+		generateCondition("ConditionTypeB", "ReasonB", "MessageB",
+			corev1.ConditionFalse, metav1.Now(), addTime(2)),
 	}
 	c2 := []ControlPlaneCondition{
-		{
-			Type:               "ConditionTypeB",
-			Status:             corev1.ConditionTrue,
-			LastTransitionTime: metav1.NewTime(time.Now().Add(2 * time.Hour)),
-			LastUpdateTime:     metav1.NewTime(time.Now().Add(3 * time.Hour)),
-			Reason:             "ReasonB",
-			Message:            "MessageB",
-		},
-		{
-			Type:               "ConditionTypeA",
-			Status:             corev1.ConditionFalse,
-			LastTransitionTime: metav1.Now(),
-			LastUpdateTime:     metav1.Now(),
-			Reason:             "ReasonA",
-			Message:            "MessageA",
-		},
+		generateCondition("ConditionTypeB", "ReasonB", "MessageB",
+			corev1.ConditionFalse, metav1.Now(), addTime(3)),
+		generateCondition("ConditionTypeA", "ReasonA", "MessageA",
+			corev1.ConditionFalse, metav1.Now(), metav1.Now()),
 	}
 
 	if !AreConditionSlicesSame(c1, c2) {
@@ -155,35 +72,32 @@ func TestAreConditionSlicesSame(t *testing.T) {
 
 	// Create two slices of conditions with different elements
 	c3 := []ControlPlaneCondition{
-		{
-			Type:               "ConditionTypeA",
-			Status:             corev1.ConditionFalse,
-			LastTransitionTime: metav1.Now(),
-			LastUpdateTime:     metav1.Now(),
-			Reason:             "ReasonA",
-			Message:            "MessageA",
-		},
-		{
-			Type:               "ConditionTypeB",
-			Status:             corev1.ConditionTrue,
-			LastTransitionTime: metav1.NewTime(time.Now().Add(2 * time.Hour)),
-			LastUpdateTime:     metav1.NewTime(time.Now().Add(3 * time.Hour)),
-			Reason:             "ReasonB",
-			Message:            "MessageB",
-		},
+		generateCondition("ConditionTypeA", "ReasonA", "MessageA",
+			corev1.ConditionFalse, metav1.Now(), metav1.Now()),
+		generateCondition("ConditionTypeB", "ReasonB", "MessageB",
+			corev1.ConditionTrue, metav1.Now(), addTime(2)),
 	}
 	c4 := []ControlPlaneCondition{
-		{
-			Type:               "ConditionTypeC",
-			Status:             corev1.ConditionUnknown,
-			LastTransitionTime: metav1.Now(),
-			LastUpdateTime:     metav1.Now(),
-			Reason:             "ReasonC",
-			Message:            "MessageC",
-		},
+		generateCondition("ConditionTypeC", "ReasonC", "MessageC",
+			corev1.ConditionFalse, metav1.Now(), metav1.Now()),
 	}
 
 	if AreConditionSlicesSame(c3, c4) {
 		t.Errorf("AreConditionSlicesSame failed: expected false, but got true")
 	}
+}
+
+func generateCondition(ctype ConditionType, reason ConditionReason, message string, status corev1.ConditionStatus, ltt, ltu metav1.Time) ControlPlaneCondition {
+	return ControlPlaneCondition{
+		Type:               ctype,
+		Status:             status,
+		LastTransitionTime: ltt,
+		LastUpdateTime:     ltu,
+		Reason:             reason,
+		Message:            message,
+	}
+}
+
+func addTime(t time.Duration) metav1.Time {
+	return metav1.NewTime(time.Now().Add(2 * time.Hour))
 }
