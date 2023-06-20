@@ -24,8 +24,12 @@ import (
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 )
 
 // TODO - refactor in a single base "WaitFor" function that can operate on the resource types
@@ -119,4 +123,35 @@ func WaitForNamespaceDeletion(clientset kubernetes.Clientset, name string) error
 			return nil
 		}
 	}
+}
+
+func IsAPIServerDeploymentReady(c client.Client, hcp tenancyv1alpha1.ControlPlane) (bool, error) {
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: GenerateNamespaceFromControlPlaneName(hcp.Name),
+		},
+	}
+	if err := c.Get(context.Background(), types.NamespacedName{Name: ns.Name}, ns); err != nil {
+		return false, err
+	}
+
+	d := &v1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      APIServerDeploymentName,
+			Namespace: ns.Name,
+		},
+	}
+
+	if err := c.Get(context.Background(), types.NamespacedName{Name: d.Name, Namespace: d.Namespace}, d); err != nil {
+		return false, err
+	}
+
+	// we need to ensure that there is al least one replicas in the spec
+	if d.Status.ReadyReplicas == d.Status.Replicas &&
+		d.Status.Replicas == *d.Spec.Replicas &&
+		*d.Spec.Replicas > 0 {
+		return true, nil
+	}
+
+	return false, nil
 }

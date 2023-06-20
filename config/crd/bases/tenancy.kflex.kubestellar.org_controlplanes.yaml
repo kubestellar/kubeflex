@@ -12,10 +12,22 @@ spec:
     kind: ControlPlane
     listKind: ControlPlaneList
     plural: controlplanes
+    shortNames:
+    - cp
     singular: controlplane
   scope: Cluster
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type=='Synced')].status
+      name: SYNCED
+      type: string
+    - jsonPath: .status.conditions[?(@.type=='Ready')].status
+      name: READY
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: AGE
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: ControlPlane is the Schema for the controlplanes API

@@ -24,12 +24,15 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	clog "sigs.k8s.io/controller-runtime/pkg/log"
+
+	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 )
 
-func (r *ControlPlaneReconciler) ReconcileNamespace(ctx context.Context, name string, owner *metav1.OwnerReference) error {
+func (r *ControlPlaneReconciler) ReconcileNamespace(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
 	_ = clog.FromContext(ctx)
-	namespace := util.GenerateNamespaceFromControlPlaneName(name)
+	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
 
 	// create namespace object
 	ns := &v1.Namespace{
@@ -41,9 +44,10 @@ func (r *ControlPlaneReconciler) ReconcileNamespace(ctx context.Context, name st
 	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(ns), ns, &client.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			util.EnsureOwnerRef(ns, owner)
-			err = r.Client.Create(context.TODO(), ns, &client.CreateOptions{})
-			if err != nil {
+			if err := controllerutil.SetControllerReference(hcp, ns, r.Scheme); err != nil {
+				return err
+			}
+			if err = r.Client.Create(context.TODO(), ns, &client.CreateOptions{}); err != nil {
 				return err
 			}
 		}

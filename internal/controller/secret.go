@@ -23,15 +23,17 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	clog "sigs.k8s.io/controller-runtime/pkg/log"
 
+	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/certs"
 	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
-func (r *ControlPlaneReconciler) ReconcileCertsSecret(ctx context.Context, name string, owner *metav1.OwnerReference) (*certs.Certs, error) {
+func (r *ControlPlaneReconciler) ReconcileCertsSecret(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (*certs.Certs, error) {
 	_ = clog.FromContext(ctx)
-	namespace := util.GenerateNamespaceFromControlPlaneName(name)
+	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
 
 	// create certs secret object
 	csecret := &v1.Secret{
@@ -44,13 +46,14 @@ func (r *ControlPlaneReconciler) ReconcileCertsSecret(ctx context.Context, name 
 	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(csecret), csecret, &client.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			csecret, crts, err := generateCertsSecret(ctx, name, namespace)
+			csecret, crts, err := generateCertsSecret(ctx, hcp.Name, namespace)
 			if err != nil {
 				return nil, err
 			}
-			util.EnsureOwnerRef(csecret, owner)
-			err = r.Client.Create(context.TODO(), csecret, &client.CreateOptions{})
-			if err != nil {
+			if err := controllerutil.SetControllerReference(hcp, csecret, r.Scheme); err != nil {
+				return nil, err
+			}
+			if err = r.Client.Create(context.TODO(), csecret, &client.CreateOptions{}); err != nil {
 				return nil, err
 			}
 			return crts, nil
@@ -60,7 +63,7 @@ func (r *ControlPlaneReconciler) ReconcileCertsSecret(ctx context.Context, name 
 	return nil, nil
 }
 
-func (r *ControlPlaneReconciler) ReconcileKubeconfigSecret(ctx context.Context, crts *certs.Certs, conf certs.ConfigGen, owner *metav1.OwnerReference) error {
+func (r *ControlPlaneReconciler) ReconcileKubeconfigSecret(ctx context.Context, crts *certs.Certs, conf certs.ConfigGen, hcp *tenancyv1alpha1.ControlPlane) error {
 	// TODO - temp hack - we should make this independent of the certs gen.
 	// Should gen kconfig from certs secret otherwise it may fail if certs are not generated before this func
 	if crts == nil {
@@ -79,9 +82,10 @@ func (r *ControlPlaneReconciler) ReconcileKubeconfigSecret(ctx context.Context, 
 	err = r.Client.Get(context.TODO(), client.ObjectKeyFromObject(csecret), csecret, &client.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			util.EnsureOwnerRef(csecret, owner)
-			err = r.Client.Create(context.TODO(), csecret, &client.CreateOptions{})
-			if err != nil {
+			if err := controllerutil.SetControllerReference(hcp, csecret, r.Scheme); err != nil {
+				return err
+			}
+			if err = r.Client.Create(context.TODO(), csecret, &client.CreateOptions{}); err != nil {
 				return err
 			}
 		}

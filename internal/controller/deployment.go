@@ -28,24 +28,24 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	clog "sigs.k8s.io/controller-runtime/pkg/log"
 
+	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
 const (
-	APIServerDeploymentName = "kube-apiserver"
-	CMDeploymentName        = "kube-controller-manager"
-	SecurePort              = 9444
-	cmHealthzPort           = 10257
+	SecurePort    = 9444
+	cmHealthzPort = 10257
 )
 
-func (r *ControlPlaneReconciler) ReconcileAPIServerDeployment(ctx context.Context, name string, owner *metav1.OwnerReference) error {
+func (r *ControlPlaneReconciler) ReconcileAPIServerDeployment(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
 	_ = clog.FromContext(ctx)
-	namespace := util.GenerateNamespaceFromControlPlaneName(name)
+	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      APIServerDeploymentName,
+			Name:      util.APIServerDeploymentName,
 			Namespace: namespace,
 		},
 	}
@@ -53,13 +53,14 @@ func (r *ControlPlaneReconciler) ReconcileAPIServerDeployment(ctx context.Contex
 	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(deployment), deployment, &client.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			deployment, err = r.generateAPIServerDeployment(namespace, name)
+			deployment, err = r.generateAPIServerDeployment(namespace, hcp.Name)
 			if err != nil {
 				return err
 			}
-			util.EnsureOwnerRef(deployment, owner)
-			err = r.Client.Create(context.TODO(), deployment, &client.CreateOptions{})
-			if err != nil {
+			if err := controllerutil.SetControllerReference(hcp, deployment, r.Scheme); err != nil {
+				return err
+			}
+			if err = r.Client.Create(context.TODO(), deployment, &client.CreateOptions{}); err != nil {
 				return err
 			}
 		}
@@ -68,12 +69,12 @@ func (r *ControlPlaneReconciler) ReconcileAPIServerDeployment(ctx context.Contex
 	return nil
 }
 
-func (r *ControlPlaneReconciler) ReconcileCMDeployment(ctx context.Context, name string, owner *metav1.OwnerReference) error {
+func (r *ControlPlaneReconciler) ReconcileCMDeployment(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
 	_ = clog.FromContext(ctx)
-	namespace := util.GenerateNamespaceFromControlPlaneName(name)
+	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      CMDeploymentName,
+			Name:      util.CMDeploymentName,
 			Namespace: namespace,
 		},
 	}
@@ -81,13 +82,14 @@ func (r *ControlPlaneReconciler) ReconcileCMDeployment(ctx context.Context, name
 	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(deployment), deployment, &client.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			deployment, err = r.generateCMDeployment(name, namespace)
+			deployment, err = r.generateCMDeployment(hcp.Name, namespace)
 			if err != nil {
 				return err
 			}
-			util.EnsureOwnerRef(deployment, owner)
-			err = r.Client.Create(context.TODO(), deployment, &client.CreateOptions{})
-			if err != nil {
+			if err := controllerutil.SetControllerReference(hcp, deployment, r.Scheme); err != nil {
+				return err
+			}
+			if err = r.Client.Create(context.TODO(), deployment, &client.CreateOptions{}); err != nil {
 				return err
 			}
 		}
@@ -103,7 +105,7 @@ func (r *ControlPlaneReconciler) generateAPIServerDeployment(namespace, dbName s
 	}
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      APIServerDeploymentName,
+			Name:      util.APIServerDeploymentName,
 			Namespace: namespace,
 			Labels: map[string]string{
 				"component": "kube-apiserver",
@@ -263,7 +265,7 @@ func (r *ControlPlaneReconciler) generateAPIServerDeployment(namespace, dbName s
 func (r *ControlPlaneReconciler) generateCMDeployment(cpName, namespace string) (*appsv1.Deployment, error) {
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      CMDeploymentName,
+			Name:      util.CMDeploymentName,
 			Namespace: namespace,
 			Labels: map[string]string{
 				"component": "kube-controller-manager",

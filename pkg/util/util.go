@@ -24,10 +24,12 @@ import (
 )
 
 const (
-	ProjectName       = "kubeflex"
-	DBReleaseName     = "postgres"
-	SystemNamespace   = "kubeflex-system"
-	IngressSecurePort = "9443"
+	APIServerDeploymentName = "kube-apiserver"
+	CMDeploymentName        = "kube-controller-manager"
+	ProjectName             = "kubeflex"
+	DBReleaseName           = "postgres"
+	SystemNamespace         = "kubeflex-system"
+	IngressSecurePort       = "9443"
 )
 
 func GenerateNamespaceFromControlPlaneName(name string) string {
