@@ -25,7 +25,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	clog "sigs.k8s.io/controller-runtime/pkg/log"
+
+	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 )
 
 const (
@@ -36,14 +39,14 @@ var (
 	pathTypePrefix = networkingv1.PathTypePrefix
 )
 
-func (r *ControlPlaneReconciler) ReconcileAPIServerIngress(ctx context.Context, name string, owner *metav1.OwnerReference) error {
+func (r *ControlPlaneReconciler) ReconcileAPIServerIngress(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
 	_ = clog.FromContext(ctx)
-	namespace := util.GenerateNamespaceFromControlPlaneName(name)
+	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
 
 	// create service object
 	ingress := &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
+			Name:      hcp.Name,
 			Namespace: namespace,
 		},
 	}
@@ -51,10 +54,11 @@ func (r *ControlPlaneReconciler) ReconcileAPIServerIngress(ctx context.Context, 
 	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(ingress), ingress, &client.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			ingress = generateAPIServerIngress(name, namespace)
-			util.EnsureOwnerRef(ingress, owner)
-			err = r.Client.Create(context.TODO(), ingress, &client.CreateOptions{})
-			if err != nil {
+			ingress = generateAPIServerIngress(hcp.Name, namespace)
+			if err := controllerutil.SetControllerReference(hcp, ingress, r.Scheme); err != nil {
+				return nil
+			}
+			if err = r.Client.Create(context.TODO(), ingress, &client.CreateOptions{}); err != nil {
 				return err
 			}
 		}

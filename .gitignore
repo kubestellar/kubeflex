@@ -19,3 +19,4 @@ _certs
 bin
 dist/
 *.tgz
+.DS_Store

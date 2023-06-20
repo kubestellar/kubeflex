@@ -18,24 +18,20 @@ package controller
 
 import (
 	"context"
-	"fmt"
-	"time"
 
+	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	clog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/certs"
+	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
 // ControlPlaneReconciler reconciles a ControlPlane object
@@ -80,92 +76,86 @@ func (r *ControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, err
 	}
 	hcp := hostedControlPlane.DeepCopy()
-	ownerRef := &v1.OwnerReference{
-		Kind:       hcp.Kind,
-		APIVersion: hcp.APIVersion,
-		Name:       hcp.Name,
-		UID:        hcp.UID,
-	}
-	confGen := certs.ConfigGen{
-		CpName: hcp.Name,
-		CpHost: hcp.Name,
-		CpPort: SecurePort,
+
+	// check if API server is already in a ready state
+	ready, _ := util.IsAPIServerDeploymentReady(r.Client, *hcp)
+	if ready {
+		tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionAvailable())
+	} else {
+		tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionUnavailable())
 	}
 
-	if err = r.ReconcileNamespace(ctx, hcp.Name, ownerRef); err != nil {
-		return ctrl.Result{}, err
+	if err = r.ReconcileNamespace(ctx, hcp); err != nil {
+		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
-	crts, err := r.ReconcileCertsSecret(ctx, hcp.Name, ownerRef)
+	crts, err := r.ReconcileCertsSecret(ctx, hcp)
 	if err != nil {
-		return ctrl.Result{}, err
+		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
 	// reconcile kubeconfig for admin
+	confGen := certs.ConfigGen{CpName: hcp.Name, CpHost: hcp.Name, CpPort: SecurePort}
 	confGen.Target = certs.Admin
-	if err = r.ReconcileKubeconfigSecret(ctx, crts, confGen, ownerRef); err != nil {
-		return ctrl.Result{}, err
+	if err = r.ReconcileKubeconfigSecret(ctx, crts, confGen, hcp); err != nil {
+		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
 	// reconcile kubeconfig for cm
 	confGen.Target = certs.ControllerManager
 	confGen.CpHost = hcp.Name
-	if err = r.ReconcileKubeconfigSecret(ctx, crts, confGen, ownerRef); err != nil {
-		return ctrl.Result{}, err
+	if err = r.ReconcileKubeconfigSecret(ctx, crts, confGen, hcp); err != nil {
+		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
-	if err = r.ReconcileAPIServerDeployment(ctx, hcp.Name, ownerRef); err != nil {
-		return ctrl.Result{}, err
+	if err = r.ReconcileAPIServerDeployment(ctx, hcp); err != nil {
+		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
-	if err = r.ReconcileAPIServerService(ctx, hcp.Name, ownerRef); err != nil {
-		return ctrl.Result{}, err
+	if err = r.ReconcileAPIServerService(ctx, hcp); err != nil {
+		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
-	if err = r.ReconcileAPIServerIngress(ctx, hcp.Name, ownerRef); err != nil {
-		return ctrl.Result{}, err
+	if err = r.ReconcileAPIServerIngress(ctx, hcp); err != nil {
+		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
-	if err = r.ReconcileCMDeployment(ctx, hcp.Name, ownerRef); err != nil {
-		return ctrl.Result{}, err
+	if err = r.ReconcileCMDeployment(ctx, hcp); err != nil {
+		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
-	log.Info("Hosted control plane", "my-name-is", hcp.Name)
-
-	return ctrl.Result{}, nil
+	return r.UpdateStatusForSyncingSuccess(ctx, hcp)
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ControlPlaneReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	b := ctrl.NewControllerManagedBy(mgr).
+	return ctrl.NewControllerManagedBy(mgr).
 		For(&tenancyv1alpha1.ControlPlane{}).
-		WithOptions(controller.Options{
-			RateLimiter: workqueue.NewItemExponentialFailureRateLimiter(1*time.Second, 10*time.Second),
-		})
-	for _, handler := range r.eventHandlers() {
-		b.Watches(handler.obj, handler.handler)
-	}
-	if _, err := b.Build(r); err != nil {
-		return fmt.Errorf("failed setting up with a controller manager %w", err)
-	}
-	return nil
+		Owns(&corev1.Service{}).
+		Owns(&networkingv1.Ingress{}).
+		Owns(&appsv1.Deployment{}).
+		Owns(&appsv1.StatefulSet{}).
+		Owns(&corev1.Secret{}).
+		Owns(&corev1.ConfigMap{}).
+		Owns(&corev1.ServiceAccount{}).
+		Complete(r)
 }
 
-type eventHandler struct {
-	obj     client.Object
-	handler handler.EventHandler
+func (r *ControlPlaneReconciler) UpdateStatusForSyncingError(hcp *tenancyv1alpha1.ControlPlane, e error) (ctrl.Result, error) {
+	tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionReconcileError(e))
+	err := r.Status().Update(context.Background(), hcp)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrap(e, err.Error())
+	}
+	return ctrl.Result{}, err
 }
 
-func (r *ControlPlaneReconciler) eventHandlers() []eventHandler {
-
-	handlers := []eventHandler{
-		{obj: &corev1.Service{}, handler: handler.EnqueueRequestForOwner(r.Scheme, r.RESTMapper(), &corev1.Service{}, handler.OnlyControllerOwner())},
-		{obj: &networkingv1.Ingress{}, handler: handler.EnqueueRequestForOwner(r.Scheme, r.RESTMapper(), &networkingv1.Ingress{}, handler.OnlyControllerOwner())},
-		{obj: &appsv1.Deployment{}, handler: handler.EnqueueRequestForOwner(r.Scheme, r.RESTMapper(), &appsv1.Deployment{}, handler.OnlyControllerOwner())},
-		{obj: &appsv1.StatefulSet{}, handler: handler.EnqueueRequestForOwner(r.Scheme, r.RESTMapper(), &appsv1.StatefulSet{}, handler.OnlyControllerOwner())},
-		{obj: &corev1.Secret{}, handler: handler.EnqueueRequestForOwner(r.Scheme, r.RESTMapper(), &corev1.Secret{}, handler.OnlyControllerOwner())},
-		{obj: &corev1.ConfigMap{}, handler: handler.EnqueueRequestForOwner(r.Scheme, r.RESTMapper(), &corev1.ConfigMap{}, handler.OnlyControllerOwner())},
-		{obj: &corev1.ServiceAccount{}, handler: handler.EnqueueRequestForOwner(r.Scheme, r.RESTMapper(), &corev1.ServiceAccount{}, handler.OnlyControllerOwner())},
+func (r *ControlPlaneReconciler) UpdateStatusForSyncingSuccess(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
+	_ = clog.FromContext(ctx)
+	tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionReconcileSuccess())
+	err := r.Status().Update(context.Background(), hcp)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
-	return handlers
+	return ctrl.Result{}, err
 }

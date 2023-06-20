@@ -38,9 +38,8 @@ type ControlPlaneCondition struct {
 }
 
 // areConditionsEqual compares two ControlPlaneCondition structs and
-// returns true if they are equal (excluding LastTransitionTime
-//
-//	and LastUpdateTime), false otherwise.
+// returns true if they are equal (excluding LastTransitionTime and LastUpdateTime),
+// false otherwise.
 func AreConditionsEqual(c1, c2 ControlPlaneCondition) bool {
 	if c1.Type != c2.Type || c1.Status != c2.Status || c1.Reason != c2.Reason || c1.Message != c2.Message {
 		return false
@@ -100,4 +99,87 @@ func AreConditionSlicesSame(c1, c2 []ControlPlaneCondition) bool {
 		}
 	}
 	return true
+}
+
+func EnsureCondition(cp *ControlPlane, newCondition ControlPlaneCondition) {
+	if cp.Status.Conditions == nil {
+		cp.Status.Conditions = []ControlPlaneCondition{}
+	}
+	cp.Status.Conditions = SetCondition(cp.Status.Conditions, newCondition)
+}
+
+// Creating returns a condition that indicates the cp is currently
+// being created.
+func ConditionCreating() ControlPlaneCondition {
+	return ControlPlaneCondition{
+		Type:               TypeReady,
+		Status:             corev1.ConditionFalse,
+		LastTransitionTime: metav1.Now(),
+		LastUpdateTime:     metav1.Now(),
+		Reason:             ReasonCreating,
+	}
+}
+
+// Deleting returns a condition that indicates the cp is currently
+// being deleted.
+func ConditionDeleting() ControlPlaneCondition {
+	return ControlPlaneCondition{
+		Type:               TypeReady,
+		Status:             corev1.ConditionFalse,
+		LastTransitionTime: metav1.Now(),
+		LastUpdateTime:     metav1.Now(),
+		Reason:             ReasonDeleting,
+	}
+}
+
+// Available returns a condition that indicates the resource is
+// currently observed to be available for use.
+func ConditionAvailable() ControlPlaneCondition {
+	return ControlPlaneCondition{
+		Type:               TypeReady,
+		Status:             corev1.ConditionTrue,
+		LastTransitionTime: metav1.Now(),
+		LastUpdateTime:     metav1.Now(),
+		Reason:             ReasonAvailable,
+	}
+}
+
+// Unavailable returns a condition that indicates the resource is not
+// currently available for use.
+func ConditionUnavailable() ControlPlaneCondition {
+	return ControlPlaneCondition{
+		Type:               TypeReady,
+		Status:             corev1.ConditionFalse,
+		LastTransitionTime: metav1.Now(),
+		LastUpdateTime:     metav1.Now(),
+		Reason:             ReasonUnavailable,
+	}
+}
+
+// ReconcileSuccess returns a condition indicating that KubeFlex reconciled the resource
+func ConditionReconcileSuccess() ControlPlaneCondition {
+	return ControlPlaneCondition{
+		Type:               TypeSynced,
+		Status:             corev1.ConditionTrue,
+		LastTransitionTime: metav1.Now(),
+		LastUpdateTime:     metav1.Now(),
+		Reason:             ReasonReconcileSuccess,
+	}
+}
+
+// ReconcileError returns a condition indicating that KubeFlex encountered an
+// error while reconciling the resource.
+func ConditionReconcileError(err error) ControlPlaneCondition {
+	return ControlPlaneCondition{
+		Type:               TypeSynced,
+		Status:             corev1.ConditionFalse,
+		LastTransitionTime: metav1.Now(),
+		LastUpdateTime:     metav1.Now(),
+		Reason:             ReasonReconcileError,
+		Message:            err.Error(),
+	}
+}
+
+func myAppend(list *[]string, value string) {
+	*list = append(*list, value)
 }

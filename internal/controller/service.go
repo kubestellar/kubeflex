@@ -24,17 +24,20 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	clog "sigs.k8s.io/controller-runtime/pkg/log"
+
+	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 )
 
-func (r *ControlPlaneReconciler) ReconcileAPIServerService(ctx context.Context, name string, owner *metav1.OwnerReference) error {
+func (r *ControlPlaneReconciler) ReconcileAPIServerService(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
 	_ = clog.FromContext(ctx)
-	namespace := util.GenerateNamespaceFromControlPlaneName(name)
+	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
 
 	// create service object
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
+			Name:      hcp.Name,
 			Namespace: namespace,
 		},
 	}
@@ -42,8 +45,10 @@ func (r *ControlPlaneReconciler) ReconcileAPIServerService(ctx context.Context, 
 	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(service), service, &client.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			service := generateAPIServerService(name, namespace)
-			util.EnsureOwnerRef(service, owner)
+			service := generateAPIServerService(hcp.Name, namespace)
+			if err := controllerutil.SetControllerReference(hcp, service, r.Scheme); err != nil {
+				return nil
+			}
 			err = r.Client.Create(context.TODO(), service, &client.CreateOptions{})
 			if err != nil {
 				return err
@@ -62,7 +67,7 @@ func generateAPIServerService(name, namespace string) *corev1.Service {
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
-				"app": APIServerDeploymentName,
+				"app": util.APIServerDeploymentName,
 			},
 			Ports: []corev1.ServicePort{
 				{
