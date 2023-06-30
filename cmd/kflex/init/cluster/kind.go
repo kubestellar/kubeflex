@@ -75,6 +75,8 @@ func createKindInstance(name string) error {
 	// create a template for the kind config file
 	tmpl := template.Must(template.New("kind-config").Parse(`kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  ipFamily: dual
 nodes:
 - role: control-plane
   kubeadmConfigPatches:
