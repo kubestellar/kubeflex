@@ -20,16 +20,20 @@ import (
 	"fmt"
 	"strings"
 
+	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/client"
 )
 
 const (
 	APIServerDeploymentName = "kube-apiserver"
+	OCMServerDeploymentName = "multicluster-controlplane"
 	CMDeploymentName        = "kube-controller-manager"
 	ProjectName             = "kubeflex"
 	DBReleaseName           = "postgres"
 	SystemNamespace         = "kubeflex-system"
 	IngressSecurePort       = "9443"
+	AdminConfSecret         = "admin-kubeconfig"
+	OCMKubeConfigSecret     = "multicluster-controlplane-kubeconfig"
 )
 
 func GenerateNamespaceFromControlPlaneName(name string) string {
@@ -68,4 +72,28 @@ func GetKubernetesClusterVersionInfo(kubeconfig string) (string, error) {
 		return "", err
 	}
 	return serverVersion.String(), nil
+}
+
+func GetKubeconfSecretNameByControlPlaneType(controlPlaneType string) string {
+	switch controlPlaneType {
+	case string(tenancyv1alpha1.ControlPlaneTypeK8S):
+		return AdminConfSecret
+	case string(tenancyv1alpha1.ControlPlaneTypeOCM):
+		return OCMKubeConfigSecret
+	default:
+		// TODO - should we instead throw an error?
+		return AdminConfSecret
+	}
+}
+
+func GetAPIServerDeploymentNameByControlPlaneType(controlPlaneType string) string {
+	switch controlPlaneType {
+	case string(tenancyv1alpha1.ControlPlaneTypeK8S):
+		return APIServerDeploymentName
+	case string(tenancyv1alpha1.ControlPlaneTypeOCM):
+		return OCMServerDeploymentName
+	default:
+		// TODO - should we instead throw an error?
+		return APIServerDeploymentName
+	}
 }

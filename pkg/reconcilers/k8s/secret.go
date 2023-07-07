@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controller
+package k8s
 
 import (
 	"context"
@@ -31,7 +31,7 @@ import (
 	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
-func (r *ControlPlaneReconciler) ReconcileCertsSecret(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (*certs.Certs, error) {
+func (r *K8sReconciler) ReconcileCertsSecret(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (*certs.Certs, error) {
 	_ = clog.FromContext(ctx)
 	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
 
@@ -63,7 +63,7 @@ func (r *ControlPlaneReconciler) ReconcileCertsSecret(ctx context.Context, hcp *
 	return nil, nil
 }
 
-func (r *ControlPlaneReconciler) ReconcileKubeconfigSecret(ctx context.Context, crts *certs.Certs, conf certs.ConfigGen, hcp *tenancyv1alpha1.ControlPlane) error {
+func (r *K8sReconciler) ReconcileKubeconfigSecret(ctx context.Context, crts *certs.Certs, conf certs.ConfigGen, hcp *tenancyv1alpha1.ControlPlane) error {
 	// TODO - temp hack - we should make this independent of the certs gen.
 	// Should gen kconfig from certs secret otherwise it may fail if certs are not generated before this func
 	if crts == nil {

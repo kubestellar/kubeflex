@@ -27,12 +27,11 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/kubestellar/kubeflex/pkg/util"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-
-	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
 type ConfigTarget int
@@ -44,7 +43,6 @@ const (
 	AdminCN          = "kubernetes-admin"
 	Organization     = "system:masters"
 	ContrCMCN        = "system:kube-controller-manager"
-	AdminConfSecret  = "admin-kubeconfig"
 	CMConfSecret     = "cm-kubeconfig"
 	ConfSecretKey    = "kubeconfig"
 )
@@ -98,7 +96,7 @@ func (c *ConfigGen) generateConfigCerts() error {
 	case Admin:
 		subject = pkix.Name{CommonName: AdminCN, Organization: []string{Organization}}
 		c.authInfo = GenerateAuthInfoAdminName(c.CpName)
-		c.secretName = AdminConfSecret
+		c.secretName = util.AdminConfSecret
 	case ControllerManager:
 		subject = pkix.Name{CommonName: ContrCMCN}
 		c.authInfo = ContrCMCN

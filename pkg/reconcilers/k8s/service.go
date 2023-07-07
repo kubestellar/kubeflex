@@ -14,13 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controller
+package k8s
 
 import (
 	"context"
 
 	"github.com/kubestellar/kubeflex/pkg/util"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -28,30 +28,55 @@ import (
 	clog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
+	"github.com/kubestellar/kubeflex/pkg/reconcilers/shared"
 )
 
-func (r *ControlPlaneReconciler) ReconcileNamespace(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
+func (r *K8sReconciler) ReconcileAPIServerService(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
 	_ = clog.FromContext(ctx)
 	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
 
-	// create namespace object
-	ns := &v1.Namespace{
+	// create service object
+	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: namespace,
+			Name:      hcp.Name,
+			Namespace: namespace,
 		},
 	}
 
-	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(ns), ns, &client.GetOptions{})
+	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(service), service, &client.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			if err := controllerutil.SetControllerReference(hcp, ns, r.Scheme); err != nil {
-				return err
+			service := generateAPIServerService(hcp.Name, namespace)
+			if err := controllerutil.SetControllerReference(hcp, service, r.Scheme); err != nil {
+				return nil
 			}
-			if err = r.Client.Create(context.TODO(), ns, &client.CreateOptions{}); err != nil {
+			err = r.Client.Create(context.TODO(), service, &client.CreateOptions{})
+			if err != nil {
 				return err
 			}
 		}
 		return err
 	}
 	return nil
+}
+
+func generateAPIServerService(name, namespace string) *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: map[string]string{
+				"app": util.APIServerDeploymentName,
+			},
+			Ports: []corev1.ServicePort{
+				{
+					Port:     shared.SecurePort,
+					Name:     "https",
+					Protocol: "TCP",
+				},
+			},
+		},
+	}
 }

@@ -14,12 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controller
+package shared
 
 import (
 	"context"
 
-	"github.com/kubestellar/kubeflex/pkg/util"
 	networkingv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,6 +28,7 @@ import (
 	clog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
+	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
 const (
@@ -39,14 +39,18 @@ var (
 	pathTypePrefix = networkingv1.PathTypePrefix
 )
 
-func (r *ControlPlaneReconciler) ReconcileAPIServerIngress(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
+func (r *BaseReconciler) ReconcileAPIServerIngress(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane, svcName string) error {
 	_ = clog.FromContext(ctx)
 	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
+
+	if svcName == "" {
+		svcName = hcp.Name
+	}
 
 	// create service object
 	ingress := &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      hcp.Name,
+			Name:      svcName,
 			Namespace: namespace,
 		},
 	}
@@ -54,7 +58,7 @@ func (r *ControlPlaneReconciler) ReconcileAPIServerIngress(ctx context.Context, 
 	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(ingress), ingress, &client.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			ingress = generateAPIServerIngress(hcp.Name, namespace)
+			ingress = generateAPIServerIngress(hcp.Name, svcName, namespace)
 			if err := controllerutil.SetControllerReference(hcp, ingress, r.Scheme); err != nil {
 				return nil
 			}
@@ -67,7 +71,7 @@ func (r *ControlPlaneReconciler) ReconcileAPIServerIngress(ctx context.Context, 
 	return nil
 }
 
-func generateAPIServerIngress(name, namespace string) *networkingv1.Ingress {
+func generateAPIServerIngress(name, svcName, namespace string) *networkingv1.Ingress {
 	return &networkingv1.Ingress{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Ingress",
@@ -93,7 +97,7 @@ func generateAPIServerIngress(name, namespace string) *networkingv1.Ingress {
 									Path:     "/",
 									Backend: networkingv1.IngressBackend{
 										Service: &networkingv1.IngressServiceBackend{
-											Name: name,
+											Name: svcName,
 											Port: networkingv1.ServiceBackendPort{
 												Number: SecurePort,
 											},

@@ -48,6 +48,15 @@ spec:
             description: ControlPlaneSpec defines the desired state of ControlPlane
             properties:
               backend:
+                enum:
+                - shared
+                - dedicated
+                type: string
+              type:
+                enum:
+                - k8s
+                - ocm
+                - vcluster
                 type: string
             type: object
           status:

@@ -54,9 +54,36 @@ address is `kubeflex-control-plane`. For example, if I have a nodeport service o
 `kubeflex-control-plane` with port 30080 and I want to access it from another kind cluster
 the internal address to use is `https://kubeflex-control-plane:30080`
 
+### Commands to build ocm from fork
+
+```shell
+git clone https://github.com/pdettori/multicluster-controlplane.git
+cd multicluster-controlplane
+git checkout kubeflex
+make image
+docker tag quay.io/open-cluster-management/multicluster-controlplane:latest quay.io/pdettori/multicluster-controlplane:latest
+docker push quay.io/pdettori/multicluster-controlplane:latest
+```
 ### Commands to package and push a chart to a OCI registry
+
+First clone and build image as explained in [Commands to build ocm from fork](#commands-to-build-ocm-from-fork), then:
 
 ```shell
 helm package charts/multicluster-controlplane
 helm push multicluster-controlplane-chart-0.1.0.tgz oci://quay.io/pdettori
 ```
+
+### Commands to build and load locally the cmupdate image (for testing)
+
+```shell
+ko build --local --push=false -B ./cmd/cmupdate -t $(git rev-parse --short HEAD) --platform linux/arm64
+kind load docker-image ko.local/cmupdate:$(git rev-parse --short HEAD) --name kubeflex
+```
+### Commands to build and push the cmupdate image
+
+```shell
+ko build --local --push=false -B ./cmd/cmupdate -t latest --platform linux/amd64,linux/arm64 
+docker tag ko.local/cmupdate:latest quay.io/pdettori/cmupdate:latest
+docker push quay.io/pdettori/cmupdate:latest
+```
+
