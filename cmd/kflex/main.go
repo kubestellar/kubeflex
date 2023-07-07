@@ -23,6 +23,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
+	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/cmd/kflex/common"
 	cr "github.com/kubestellar/kubeflex/cmd/kflex/create"
 	cont "github.com/kubestellar/kubeflex/cmd/kflex/ctx"
@@ -39,6 +40,12 @@ var kubeconfig string
 var verbosity int
 var Version string
 var BuildDate string
+var CType string
+var BkType string
+
+// defaults
+const BKTypeDefault = string(tenancyv1alpha1.BackendDBTypeShared)
+const CTypeDefault = string(tenancyv1alpha1.ControlPlaneTypeK8S)
 
 var rootCmd = &cobra.Command{
 	Use:   "kflex",
@@ -90,7 +97,13 @@ var createCmd = &cobra.Command{
 				Kubeconfig: kubeconfig,
 			},
 		}
-		cp.Create()
+		if CType == "" {
+			CType = CTypeDefault
+		}
+		if BkType == "" {
+			BkType = BKTypeDefault
+		}
+		cp.Create(CType, BkType)
 	},
 }
 
@@ -144,6 +157,8 @@ func init() {
 
 	createCmd.Flags().StringVarP(&kubeconfig, "kubeconfig", "k", "", "path to kubeconfig file")
 	createCmd.Flags().IntVarP(&verbosity, "verbosity", "v", 0, "log level") // TODO - figure out how to inject verbosity
+	createCmd.Flags().StringVarP(&CType, "type", "t", "", "type of control plane: k8s|ocm|vcluster")
+	createCmd.Flags().StringVarP(&BkType, "backend-type", "b", "", "backend DB sharing: shared|dedicated")
 
 	deleteCmd.Flags().StringVarP(&kubeconfig, "kubeconfig", "k", "", "path to kubeconfig file")
 	deleteCmd.Flags().IntVarP(&verbosity, "verbosity", "v", 0, "log level") // TODO - figure out how to inject verbosity

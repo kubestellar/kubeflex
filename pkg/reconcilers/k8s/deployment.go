@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controller
+package k8s
 
 import (
 	"context"
@@ -32,15 +32,11 @@ import (
 	clog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
+	"github.com/kubestellar/kubeflex/pkg/reconcilers/shared"
 	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
-const (
-	SecurePort    = 9444
-	cmHealthzPort = 10257
-)
-
-func (r *ControlPlaneReconciler) ReconcileAPIServerDeployment(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
+func (r *K8sReconciler) ReconcileAPIServerDeployment(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
 	_ = clog.FromContext(ctx)
 	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
 	deployment := &appsv1.Deployment{
@@ -69,7 +65,7 @@ func (r *ControlPlaneReconciler) ReconcileAPIServerDeployment(ctx context.Contex
 	return nil
 }
 
-func (r *ControlPlaneReconciler) ReconcileCMDeployment(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
+func (r *K8sReconciler) ReconcileCMDeployment(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
 	_ = clog.FromContext(ctx)
 	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
 	deployment := &appsv1.Deployment{
@@ -98,7 +94,7 @@ func (r *ControlPlaneReconciler) ReconcileCMDeployment(ctx context.Context, hcp 
 	return nil
 }
 
-func (r *ControlPlaneReconciler) generateAPIServerDeployment(namespace, dbName string) (*appsv1.Deployment, error) {
+func (r *K8sReconciler) generateAPIServerDeployment(namespace, dbName string) (*appsv1.Deployment, error) {
 	dbPassword, err := r.getDBPassword()
 	if err != nil {
 		return nil, err
@@ -167,7 +163,7 @@ func (r *ControlPlaneReconciler) generateAPIServerDeployment(namespace, dbName s
 								"--requestheader-extra-headers-prefix=X-Remote-Extra-",
 								"--requestheader-group-headers=X-Remote-Group",
 								"--requestheader-username-headers=X-Remote-User",
-								fmt.Sprintf("--secure-port=%d", SecurePort),
+								fmt.Sprintf("--secure-port=%d", shared.SecurePort),
 								"--service-account-issuer=https://kubernetes.default.svc.cluster.local",
 								"--service-account-key-file=/etc/kubernetes/pki/sa.pub",
 								"--service-account-signing-key-file=/etc/kubernetes/pki/sa.key",
@@ -186,7 +182,7 @@ func (r *ControlPlaneReconciler) generateAPIServerDeployment(namespace, dbName s
 								},
 							},
 							Ports: []v1.ContainerPort{{
-								ContainerPort: SecurePort,
+								ContainerPort: shared.SecurePort,
 							}},
 							Resources: v1.ResourceRequirements{
 								Limits: v1.ResourceList{
@@ -203,7 +199,7 @@ func (r *ControlPlaneReconciler) generateAPIServerDeployment(namespace, dbName s
 								ProbeHandler: v1.ProbeHandler{
 									HTTPGet: &v1.HTTPGetAction{
 										Path:   "/livez",
-										Port:   intstr.FromInt(SecurePort),
+										Port:   intstr.FromInt(shared.SecurePort),
 										Scheme: v1.URISchemeHTTPS,
 									},
 								},
@@ -217,7 +213,7 @@ func (r *ControlPlaneReconciler) generateAPIServerDeployment(namespace, dbName s
 								ProbeHandler: v1.ProbeHandler{
 									HTTPGet: &v1.HTTPGetAction{
 										Path:   "/readyz",
-										Port:   intstr.FromInt(SecurePort),
+										Port:   intstr.FromInt(shared.SecurePort),
 										Scheme: v1.URISchemeHTTPS,
 									},
 								},
@@ -230,7 +226,7 @@ func (r *ControlPlaneReconciler) generateAPIServerDeployment(namespace, dbName s
 								ProbeHandler: v1.ProbeHandler{
 									HTTPGet: &v1.HTTPGetAction{
 										Path:   "/livez",
-										Port:   intstr.FromInt(SecurePort),
+										Port:   intstr.FromInt(shared.SecurePort),
 										Scheme: v1.URISchemeHTTPS,
 									},
 								},
@@ -262,7 +258,7 @@ func (r *ControlPlaneReconciler) generateAPIServerDeployment(namespace, dbName s
 	return deployment, nil
 }
 
-func (r *ControlPlaneReconciler) generateCMDeployment(cpName, namespace string) (*appsv1.Deployment, error) {
+func (r *K8sReconciler) generateCMDeployment(cpName, namespace string) (*appsv1.Deployment, error) {
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      util.CMDeploymentName,
@@ -293,7 +289,7 @@ func (r *ControlPlaneReconciler) generateCMDeployment(cpName, namespace string) 
 							ImagePullPolicy: v1.PullIfNotPresent,
 							Command: []string{
 								"kube-controller-manager",
-								fmt.Sprintf("--master=https://%s:%d", cpName, SecurePort),
+								fmt.Sprintf("--master=https://%s:%d", cpName, shared.SecurePort),
 								"--authentication-kubeconfig=/etc/kubernetes/kubeconfig",
 								"--authorization-kubeconfig=/etc/kubernetes/kubeconfig",
 								"--bind-address=0.0.0.0",
@@ -310,7 +306,7 @@ func (r *ControlPlaneReconciler) generateCMDeployment(cpName, namespace string) 
 								"--use-service-account-credentials=true",
 							},
 							Ports: []v1.ContainerPort{{
-								ContainerPort: SecurePort,
+								ContainerPort: shared.SecurePort,
 							}},
 							Resources: v1.ResourceRequirements{
 								Limits: v1.ResourceList{
@@ -327,7 +323,7 @@ func (r *ControlPlaneReconciler) generateCMDeployment(cpName, namespace string) 
 								ProbeHandler: v1.ProbeHandler{
 									HTTPGet: &v1.HTTPGetAction{
 										Path:   "/healthz",
-										Port:   intstr.FromInt(cmHealthzPort),
+										Port:   intstr.FromInt(shared.CMHealthzPort),
 										Scheme: v1.URISchemeHTTPS,
 									},
 								},
@@ -340,7 +336,7 @@ func (r *ControlPlaneReconciler) generateCMDeployment(cpName, namespace string) 
 								ProbeHandler: v1.ProbeHandler{
 									HTTPGet: &v1.HTTPGetAction{
 										Path:   "/healthz",
-										Port:   intstr.FromInt(cmHealthzPort),
+										Port:   intstr.FromInt(shared.CMHealthzPort),
 										Scheme: v1.URISchemeHTTPS,
 									},
 								},
@@ -387,7 +383,7 @@ func (r *ControlPlaneReconciler) generateCMDeployment(cpName, namespace string) 
 	return deployment, nil
 }
 
-func (r *ControlPlaneReconciler) getDBPassword() (string, error) {
+func (r *K8sReconciler) getDBPassword() (string, error) {
 	// create certs secret object
 	pSecret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{

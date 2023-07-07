@@ -179,7 +179,3 @@ func ConditionReconcileError(err error) ControlPlaneCondition {
 		Message:            err.Error(),
 	}
 }
-
-func myAppend(list *[]string, value string) {
-	*list = append(*list, value)
-}

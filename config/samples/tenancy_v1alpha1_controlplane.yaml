@@ -9,4 +9,5 @@ metadata:
     app.kubernetes.io/created-by: kubeflex
   name: cp1
 spec:
+  type: k8s
   backend: shared

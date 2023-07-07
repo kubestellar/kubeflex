@@ -18,8 +18,8 @@ package controller
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -30,7 +30,8 @@ import (
 	clog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
-	"github.com/kubestellar/kubeflex/pkg/certs"
+	"github.com/kubestellar/kubeflex/pkg/reconcilers/k8s"
+	"github.com/kubestellar/kubeflex/pkg/reconcilers/ocm"
 	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
@@ -85,46 +86,17 @@ func (r *ControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionUnavailable())
 	}
 
-	if err = r.ReconcileNamespace(ctx, hcp); err != nil {
-		return r.UpdateStatusForSyncingError(hcp, err)
+	// select the reconciler to use for the type of control plane
+	switch hcp.Spec.Type {
+	case tenancyv1alpha1.ControlPlaneTypeK8S:
+		reconciler := k8s.New(r.Client, r.Scheme)
+		return reconciler.Reconcile(ctx, hcp)
+	case tenancyv1alpha1.ControlPlaneTypeOCM:
+		reconciler := ocm.New(r.Client, r.Scheme)
+		return reconciler.Reconcile(ctx, hcp)
+	default:
+		return ctrl.Result{}, fmt.Errorf("unsupported control plane type: %s", hcp.Spec.Type)
 	}
-
-	crts, err := r.ReconcileCertsSecret(ctx, hcp)
-	if err != nil {
-		return r.UpdateStatusForSyncingError(hcp, err)
-	}
-
-	// reconcile kubeconfig for admin
-	confGen := certs.ConfigGen{CpName: hcp.Name, CpHost: hcp.Name, CpPort: SecurePort}
-	confGen.Target = certs.Admin
-	if err = r.ReconcileKubeconfigSecret(ctx, crts, confGen, hcp); err != nil {
-		return r.UpdateStatusForSyncingError(hcp, err)
-	}
-
-	// reconcile kubeconfig for cm
-	confGen.Target = certs.ControllerManager
-	confGen.CpHost = hcp.Name
-	if err = r.ReconcileKubeconfigSecret(ctx, crts, confGen, hcp); err != nil {
-		return r.UpdateStatusForSyncingError(hcp, err)
-	}
-
-	if err = r.ReconcileAPIServerDeployment(ctx, hcp); err != nil {
-		return r.UpdateStatusForSyncingError(hcp, err)
-	}
-
-	if err = r.ReconcileAPIServerService(ctx, hcp); err != nil {
-		return r.UpdateStatusForSyncingError(hcp, err)
-	}
-
-	if err = r.ReconcileAPIServerIngress(ctx, hcp); err != nil {
-		return r.UpdateStatusForSyncingError(hcp, err)
-	}
-
-	if err = r.ReconcileCMDeployment(ctx, hcp); err != nil {
-		return r.UpdateStatusForSyncingError(hcp, err)
-	}
-
-	return r.UpdateStatusForSyncingSuccess(ctx, hcp)
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -139,23 +111,4 @@ func (r *ControlPlaneReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.ServiceAccount{}).
 		Complete(r)
-}
-
-func (r *ControlPlaneReconciler) UpdateStatusForSyncingError(hcp *tenancyv1alpha1.ControlPlane, e error) (ctrl.Result, error) {
-	tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionReconcileError(e))
-	err := r.Status().Update(context.Background(), hcp)
-	if err != nil {
-		return ctrl.Result{}, errors.Wrap(e, err.Error())
-	}
-	return ctrl.Result{}, err
-}
-
-func (r *ControlPlaneReconciler) UpdateStatusForSyncingSuccess(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
-	_ = clog.FromContext(ctx)
-	tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionReconcileSuccess())
-	err := r.Status().Update(context.Background(), hcp)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	return ctrl.Result{}, err
 }

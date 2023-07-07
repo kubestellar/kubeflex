@@ -17,14 +17,13 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"fmt"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // ControlPlaneSpec defines the desired state of ControlPlane
 type ControlPlaneSpec struct {
-	Backend BackendDBType `json:"backend,omitempty" validate:"required,BackendDBType"`
+	Type    ControlPlaneType `json:"type,omitempty"`
+	Backend BackendDBType    `json:"backend,omitempty"`
 }
 
 // ControlPlaneStatus defines the observed state of ControlPlane
@@ -57,6 +56,7 @@ type ControlPlaneList struct {
 	Items           []ControlPlane `json:"items"`
 }
 
+// +kubebuilder:validation:Enum=shared;dedicated
 type BackendDBType string
 
 const (
@@ -64,13 +64,14 @@ const (
 	BackendDBTypeDedicated BackendDBType = "dedicated"
 )
 
-func (b BackendDBType) Validate() error {
-	switch b {
-	case BackendDBTypeShared, BackendDBTypeDedicated:
-		return nil
-	}
-	return fmt.Errorf("invalid value for BackendDBType: %s", string(b))
-}
+// +kubebuilder:validation:Enum=k8s;ocm;vcluster
+type ControlPlaneType string
+
+const (
+	ControlPlaneTypeK8S      ControlPlaneType = "k8s"
+	ControlPlaneTypeOCM      ControlPlaneType = "ocm"
+	ControlPlaneTypeVCluster ControlPlaneType = "vcluster"
+)
 
 func init() {
 	SchemeBuilder.Register(&ControlPlane{}, &ControlPlaneList{})

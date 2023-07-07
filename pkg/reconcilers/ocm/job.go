@@ -14,15 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controller
+package ocm
 
 import (
 	"context"
 
 	"github.com/kubestellar/kubeflex/pkg/util"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	clog "sigs.k8s.io/controller-runtime/pkg/log"
@@ -30,26 +32,31 @@ import (
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 )
 
-func (r *ControlPlaneReconciler) ReconcileAPIServerService(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
+const (
+	jobName = "update-cluster-info"
+	image   = "quay.io/pdettori/cmupdate:latest"
+)
+
+func (r *OCMReconciler) ReconcileUpdateClusterInfoJob(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
 	_ = clog.FromContext(ctx)
 	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
 
-	// create service object
-	service := &corev1.Service{
+	// create job object
+	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      hcp.Name,
+			Name:      jobName,
 			Namespace: namespace,
 		},
 	}
 
-	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(service), service, &client.GetOptions{})
+	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(job), job, &client.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			service := generateAPIServerService(hcp.Name, namespace)
-			if err := controllerutil.SetControllerReference(hcp, service, r.Scheme); err != nil {
+			job := generateClusterInfoJob(jobName, namespace)
+			if err := controllerutil.SetControllerReference(hcp, job, r.Scheme); err != nil {
 				return nil
 			}
-			err = r.Client.Create(context.TODO(), service, &client.CreateOptions{})
+			err = r.Client.Create(context.TODO(), job, &client.CreateOptions{})
 			if err != nil {
 				return err
 			}
@@ -59,21 +66,34 @@ func (r *ControlPlaneReconciler) ReconcileAPIServerService(ctx context.Context, 
 	return nil
 }
 
-func generateAPIServerService(name, namespace string) *corev1.Service {
-	return &corev1.Service{
+func generateClusterInfoJob(name, namespace string) *batchv1.Job {
+	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
-		Spec: corev1.ServiceSpec{
-			Selector: map[string]string{
-				"app": util.APIServerDeploymentName,
-			},
-			Ports: []corev1.ServicePort{
-				{
-					Port:     SecurePort,
-					Name:     "https",
-					Protocol: "TCP",
+		Spec: batchv1.JobSpec{
+			BackoffLimit: pointer.Int32(3),
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:            name,
+							Image:           image,
+							ImagePullPolicy: corev1.PullIfNotPresent,
+							Env: []corev1.EnvVar{
+								{
+									Name: "KUBERNETES_NAMESPACE",
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											FieldPath: "metadata.namespace",
+										},
+									},
+								},
+							},
+						},
+					},
+					RestartPolicy: corev1.RestartPolicyNever,
 				},
 			},
 		},

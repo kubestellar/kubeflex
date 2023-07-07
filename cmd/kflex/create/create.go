@@ -28,7 +28,6 @@ import (
 
 	"github.com/kubestellar/kubeflex/cmd/kflex/common"
 	cont "github.com/kubestellar/kubeflex/cmd/kflex/ctx"
-	"github.com/kubestellar/kubeflex/pkg/certs"
 	kfclient "github.com/kubestellar/kubeflex/pkg/client"
 	"github.com/kubestellar/kubeflex/pkg/kubeconfig"
 	"github.com/kubestellar/kubeflex/pkg/util"
@@ -38,7 +37,7 @@ type CPCreate struct {
 	common.CP
 }
 
-func (c *CPCreate) Create() {
+func (c *CPCreate) Create(controlPlaneType, backendType string) {
 	done := make(chan bool)
 	var wg sync.WaitGroup
 	cx := cont.CPCtx{}
@@ -46,7 +45,7 @@ func (c *CPCreate) Create() {
 
 	cl := *(kfclient.GetClient(c.Kubeconfig))
 
-	cp := c.generateControlPlane()
+	cp := c.generateControlPlane(controlPlaneType, backendType)
 
 	util.PrintStatus(fmt.Sprintf("Creating new control plane %s...", c.Name), done, &wg)
 	if err := cl.Create(context.TODO(), cp, &client.CreateOptions{}); err != nil {
@@ -58,15 +57,18 @@ func (c *CPCreate) Create() {
 	clientset := *(kfclient.GetClientSet(c.Kubeconfig))
 
 	util.PrintStatus("Waiting for API server to become ready...", done, &wg)
-	kubeconfig.WatchForSecretCreation(clientset, c.Name, certs.AdminConfSecret)
+	kubeconfig.WatchForSecretCreation(clientset, c.Name, util.GetKubeconfSecretNameByControlPlaneType(controlPlaneType))
 
-	if err := util.WaitForDeploymentReady(clientset, "kube-apiserver", util.GenerateNamespaceFromControlPlaneName(cp.Name)); err != nil {
+	if err := util.WaitForDeploymentReady(clientset,
+		util.GetAPIServerDeploymentNameByControlPlaneType(controlPlaneType),
+		util.GenerateNamespaceFromControlPlaneName(cp.Name)); err != nil {
+
 		fmt.Fprintf(os.Stderr, "Error waiting for deployment to become ready: %v\n", err)
 		os.Exit(1)
 	}
 	done <- true
 
-	if err := kubeconfig.LoadAndMerge(c.Ctx, clientset, c.Name); err != nil {
+	if err := kubeconfig.LoadAndMerge(c.Ctx, clientset, c.Name, controlPlaneType); err != nil {
 		fmt.Fprintf(os.Stderr, "Error loading and merging kubeconfig: %v\n", err)
 		os.Exit(1)
 	}
@@ -74,10 +76,14 @@ func (c *CPCreate) Create() {
 	wg.Wait()
 }
 
-func (c *CPCreate) generateControlPlane() *tenancyv1alpha1.ControlPlane {
+func (c *CPCreate) generateControlPlane(controlPlaneType, backendType string) *tenancyv1alpha1.ControlPlane {
 	return &tenancyv1alpha1.ControlPlane{
 		ObjectMeta: v1.ObjectMeta{
 			Name: c.Name,
+		},
+		Spec: tenancyv1alpha1.ControlPlaneSpec{
+			Type:    tenancyv1alpha1.ControlPlaneType(controlPlaneType),
+			Backend: tenancyv1alpha1.BackendDBType(backendType),
 		},
 	}
 }

@@ -27,15 +27,17 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
+	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/certs"
 	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
-func LoadAndMerge(ctx context.Context, client kubernetes.Clientset, name string) error {
-	cpKonfig, err := loadControlPlaneKubeconfig(ctx, client, name)
+func LoadAndMerge(ctx context.Context, client kubernetes.Clientset, name, controlPlaneType string) error {
+	cpKonfig, err := loadControlPlaneKubeconfig(ctx, client, name, controlPlaneType)
 	if err != nil {
 		return err
 	}
+	adjustConfigKeys(cpKonfig, name, controlPlaneType)
 
 	konfig, err := LoadKubeconfig(ctx)
 	if err != nil {
@@ -50,10 +52,12 @@ func LoadAndMerge(ctx context.Context, client kubernetes.Clientset, name string)
 	return WriteKubeconfig(ctx, konfig)
 }
 
-func loadControlPlaneKubeconfig(ctx context.Context, client kubernetes.Clientset, name string) (*clientcmdapi.Config, error) {
+func loadControlPlaneKubeconfig(ctx context.Context, client kubernetes.Clientset, name, controlPlaneType string) (*clientcmdapi.Config, error) {
 	namespace := util.GenerateNamespaceFromControlPlaneName(name)
 
-	ks, err := client.CoreV1().Secrets(namespace).Get(ctx, certs.AdminConfSecret, metav1.GetOptions{})
+	ks, err := client.CoreV1().Secrets(namespace).Get(ctx,
+		util.GetKubeconfSecretNameByControlPlaneType(controlPlaneType),
+		metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -71,8 +75,8 @@ func WriteKubeconfig(ctx context.Context, config *clientcmdapi.Config) error {
 	return clientcmd.WriteToFile(*config, kubeconfig)
 }
 
-func WatchForSecretCreation(clientset kubernetes.Clientset, name, secretName string) error {
-	namespace := util.GenerateNamespaceFromControlPlaneName(name)
+func WatchForSecretCreation(clientset kubernetes.Clientset, controlPlaneName, secretName string) error {
+	namespace := util.GenerateNamespaceFromControlPlaneName(controlPlaneName)
 
 	listwatch := cache.NewListWatchFromClient(
 		clientset.CoreV1().RESTClient(),
@@ -100,4 +104,43 @@ func WatchForSecretCreation(clientset kubernetes.Clientset, name, secretName str
 	go controller.Run(stopCh)
 	<-stopCh
 	return nil
+}
+
+func adjustConfigKeys(config *clientcmdapi.Config, cpName, controlPlaneType string) {
+	switch controlPlaneType {
+	case string(tenancyv1alpha1.ControlPlaneTypeOCM):
+		renameKey(config.Clusters, "multicluster-controlplane", certs.GenerateClusterName(cpName))
+		renameKey(config.AuthInfos, "user", certs.GenerateAuthInfoAdminName(cpName))
+		renameKey(config.Contexts, "multicluster-controlplane", certs.GenerateContextName(cpName))
+		config.CurrentContext = certs.GenerateContextName(cpName)
+		config.Contexts[certs.GenerateContextName(cpName)] = &clientcmdapi.Context{
+			Cluster:  certs.GenerateClusterName(cpName),
+			AuthInfo: certs.GenerateAuthInfoAdminName(cpName),
+		}
+	default:
+		return
+	}
+}
+
+func renameKey(m interface{}, oldKey string, newKey string) interface{} {
+	switch v := m.(type) {
+	case map[string]*clientcmdapi.Cluster:
+		if cluster, ok := v[oldKey]; ok {
+			delete(v, oldKey)
+			v[newKey] = cluster
+		}
+	case map[string]*clientcmdapi.AuthInfo:
+		if authInfo, ok := v[oldKey]; ok {
+			delete(v, oldKey)
+			v[newKey] = authInfo
+		}
+	case map[string]*clientcmdapi.Context:
+		if context, ok := v[oldKey]; ok {
+			delete(v, oldKey)
+			v[newKey] = context
+		}
+	default:
+		// no action
+	}
+	return m
 }
