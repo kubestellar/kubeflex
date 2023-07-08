@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package ocm
+package vcluster
 
 import (
 	"context"
@@ -26,25 +26,36 @@ import (
 	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
+// helm upgrade --install <controlplane-name> vcluster \
+//   --set vcluster.image=rancher/k3s:v1.27.2-k3s1 \
+//   --repo https://charts.loft.sh \
+//   --namespace <controlplane-name>-system \
+//   --repository-config='' \
+//   --create-namespace
+
+// Need also
+// syncer:
+//   extraArgs:
+//   - --tls-san=<controlplane-name>.localtest.me
+//   - --out-kube-config-server=https://<controlplane-name>.localtest.me:9443
+
 const (
-	URL         = "oci://quay.io/pdettori/multicluster-controlplane-chart:0.1.0"
-	RepoName    = "multicluster-controlplane"
-	ChartName   = "multicluster-controlplane-chart"
-	ReleaseName = "multicluster-controlplane"
+	URL         = "https://charts.loft.sh"
+	RepoName    = "loft"
+	ChartName   = "vcluster"
+	ReleaseName = "vcluster"
 )
 
 var (
 	configs = []string{
-		"image=quay.io/pdettori/multicluster-controlplane:latest",
-		"route.enabled=false",
-		"apiserver.internalHostname=kubeflex-control-plane",
-		"apiserver.port=9443",
-		"nodeport.enabled=false",
+		"vcluster.image=rancher/k3s:v1.27.2-k3s1",
 	}
 )
 
-func (r *OCMReconciler) ReconcileChart(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
-	configs = append(configs, fmt.Sprintf("apiserver.externalHostname=%s", util.GenerateDevLocalDNSName(hcp.Name)))
+func (r *VClusterReconciler) ReconcileChart(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
+	localDNSName := util.GenerateDevLocalDNSName(hcp.Name)
+	configs = append(configs, fmt.Sprintf("syncer.extraArgs[0]=--tls-san=%s", localDNSName))
+	configs = append(configs, fmt.Sprintf("syncer.extraArgs[1]=--out-kube-config-server=https://%s:9443", localDNSName))
 	h := &helm.HelmHandler{
 		URL:         URL,
 		RepoName:    RepoName,

@@ -25,15 +25,19 @@ import (
 )
 
 const (
-	APIServerDeploymentName = "kube-apiserver"
-	OCMServerDeploymentName = "multicluster-controlplane"
-	CMDeploymentName        = "kube-controller-manager"
-	ProjectName             = "kubeflex"
-	DBReleaseName           = "postgres"
-	SystemNamespace         = "kubeflex-system"
-	IngressSecurePort       = "9443"
-	AdminConfSecret         = "admin-kubeconfig"
-	OCMKubeConfigSecret     = "multicluster-controlplane-kubeconfig"
+	APIServerDeploymentName      = "kube-apiserver"
+	OCMServerDeploymentName      = "multicluster-controlplane"
+	VClusterServerDeploymentName = "vcluster"
+	CMDeploymentName             = "kube-controller-manager"
+	ProjectName                  = "kubeflex"
+	DBReleaseName                = "postgres"
+	SystemNamespace              = "kubeflex-system"
+	IngressSecurePort            = "9443"
+	AdminConfSecret              = "admin-kubeconfig"
+	OCMKubeConfigSecret          = "multicluster-controlplane-kubeconfig"
+	VClusterKubeConfigSecret     = "vc-vcluster"
+	KubeconfigSecretKeyDefault   = "kubeconfig"
+	KubeconfigSecretKeyVCluster  = "config"
 )
 
 func GenerateNamespaceFromControlPlaneName(name string) string {
@@ -80,9 +84,23 @@ func GetKubeconfSecretNameByControlPlaneType(controlPlaneType string) string {
 		return AdminConfSecret
 	case string(tenancyv1alpha1.ControlPlaneTypeOCM):
 		return OCMKubeConfigSecret
+	case string(tenancyv1alpha1.ControlPlaneTypeVCluster):
+		return VClusterKubeConfigSecret
 	default:
 		// TODO - should we instead throw an error?
 		return AdminConfSecret
+	}
+}
+
+func GetKubeconfSecretKeyNameByControlPlaneType(controlPlaneType string) string {
+	switch controlPlaneType {
+	case string(tenancyv1alpha1.ControlPlaneTypeK8S), string(tenancyv1alpha1.ControlPlaneTypeOCM):
+		return KubeconfigSecretKeyDefault
+	case string(tenancyv1alpha1.ControlPlaneTypeVCluster):
+		return KubeconfigSecretKeyVCluster
+	default:
+		// TODO - should we instead throw an error?
+		return KubeconfigSecretKeyDefault
 	}
 }
 
@@ -92,6 +110,8 @@ func GetAPIServerDeploymentNameByControlPlaneType(controlPlaneType string) strin
 		return APIServerDeploymentName
 	case string(tenancyv1alpha1.ControlPlaneTypeOCM):
 		return OCMServerDeploymentName
+	case string(tenancyv1alpha1.ControlPlaneTypeVCluster):
+		return VClusterServerDeploymentName
 	default:
 		// TODO - should we instead throw an error?
 		return APIServerDeploymentName

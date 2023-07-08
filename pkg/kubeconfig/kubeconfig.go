@@ -62,7 +62,8 @@ func loadControlPlaneKubeconfig(ctx context.Context, client kubernetes.Clientset
 		return nil, err
 	}
 
-	return clientcmd.Load(ks.Data[certs.ConfSecretKey])
+	key := util.GetKubeconfSecretKeyNameByControlPlaneType(controlPlaneType)
+	return clientcmd.Load(ks.Data[key])
 }
 
 func LoadKubeconfig(ctx context.Context) (*clientcmdapi.Config, error) {
@@ -112,6 +113,15 @@ func adjustConfigKeys(config *clientcmdapi.Config, cpName, controlPlaneType stri
 		renameKey(config.Clusters, "multicluster-controlplane", certs.GenerateClusterName(cpName))
 		renameKey(config.AuthInfos, "user", certs.GenerateAuthInfoAdminName(cpName))
 		renameKey(config.Contexts, "multicluster-controlplane", certs.GenerateContextName(cpName))
+		config.CurrentContext = certs.GenerateContextName(cpName)
+		config.Contexts[certs.GenerateContextName(cpName)] = &clientcmdapi.Context{
+			Cluster:  certs.GenerateClusterName(cpName),
+			AuthInfo: certs.GenerateAuthInfoAdminName(cpName),
+		}
+	case string(tenancyv1alpha1.ControlPlaneTypeVCluster):
+		renameKey(config.Clusters, "my-vcluster", certs.GenerateClusterName(cpName))
+		renameKey(config.AuthInfos, "my-vcluster", certs.GenerateAuthInfoAdminName(cpName))
+		renameKey(config.Contexts, "my-vcluster", certs.GenerateContextName(cpName))
 		config.CurrentContext = certs.GenerateContextName(cpName)
 		config.Contexts[certs.GenerateContextName(cpName)] = &clientcmdapi.Context{
 			Cluster:  certs.GenerateClusterName(cpName),

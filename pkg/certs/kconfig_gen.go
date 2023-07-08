@@ -44,7 +44,6 @@ const (
 	Organization     = "system:masters"
 	ContrCMCN        = "system:kube-controller-manager"
 	CMConfSecret     = "cm-kubeconfig"
-	ConfSecretKey    = "kubeconfig"
 )
 
 type ConfigGen struct {
@@ -85,7 +84,7 @@ func (c *ConfigGen) genSecretManifest(ctx context.Context, conf []byte) *v1.Secr
 		},
 		Type: v1.SecretTypeOpaque,
 		Data: map[string][]byte{
-			ConfSecretKey: conf,
+			util.KubeconfigSecretKeyDefault: conf,
 		},
 	}
 }
