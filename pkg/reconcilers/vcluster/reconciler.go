@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package ocm
+package vcluster
 
 import (
 	"context"
@@ -28,13 +28,18 @@ import (
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/shared"
 )
 
-// OCMReconciler reconciles a OCM ControlPlane
-type OCMReconciler struct {
+const (
+	ServiceName = "vcluster"
+	ServicePort = 443
+)
+
+// VClusterReconciler reconciles a OCM ControlPlane
+type VClusterReconciler struct {
 	*shared.BaseReconciler
 }
 
-func New(cl client.Client, scheme *runtime.Scheme) *OCMReconciler {
-	return &OCMReconciler{
+func New(cl client.Client, scheme *runtime.Scheme) *VClusterReconciler {
+	return &VClusterReconciler{
 		BaseReconciler: &shared.BaseReconciler{
 			Client: cl,
 			Scheme: scheme,
@@ -42,7 +47,7 @@ func New(cl client.Client, scheme *runtime.Scheme) *OCMReconciler {
 	}
 }
 
-func (r *OCMReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
+func (r *VClusterReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
 	_ = clog.FromContext(ctx)
 
 	if err := r.BaseReconciler.ReconcileNamespace(ctx, hcp); err != nil {
@@ -53,23 +58,7 @@ func (r *OCMReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.Cont
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
-	if err := r.ReconcileOCMService(ctx, hcp); err != nil {
-		return r.UpdateStatusForSyncingError(hcp, err)
-	}
-
-	if err := r.ReconcileAPIServerIngress(ctx, hcp, ServiceName, shared.SecurePort); err != nil {
-		return r.UpdateStatusForSyncingError(hcp, err)
-	}
-
-	if err := r.ReconcileUpdateClusterInfoJobRole(ctx, hcp); err != nil {
-		return r.UpdateStatusForSyncingError(hcp, err)
-	}
-
-	if err := r.ReconcileUpdateClusterInfoJobRoleBinding(ctx, hcp); err != nil {
-		return r.UpdateStatusForSyncingError(hcp, err)
-	}
-
-	if err := r.ReconcileUpdateClusterInfoJob(ctx, hcp); err != nil {
+	if err := r.ReconcileAPIServerIngress(ctx, hcp, ServiceName, ServicePort); err != nil {
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 

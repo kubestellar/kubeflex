@@ -59,12 +59,22 @@ func (c *CPCreate) Create(controlPlaneType, backendType string) {
 	util.PrintStatus("Waiting for API server to become ready...", done, &wg)
 	kubeconfig.WatchForSecretCreation(clientset, c.Name, util.GetKubeconfSecretNameByControlPlaneType(controlPlaneType))
 
-	if err := util.WaitForDeploymentReady(clientset,
-		util.GetAPIServerDeploymentNameByControlPlaneType(controlPlaneType),
-		util.GenerateNamespaceFromControlPlaneName(cp.Name)); err != nil {
+	if controlPlaneType == string(tenancyv1alpha1.ControlPlaneTypeVCluster) {
+		if err := util.WaitForStatefulSetReady(clientset,
+			util.GetAPIServerDeploymentNameByControlPlaneType(controlPlaneType),
+			util.GenerateNamespaceFromControlPlaneName(cp.Name)); err != nil {
 
-		fmt.Fprintf(os.Stderr, "Error waiting for deployment to become ready: %v\n", err)
-		os.Exit(1)
+			fmt.Fprintf(os.Stderr, "Error waiting for stateful set to become ready: %v\n", err)
+			os.Exit(1)
+		}
+	} else {
+		if err := util.WaitForDeploymentReady(clientset,
+			util.GetAPIServerDeploymentNameByControlPlaneType(controlPlaneType),
+			util.GenerateNamespaceFromControlPlaneName(cp.Name)); err != nil {
+
+			fmt.Fprintf(os.Stderr, "Error waiting for deployment to become ready: %v\n", err)
+			os.Exit(1)
+		}
 	}
 	done <- true
 

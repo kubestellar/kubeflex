@@ -32,6 +32,7 @@ import (
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/k8s"
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/ocm"
+	"github.com/kubestellar/kubeflex/pkg/reconcilers/vcluster"
 	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
@@ -93,6 +94,9 @@ func (r *ControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return reconciler.Reconcile(ctx, hcp)
 	case tenancyv1alpha1.ControlPlaneTypeOCM:
 		reconciler := ocm.New(r.Client, r.Scheme)
+		return reconciler.Reconcile(ctx, hcp)
+	case tenancyv1alpha1.ControlPlaneTypeVCluster:
+		reconciler := vcluster.New(r.Client, r.Scheme)
 		return reconciler.Reconcile(ctx, hcp)
 	default:
 		return ctrl.Result{}, fmt.Errorf("unsupported control plane type: %s", hcp.Spec.Type)

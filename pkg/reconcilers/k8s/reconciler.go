@@ -77,7 +77,7 @@ func (r *K8sReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.Cont
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
-	if err = r.ReconcileAPIServerIngress(ctx, hcp, ""); err != nil {
+	if err = r.ReconcileAPIServerIngress(ctx, hcp, "", shared.SecurePort); err != nil {
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
