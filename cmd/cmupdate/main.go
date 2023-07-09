@@ -85,7 +85,7 @@ func main() {
 		log.Fatalf("Error getting kubeconfig for hosted server: %s", err)
 	}
 
-	clientForHostedServer, err := createClientForHostedServer(configData)
+	clientForHostedServer, err := createClientForHostedServer(configData, namespace)
 	if err != nil {
 		log.Fatalf("Error getting client for for hosted server: %s", err)
 	}
@@ -131,14 +131,14 @@ func retrieveHostedServerKubeConfig(clientset *kubernetes.Clientset, ns string, 
 	return kData, nil
 }
 
-func createClientForHostedServer(configData []byte) (*kubernetes.Clientset, error) {
+func createClientForHostedServer(configData []byte, namespace string) (*kubernetes.Clientset, error) {
 	config, err := clientcmd.NewClientConfigFromBytes(configData)
 	if err != nil {
 		return nil, err
 	}
 
 	restConfig, err := config.ClientConfig()
-	restConfig.Host = "multicluster-controlplane.cp2-system:9444"
+	restConfig.Host = fmt.Sprintf("multicluster-controlplane.%s:9444", namespace)
 	if err != nil {
 		return nil, err
 	}

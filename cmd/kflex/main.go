@@ -103,6 +103,7 @@ var createCmd = &cobra.Command{
 		if BkType == "" {
 			BkType = BKTypeDefault
 		}
+		// create passing the control plane type and backend type
 		cp.Create(CType, BkType)
 	},
 }

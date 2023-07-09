@@ -75,7 +75,7 @@ kflex ctx
 ```
 
 To switch back to a control plane context, use the 
-`create <control plane name>` command, e.g:
+`ctx <control plane name>` command, e.g:
 
 ```shell
 kflex ctx cp1
@@ -86,6 +86,12 @@ To delete a control plane, use the `delete <control plane name>` command, e.g:
 ```shell
 kflex delete cp1
 ```
+
+## Next Steps
+
+Read the [User's Guide](docs/users.md) to learn more about using KubeFlex for your project
+and how to create and interact with different types of control planes, such as 
+[vcluster](https://www.vcluster.com) and [Open Cluster Management](https://github.com/open-cluster-management-io/multicluster-controlplane).
 
 ## Architecture
 

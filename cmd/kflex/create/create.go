@@ -37,6 +37,7 @@ type CPCreate struct {
 	common.CP
 }
 
+// Create a ne control plane
 func (c *CPCreate) Create(controlPlaneType, backendType string) {
 	done := make(chan bool)
 	var wg sync.WaitGroup
