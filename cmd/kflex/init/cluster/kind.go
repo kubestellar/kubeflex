@@ -39,8 +39,7 @@ type KindConfig struct {
 }
 
 func checkIfKindInstalled() (bool, error) {
-	cmd := exec.Command("command", "-v", "kind")
-	err := cmd.Run()
+	_, err := exec.LookPath("kind")
 	if err != nil {
 		return false, fmt.Errorf("failed to check kind is installed: %v", err)
 	}
