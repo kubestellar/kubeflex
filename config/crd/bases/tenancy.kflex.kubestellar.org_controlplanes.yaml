@@ -14,6 +14,7 @@ spec:
     plural: controlplanes
     shortNames:
     - cp
+    - cps
     singular: controlplane
   scope: Cluster
   versions:
@@ -23,6 +24,9 @@ spec:
       type: string
     - jsonPath: .status.conditions[?(@.type=='Ready')].status
       name: READY
+      type: string
+    - jsonPath: .spec.type
+      name: TYPE
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: AGE
