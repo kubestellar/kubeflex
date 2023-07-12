@@ -19,13 +19,17 @@ package ocm
 import (
 	"context"
 
+	appsv1 "k8s.io/api/apps/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	clog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/shared"
+	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
 // OCMReconciler reconciles a OCM ControlPlane
@@ -73,5 +77,33 @@ func (r *OCMReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.Cont
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
+	if err := r.addOwnerReference(ctx, hcp); err != nil {
+		return r.UpdateStatusForSyncingError(hcp, err)
+	}
+
 	return r.UpdateStatusForSyncingSuccess(ctx, hcp)
+}
+
+// add owner ref to allow capturing lifecycle events for the OCM deployment
+func (r *OCMReconciler) addOwnerReference(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
+	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      util.GetAPIServerDeploymentNameByControlPlaneType(string(hcp.Spec.Type)),
+			Namespace: namespace,
+		},
+	}
+	if err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(deployment), deployment, &client.GetOptions{}); err != nil {
+		return err
+	}
+
+	if err := controllerutil.SetControllerReference(hcp, deployment, r.Scheme); err != nil {
+		return err
+	}
+
+	if err := r.Client.Update(context.TODO(), deployment, &client.UpdateOptions{}); err != nil {
+		return err
+	}
+
+	return nil
 }

@@ -47,10 +47,10 @@ func (r *BaseReconciler) ReconcileAPIServerIngress(ctx context.Context, hcp *ten
 		svcName = hcp.Name
 	}
 
-	// create service object
+	// lookup ingress
 	ingress := &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      svcName,
+			Name:      hcp.Name,
 			Namespace: namespace,
 		},
 	}
