@@ -70,6 +70,7 @@ func generateAPIServerService(name, namespace string) *corev1.Service {
 			Selector: map[string]string{
 				"app": util.APIServerDeploymentName,
 			},
+			Type: corev1.ServiceTypeNodePort,
 			Ports: []corev1.ServicePort{
 				{
 					Port:     shared.SecurePort,

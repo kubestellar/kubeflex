@@ -150,7 +150,8 @@ func (c *Certs) generateAPIServerKeyAndCert(ctx context.Context, extraDNSNames [
 		"kubernetes.default.svc",
 		"kubernetes.default.svc.cluster",
 		"kubernetes.default.svc.cluster.local",
-		"localhost"}
+		"localhost",
+		"kubeflex-control-plane"}
 
 	dnsNames = append(dnsNames, extraDNSNames...)
 	certTemplate := x509.Certificate{
