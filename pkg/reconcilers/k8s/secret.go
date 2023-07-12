@@ -95,7 +95,9 @@ func (r *K8sReconciler) ReconcileKubeconfigSecret(ctx context.Context, crts *cer
 }
 
 func generateCertsSecret(ctx context.Context, name, namespace string) (*v1.Secret, *certs.Certs, error) {
-	c, err := certs.New(ctx, []string{name, util.GenerateDevLocalDNSName(name)})
+	extraDnsNames := util.GenerateHostedDNSName(namespace, name)
+	extraDnsNames = append(extraDnsNames, util.GenerateDevLocalDNSName(name))
+	c, err := certs.New(ctx, extraDnsNames)
 	if err != nil {
 		return nil, nil, err
 	}

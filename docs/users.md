@@ -108,6 +108,19 @@ NAMESPACE=cp1-system
 kubectl get secrets -n ${NAMESPACE} admin-kubeconfig -o jsonpath='{.data.kubeconfig}' | base64 -d
 ```
 
+### Accessing the control plane from within a kind cluster
+
+For control plane of type k8s, the Kube API client can only use the 127.0.0.1 address. The DNS name 
+`<control-plane-name>.localtest.me`` is convenient for local test and dev but always resolves to 127.0.0.1, that does not work in a container. For accessing the control plane from within the KubeFlex hosting
+cluster, you may use the controller manager Kubeconfig, which is maintained in the secret with name
+`cm-kubeconfig` in the namespace hosting the control plane, or you may use the Kubeconfig in the 
+`admin-kubeconfig` secret with the address for the server `https://<control-plane-name>.<control-plane-namespace>:9443`.
+
+To access the control plane API server from another kind cluster on the same docker network, you
+can find the value of the nodeport for the service exposing the control plane API service, and construct
+the URL for the server as `https://kubeflex-control-plane:<nodeport>`
+
+
 ## Control Plane Types
 
 At this time KubFlex supports the following control plane types:

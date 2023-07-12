@@ -52,6 +52,15 @@ func GenerateDevLocalDNSName(name string) string {
 	return fmt.Sprintf("%s.localtest.me", name)
 }
 
+func GenerateHostedDNSName(namespace, name string) []string {
+	return []string{
+		fmt.Sprintf("%s.%s", name, namespace),
+		fmt.Sprintf("%s.%s.svc", name, namespace),
+		fmt.Sprintf("%s.%s.svc.cluster", name, namespace),
+		fmt.Sprintf("%s.%s.svc.cluster.local", name, namespace),
+	}
+}
+
 func GeneratePSecretName(releaseName string) string {
 	return fmt.Sprintf("%s-postgresql", releaseName)
 }
