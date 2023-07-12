@@ -19,6 +19,7 @@ package k8s
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -49,7 +50,8 @@ func (r *K8sReconciler) ReconcileAPIServerDeployment(ctx context.Context, hcp *t
 	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(deployment), deployment, &client.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			deployment, err = r.generateAPIServerDeployment(namespace, hcp.Name)
+			dbName := replaceNotAllowedCharsInDBName(hcp.Name)
+			deployment, err = r.generateAPIServerDeployment(namespace, dbName)
 			if err != nil {
 				return err
 			}
@@ -398,4 +400,8 @@ func (r *K8sReconciler) getDBPassword() (string, error) {
 	}
 
 	return string(pSecret.Data["postgres-password"]), nil
+}
+
+func replaceNotAllowedCharsInDBName(name string) string {
+	return strings.ReplaceAll(name, "-", "_")
 }
