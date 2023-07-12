@@ -135,22 +135,42 @@ func IsAPIServerDeploymentReady(c client.Client, hcp tenancyv1alpha1.ControlPlan
 		return false, err
 	}
 
-	d := &v1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      APIServerDeploymentName,
-			Namespace: ns.Name,
-		},
-	}
+	if (hcp.Spec.Type) == tenancyv1alpha1.ControlPlaneTypeVCluster {
+		s := &v1.StatefulSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      GetAPIServerDeploymentNameByControlPlaneType(string(hcp.Spec.Type)),
+				Namespace: ns.Name,
+			},
+		}
 
-	if err := c.Get(context.Background(), types.NamespacedName{Name: d.Name, Namespace: d.Namespace}, d); err != nil {
-		return false, err
-	}
+		if err := c.Get(context.Background(), types.NamespacedName{Name: s.Name, Namespace: s.Namespace}, s); err != nil {
+			return false, err
+		}
 
-	// we need to ensure that there is al least one replicas in the spec
-	if d.Status.ReadyReplicas == d.Status.Replicas &&
-		d.Status.Replicas == *d.Spec.Replicas &&
-		*d.Spec.Replicas > 0 {
-		return true, nil
+		// we need to ensure that there is al least one replica in the spec
+		if s.Status.ReadyReplicas == s.Status.Replicas &&
+			s.Status.Replicas == *s.Spec.Replicas &&
+			*s.Spec.Replicas > 0 {
+			return true, nil
+		}
+	} else {
+		d := &v1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      GetAPIServerDeploymentNameByControlPlaneType(string(hcp.Spec.Type)),
+				Namespace: ns.Name,
+			},
+		}
+
+		if err := c.Get(context.Background(), types.NamespacedName{Name: d.Name, Namespace: d.Namespace}, d); err != nil {
+			return false, err
+		}
+
+		// we need to ensure that there is al least one replica in the spec
+		if d.Status.ReadyReplicas == d.Status.Replicas &&
+			d.Status.Replicas == *d.Spec.Replicas &&
+			*d.Spec.Replicas > 0 {
+			return true, nil
+		}
 	}
 
 	return false, nil
