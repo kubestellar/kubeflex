@@ -21,23 +21,12 @@ import (
 	"fmt"
 	"strings"
 
+	clog "sigs.k8s.io/controller-runtime/pkg/log"
+
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/helm"
 	"github.com/kubestellar/kubeflex/pkg/util"
 )
-
-// helm upgrade --install <controlplane-name> vcluster \
-//   --set vcluster.image=rancher/k3s:v1.27.2-k3s1 \
-//   --repo https://charts.loft.sh \
-//   --namespace <controlplane-name>-system \
-//   --repository-config='' \
-//   --create-namespace
-
-// Need also
-// syncer:
-//   extraArgs:
-//   - --tls-san=<controlplane-name>.localtest.me
-//   - --out-kube-config-server=https://<controlplane-name>.localtest.me:9443
 
 const (
 	URL         = "https://charts.loft.sh"
@@ -53,6 +42,7 @@ var (
 )
 
 func (r *VClusterReconciler) ReconcileChart(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
+	_ = clog.FromContext(ctx)
 	localDNSName := util.GenerateDevLocalDNSName(hcp.Name)
 	configs = append(configs, fmt.Sprintf("syncer.extraArgs[0]=--tls-san=%s", localDNSName))
 	configs = append(configs, fmt.Sprintf("syncer.extraArgs[1]=--out-kube-config-server=https://%s:9443", localDNSName))

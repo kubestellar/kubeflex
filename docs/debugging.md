@@ -73,6 +73,19 @@ helm package charts/multicluster-controlplane
 helm push multicluster-controlplane-chart-0.1.0.tgz oci://quay.io/pdettori
 ```
 
+### Commands to build and load locally the kubeflex operator image for testing
+
+```shell
+ko build --local --push=false -B ./cmd/manager -t $(git rev-parse --short HEAD) --platform linux/arm64
+kind load docker-image ko.local/manager:$(git rev-parse --short HEAD) --name kubeflex
+```
+
+To deploy locally the image:
+
+```shell
+make deploy IMG=ko.local/manager:$(git rev-parse --short HEAD)
+```
+
 ### Commands to build and load locally the cmupdate image (for testing)
 
 ```shell
