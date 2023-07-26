@@ -291,7 +291,7 @@ func (r *K8sReconciler) generateCMDeployment(cpName, namespace string) (*appsv1.
 							ImagePullPolicy: v1.PullIfNotPresent,
 							Command: []string{
 								"kube-controller-manager",
-								fmt.Sprintf("--master=https://%s:%d", cpName, shared.SecurePort),
+								fmt.Sprintf("--master=https://%s:%d", cpName+"."+cpName+"-system", shared.SecurePort),
 								"--authentication-kubeconfig=/etc/kubernetes/kubeconfig",
 								"--authorization-kubeconfig=/etc/kubernetes/kubeconfig",
 								"--bind-address=0.0.0.0",
