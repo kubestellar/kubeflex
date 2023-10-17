@@ -85,10 +85,10 @@ nodes:
       kubeletExtraArgs:
         node-labels: "ingress-ready=true"
   extraPortMappings:
-  - containerPort: 9080
+  - containerPort: 80
     hostPort: 9080
     protocol: TCP
-  - containerPort: 9443
+  - containerPort: 443
     hostPort: 9443
     protocol: TCP`))
 
@@ -167,9 +167,7 @@ func installAndPatchNginxIngress() error {
             - --validating-webhook-key=/usr/local/certificates/key
             - --watch-ingress-without-class=true
             - --publish-status-address=localhost
-            - --enable-ssl-passthrough
-            - --http-port=9080
-            - --https-port=9443`
+            - --enable-ssl-passthrough`
 	_, err = patchFile.WriteString(patchContent)
 	if err != nil {
 		return fmt.Errorf("failed to write patch file: %v", err)
@@ -190,34 +188,6 @@ func installAndPatchNginxIngress() error {
 		return fmt.Errorf("failed to run kubectl patch deployment command: %v", err)
 	}
 
-	// patch the deployment ports
-	patch := `[{"op":"replace","path":"/spec/template/spec/containers/0/ports/0/containerPort","value":9080},
-	{"op": "replace", "path": "/spec/template/spec/containers/0/ports/0/hostPort", "value": 9080},
-	{"op": "replace", "path": "/spec/template/spec/containers/0/ports/1/containerPort", "value": 9443},
-	{"op": "replace", "path": "/spec/template/spec/containers/0/ports/1/hostPort", "value": 9443}]`
-	if err := patchServiceWithJSONPatch("deployment/ingress-nginx-controller", patch); err != nil {
-		return fmt.Errorf("failed to run kubectl patch command: %v", err)
-	}
-
-	// patch the service ports
-	patch = `[{"op": "replace", "path": "/spec/ports/0/port", "value": 9080},
-	{"op": "replace", "path": "/spec/ports/1/port", "value": 9443}]`
-	if err := patchServiceWithJSONPatch("svc/ingress-nginx-controller", patch); err != nil {
-		return fmt.Errorf("failed to run kubectl patch command: %v", err)
-	}
-
-	return nil
-}
-
-func patchServiceWithJSONPatch(resource, patch string) error {
-	cmd := exec.Command("kubectl", "-n", "ingress-nginx", "patch", resource,
-		"--type", "json", fmt.Sprintf("-p=%s", patch))
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err := cmd.Run()
-	if err != nil {
-		return fmt.Errorf("failed to run kubectl patch command: %v", err)
-	}
 	return nil
 }
 
