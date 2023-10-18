@@ -54,15 +54,20 @@ func New(cl client.Client, scheme *runtime.Scheme) *VClusterReconciler {
 func (r *VClusterReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
 	_ = clog.FromContext(ctx)
 
+	cfg, err := r.BaseReconciler.GetConfig(ctx)
+	if err != nil {
+		return r.UpdateStatusForSyncingError(hcp, err)
+	}
+
 	if err := r.BaseReconciler.ReconcileNamespace(ctx, hcp); err != nil {
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
-	if err := r.ReconcileChart(ctx, hcp); err != nil {
+	if err := r.ReconcileChart(ctx, hcp, cfg); err != nil {
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
-	if err := r.ReconcileAPIServerIngress(ctx, hcp, ServiceName, ServicePort); err != nil {
+	if err := r.ReconcileAPIServerIngress(ctx, hcp, ServiceName, ServicePort, cfg.Domain); err != nil {
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 

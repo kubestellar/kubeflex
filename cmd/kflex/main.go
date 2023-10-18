@@ -42,6 +42,8 @@ var Version string
 var BuildDate string
 var CType string
 var BkType string
+var domain string
+var externalPort int
 
 // defaults
 const BKTypeDefault = string(tenancyv1alpha1.BackendDBTypeShared)
@@ -79,7 +81,7 @@ var initCmd = &cobra.Command{
 		if createkind {
 			cluster.CreateKindCluster()
 		}
-		in.Init(ctx, kubeconfig, Version, BuildDate)
+		in.Init(ctx, kubeconfig, Version, BuildDate, domain, fmt.Sprint(externalPort))
 	},
 }
 
@@ -155,6 +157,8 @@ func init() {
 	initCmd.Flags().StringVarP(&kubeconfig, "kubeconfig", "k", "", "path to kubeconfig file")
 	initCmd.Flags().IntVarP(&verbosity, "verbosity", "v", 0, "log level") // TODO - figure out how to inject verbosity
 	initCmd.Flags().BoolVarP(&createkind, "create-kind", "c", false, "Create and configure a kind cluster for installing Kubeflex")
+	initCmd.Flags().StringVarP(&domain, "domain", "d", "localtest.me", "domain for FQDN")
+	initCmd.Flags().IntVarP(&externalPort, "externalPort", "p", 9443, "external port used by ingress")
 
 	createCmd.Flags().StringVarP(&kubeconfig, "kubeconfig", "k", "", "path to kubeconfig file")
 	createCmd.Flags().IntVarP(&verbosity, "verbosity", "v", 0, "log level") // TODO - figure out how to inject verbosity

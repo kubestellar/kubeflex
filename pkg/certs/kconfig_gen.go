@@ -50,6 +50,7 @@ type ConfigGen struct {
 	CpName      string
 	CpNamespace string
 	CpHost      string
+	CpDomain    string
 	CpPort      int
 	Target      ConfigTarget
 	caKey       *rsa.PrivateKey
@@ -152,7 +153,7 @@ func (c *ConfigGen) generateConfig() *clientcmdapi.Config {
 }
 
 func (c *ConfigGen) generateServerEndpoint() string {
-	return fmt.Sprintf("https://%s:%s", util.GenerateDevLocalDNSName(c.CpName), util.IngressSecurePort)
+	return fmt.Sprintf("https://%s:%d", util.GenerateDevLocalDNSName(c.CpName, c.CpDomain), c.CpPort)
 }
 
 func GenerateClusterName(cpName string) string {

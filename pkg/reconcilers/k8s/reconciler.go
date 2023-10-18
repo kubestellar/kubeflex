@@ -46,17 +46,22 @@ func New(cl client.Client, scheme *runtime.Scheme) *K8sReconciler {
 func (r *K8sReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
 	_ = clog.FromContext(ctx)
 
+	cfg, err := r.BaseReconciler.GetConfig(ctx)
+	if err != nil {
+		return r.UpdateStatusForSyncingError(hcp, err)
+	}
+
 	if err := r.BaseReconciler.ReconcileNamespace(ctx, hcp); err != nil {
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
-	crts, err := r.ReconcileCertsSecret(ctx, hcp)
+	crts, err := r.ReconcileCertsSecret(ctx, hcp, cfg)
 	if err != nil {
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
 	// reconcile kubeconfig for admin
-	confGen := certs.ConfigGen{CpName: hcp.Name, CpHost: hcp.Name, CpPort: shared.SecurePort}
+	confGen := certs.ConfigGen{CpName: hcp.Name, CpHost: hcp.Name, CpPort: cfg.ExternalPort, CpDomain: cfg.Domain}
 	confGen.Target = certs.Admin
 	if err = r.ReconcileKubeconfigSecret(ctx, crts, confGen, hcp); err != nil {
 		return r.UpdateStatusForSyncingError(hcp, err)
@@ -77,7 +82,7 @@ func (r *K8sReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.Cont
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
-	if err = r.ReconcileAPIServerIngress(ctx, hcp, "", shared.SecurePort); err != nil {
+	if err = r.ReconcileAPIServerIngress(ctx, hcp, "", shared.SecurePort, cfg.Domain); err != nil {
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 

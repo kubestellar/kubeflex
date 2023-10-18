@@ -1,8 +1,9 @@
 resources:
 - manager.yaml
+- config.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 images:
 - name: controller
-  newName: ko.local/manager
-  newTag: e3e4723
+  newName: ghcr.io/kubestellar/kubeflex/manager
+  newTag: latest

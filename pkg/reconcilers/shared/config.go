@@ -18,6 +18,5 @@ package shared
 
 const (
 	SecurePort    = 9444
-	TargetPort    = 9443
 	CMHealthzPort = 10257
 )

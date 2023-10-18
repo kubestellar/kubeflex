@@ -32,7 +32,7 @@ const (
 	ProjectName                  = "kubeflex"
 	DBReleaseName                = "postgres"
 	SystemNamespace              = "kubeflex-system"
-	IngressSecurePort            = "9443"
+	SystemConfigMap              = "kubeflex-config"
 	AdminConfSecret              = "admin-kubeconfig"
 	OCMKubeConfigSecret          = "multicluster-controlplane-kubeconfig"
 	VClusterKubeConfigSecret     = "vc-vcluster"
@@ -46,10 +46,8 @@ func GenerateNamespaceFromControlPlaneName(name string) string {
 
 // GenerateDevLocalDNSName: generates the local dns name for test/dev
 // from the controlplane name
-func GenerateDevLocalDNSName(name string) string {
-	// At this time we use localtest.me for resolving to localhost.
-	// TODO: make this configurable so that user can pick his preferred provider.
-	return fmt.Sprintf("%s.localtest.me", name)
+func GenerateDevLocalDNSName(name, domain string) string {
+	return fmt.Sprintf("%s.%s", name, domain)
 }
 
 func GenerateHostedDNSName(namespace, name string) []string {
