@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 
 	corev1 "k8s.io/api/core/v1"
@@ -31,7 +32,7 @@ import (
 	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
-func Init(ctx context.Context, kubeconfig, version, buildDate string) {
+func Init(ctx context.Context, kubeconfig, version, buildDate string, domain, externalPort string) {
 	done := make(chan bool)
 	var wg sync.WaitGroup
 
@@ -51,7 +52,7 @@ func Init(ctx context.Context, kubeconfig, version, buildDate string) {
 	done <- true
 
 	util.PrintStatus("Installing kubeflex operator...", done, &wg)
-	ensureKFlexOperator(ctx, version)
+	ensureKFlexOperator(ctx, version, domain, externalPort)
 	done <- true
 
 	util.PrintStatus("Waiting for kubeflex operator to become ready...", done, &wg)
@@ -88,15 +89,16 @@ func ensureSystemDB(ctx context.Context) {
 	}
 }
 
-func ensureKFlexOperator(ctx context.Context, fullVersion string) {
+func ensureKFlexOperator(ctx context.Context, fullVersion, domain, externalPort string) {
 	version := util.ParseVersionNumber(fullVersion)
+	OperatorConfigs = append(OperatorConfigs, fmt.Sprintf("domain=%s,externalPort=%s", domain, externalPort))
 	h := &helm.HelmHandler{
 		URL:         fmt.Sprintf("%s:%s", KflexOperatorURL, version),
 		RepoName:    KflexOperatorRepoName,
 		ChartName:   KflexOperatorChartName,
 		Namespace:   util.SystemNamespace,
 		ReleaseName: KflexOperatorReleaseName,
-		Args:        KflexOperatorArgs,
+		Args:        map[string]string{"set": strings.Join(OperatorConfigs, ",")},
 	}
 	err := helm.Init(ctx, h)
 	if err != nil {

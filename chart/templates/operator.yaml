@@ -11,10 +11,26 @@ spec:
     kind: ControlPlane
     listKind: ControlPlaneList
     plural: controlplanes
+    shortNames:
+    - cp
+    - cps
     singular: controlplane
   scope: Cluster
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type=='Synced')].status
+      name: SYNCED
+      type: string
+    - jsonPath: .status.conditions[?(@.type=='Ready')].status
+      name: READY
+      type: string
+    - jsonPath: .spec.type
+      name: TYPE
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: AGE
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: ControlPlane is the Schema for the controlplanes API
@@ -35,10 +51,54 @@ spec:
             description: ControlPlaneSpec defines the desired state of ControlPlane
             properties:
               backend:
+                enum:
+                - shared
+                - dedicated
+                type: string
+              type:
+                enum:
+                - k8s
+                - ocm
+                - vcluster
                 type: string
             type: object
           status:
             description: ControlPlaneStatus defines the observed state of ControlPlane
+            properties:
+              conditions:
+                items:
+                  description: ControlPlaneCondition describes the state of a control
+                    plane at a certain point.
+                  properties:
+                    lastTransitionTime:
+                      format: date-time
+                      type: string
+                    lastUpdateTime:
+                      format: date-time
+                      type: string
+                    message:
+                      type: string
+                    reason:
+                      type: string
+                    status:
+                      type: string
+                    type:
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - lastUpdateTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              observedGeneration:
+                format: int64
+                type: integer
+            required:
+            - conditions
+            - observedGeneration
             type: object
         type: object
     served: true
@@ -125,7 +185,103 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - endpoints
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
   - namespaces
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - persistentvolumeclaims
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods/attach
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods/exec
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods/log
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods/portforward
   verbs:
   - create
   - delete
@@ -185,7 +341,27 @@ rules:
 - apiGroups:
   - apps
   resources:
+  - replicasets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps
+  resources:
   - statefulsets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - jobs
   verbs:
   - create
   - delete
@@ -198,6 +374,54 @@ rules:
   - networking.k8s.io
   resources:
   - ingresses
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterrolebindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterroles
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - roles
   verbs:
   - create
   - delete
@@ -337,6 +561,15 @@ subjects:
   namespace: kubeflex-system
 ---
 apiVersion: v1
+data:
+  domain: '{{ .Values.domain }}'
+  externalPort: '{{ .Values.externalPort }}'
+kind: ConfigMap
+metadata:
+  name: kubeflex-config
+  namespace: kubeflex-system
+---
+apiVersion: v1
 kind: Service
 metadata:
   labels:
@@ -427,7 +660,7 @@ spec:
         - --health-probe-bind-address=:8081
         - --metrics-bind-address=127.0.0.1:8080
         - --leader-elect
-        image: ghcr.io/kubestellar/kubeflex/manager:0.1.0
+        image: ghcr.io/kubestellar/kubeflex/manager:latest
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:

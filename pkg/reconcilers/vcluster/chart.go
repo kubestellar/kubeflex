@@ -25,6 +25,7 @@ import (
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/helm"
+	"github.com/kubestellar/kubeflex/pkg/reconcilers/shared"
 	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
@@ -41,11 +42,11 @@ var (
 	}
 )
 
-func (r *VClusterReconciler) ReconcileChart(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
+func (r *VClusterReconciler) ReconcileChart(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane, cfg *shared.SharedConfig) error {
 	_ = clog.FromContext(ctx)
-	localDNSName := util.GenerateDevLocalDNSName(hcp.Name)
+	localDNSName := util.GenerateDevLocalDNSName(hcp.Name, cfg.Domain)
 	configs = append(configs, fmt.Sprintf("syncer.extraArgs[0]=--tls-san=%s", localDNSName))
-	configs = append(configs, fmt.Sprintf("syncer.extraArgs[1]=--out-kube-config-server=https://%s:9443", localDNSName))
+	configs = append(configs, fmt.Sprintf("syncer.extraArgs[1]=--out-kube-config-server=https://%s:%d", localDNSName, cfg.ExternalPort))
 	h := &helm.HelmHandler{
 		URL:         URL,
 		RepoName:    RepoName,

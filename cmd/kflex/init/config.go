@@ -32,7 +32,7 @@ var (
 	PostgresArgs = map[string]string{
 		"set": "primary.extendedConfiguration=max_connections=1000,primary.priorityClassName=system-node-critical",
 	}
-	KflexOperatorArgs = map[string]string{
-		"version": "v0.1.0",
+	OperatorConfigs = []string{
+		"version=v0.1.0",
 	}
 )

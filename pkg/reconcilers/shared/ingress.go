@@ -39,7 +39,7 @@ var (
 	pathTypePrefix = networkingv1.PathTypePrefix
 )
 
-func (r *BaseReconciler) ReconcileAPIServerIngress(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane, svcName string, svcPort int) error {
+func (r *BaseReconciler) ReconcileAPIServerIngress(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane, svcName string, svcPort int, domain string) error {
 	_ = clog.FromContext(ctx)
 	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
 
@@ -58,7 +58,7 @@ func (r *BaseReconciler) ReconcileAPIServerIngress(ctx context.Context, hcp *ten
 	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(ingress), ingress, &client.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			ingress = generateAPIServerIngress(hcp.Name, svcName, namespace, svcPort)
+			ingress = generateAPIServerIngress(hcp.Name, svcName, namespace, svcPort, domain)
 			if err := controllerutil.SetControllerReference(hcp, ingress, r.Scheme); err != nil {
 				return nil
 			}
@@ -71,7 +71,7 @@ func (r *BaseReconciler) ReconcileAPIServerIngress(ctx context.Context, hcp *ten
 	return nil
 }
 
-func generateAPIServerIngress(name, svcName, namespace string, svcPort int) *networkingv1.Ingress {
+func generateAPIServerIngress(name, svcName, namespace string, svcPort int, domain string) *networkingv1.Ingress {
 	return &networkingv1.Ingress{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Ingress",
@@ -88,7 +88,7 @@ func generateAPIServerIngress(name, svcName, namespace string, svcPort int) *net
 			IngressClassName: pointer.String(IngressClassNameNGINX),
 			Rules: []networkingv1.IngressRule{
 				{
-					Host: util.GenerateDevLocalDNSName(name),
+					Host: util.GenerateDevLocalDNSName(name, domain),
 					IngressRuleValue: networkingv1.IngressRuleValue{
 						HTTP: &networkingv1.HTTPIngressRuleValue{
 							Paths: []networkingv1.HTTPIngressPath{

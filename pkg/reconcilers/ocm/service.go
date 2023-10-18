@@ -34,6 +34,7 @@ import (
 
 const (
 	ServiceName = "multicluster-controlplane"
+	TargetPort  = 9443
 )
 
 func (r *OCMReconciler) ReconcileOCMService(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
@@ -82,7 +83,7 @@ func generateAPIServerService(name, namespace string) *corev1.Service {
 					Port:       shared.SecurePort,
 					Name:       "https",
 					Protocol:   "TCP",
-					TargetPort: intstr.FromInt(shared.TargetPort),
+					TargetPort: intstr.FromInt(TargetPort),
 				},
 			},
 			IPFamilyPolicy: &ds,

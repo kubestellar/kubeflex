@@ -18,10 +18,14 @@ package shared
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/pkg/errors"
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
+	"github.com/kubestellar/kubeflex/pkg/util"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -32,6 +36,11 @@ import (
 type BaseReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+}
+
+type SharedConfig struct {
+	ExternalPort int
+	Domain       string
 }
 
 func (r *BaseReconciler) UpdateStatusForSyncingError(hcp *tenancyv1alpha1.ControlPlane, e error) (ctrl.Result, error) {
@@ -51,4 +60,25 @@ func (r *BaseReconciler) UpdateStatusForSyncingSuccess(ctx context.Context, hcp 
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, err
+}
+
+func (r *BaseReconciler) GetConfig(ctx context.Context) (*SharedConfig, error) {
+	cmap := &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      util.SystemConfigMap,
+			Namespace: util.SystemNamespace,
+		},
+	}
+	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(cmap), cmap, &client.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	port, err := strconv.Atoi(cmap.Data["externalPort"])
+	if err != nil {
+		return nil, err
+	}
+	return &SharedConfig{
+		Domain:       cmap.Data["domain"],
+		ExternalPort: port,
+	}, nil
 }

@@ -23,6 +23,7 @@ import (
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/helm"
+	"github.com/kubestellar/kubeflex/pkg/reconcilers/shared"
 	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
@@ -43,8 +44,8 @@ var (
 	}
 )
 
-func (r *OCMReconciler) ReconcileChart(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
-	configs = append(configs, fmt.Sprintf("apiserver.externalHostname=%s", util.GenerateDevLocalDNSName(hcp.Name)))
+func (r *OCMReconciler) ReconcileChart(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane, cfg *shared.SharedConfig) error {
+	configs = append(configs, fmt.Sprintf("apiserver.externalHostname=%s", util.GenerateDevLocalDNSName(hcp.Name, cfg.Domain)))
 	h := &helm.HelmHandler{
 		URL:         URL,
 		RepoName:    RepoName,
