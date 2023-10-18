@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config
+  namespace: system
+data:
+  domain: "{{ .Values.domain }}"
+  externalPort: "{{ .Values.externalPort }}"
