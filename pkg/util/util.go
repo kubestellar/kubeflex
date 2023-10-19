@@ -37,6 +37,7 @@ const (
 	OCMKubeConfigSecret          = "multicluster-controlplane-kubeconfig"
 	VClusterKubeConfigSecret     = "vc-vcluster"
 	KubeconfigSecretKeyDefault   = "kubeconfig"
+	KubeconfigSecretKeyInCluster = "kubeconfig-incluster"
 	KubeconfigSecretKeyVCluster  = "config"
 )
 

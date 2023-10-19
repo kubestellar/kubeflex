@@ -60,8 +60,8 @@ func (r *K8sReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.Cont
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
+	confGen := &certs.ConfigGen{CpName: hcp.Name, CpHost: hcp.Name, CpPort: cfg.ExternalPort, CpDomain: cfg.Domain}
 	// reconcile kubeconfig for admin
-	confGen := certs.ConfigGen{CpName: hcp.Name, CpHost: hcp.Name, CpPort: cfg.ExternalPort, CpDomain: cfg.Domain}
 	confGen.Target = certs.Admin
 	if err = r.ReconcileKubeconfigSecret(ctx, crts, confGen, hcp); err != nil {
 		return r.UpdateStatusForSyncingError(hcp, err)
