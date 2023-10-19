@@ -27,6 +27,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/kubestellar/kubeflex/pkg/reconcilers/shared"
 	"github.com/kubestellar/kubeflex/pkg/util"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,6 +40,7 @@ type ConfigTarget int
 const (
 	Admin ConfigTarget = iota
 	ControllerManager
+	AdminInCluster
 	DefaultNamespace = "default"
 	AdminCN          = "kubernetes-admin"
 	Organization     = "system:masters"
@@ -62,38 +64,47 @@ type ConfigGen struct {
 	secretName  string
 }
 
-func GenerateKubeConfigSecret(ctx context.Context, certs *Certs, conf ConfigGen) (*v1.Secret, error) {
+func GenerateKubeConfigSecret(ctx context.Context, certs *Certs, conf *ConfigGen) (*v1.Secret, error) {
+	var kconfInCluster []byte
 	conf.caKey = certs.caKey
 	conf.caTemplate = certs.caTemplate
 	conf.caPEMCert = certs.caPEMCert
-	if err := conf.generateConfigCerts(); err != nil {
-		return nil, err
-	}
-	kConfig := conf.generateConfig()
-	kconf, err := clientcmd.Write(*kConfig)
+	kconf, err := GenerateKubeconfigBytes(conf)
 	if err != nil {
 		return nil, err
 	}
-	return conf.genSecretManifest(ctx, kconf), nil
+	// generate the admin kubeconfig for in-cluster usage
+	if conf.Target == Admin {
+		conf.Target = AdminInCluster
+		kconfInCluster, err = GenerateKubeconfigBytes(conf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return conf.genSecretManifest(ctx, kconf, kconfInCluster), nil
 }
 
-func (c *ConfigGen) genSecretManifest(ctx context.Context, conf []byte) *v1.Secret {
-	return &v1.Secret{
+func (c *ConfigGen) genSecretManifest(ctx context.Context, kconf, kconfInCluster []byte) *v1.Secret {
+	secret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      c.secretName,
 			Namespace: c.CpNamespace,
 		},
 		Type: v1.SecretTypeOpaque,
 		Data: map[string][]byte{
-			util.KubeconfigSecretKeyDefault: conf,
+			util.KubeconfigSecretKeyDefault: kconf,
 		},
 	}
+	if kconfInCluster != nil {
+		secret.Data[util.KubeconfigSecretKeyInCluster] = kconfInCluster
+	}
+	return secret
 }
 
 func (c *ConfigGen) generateConfigCerts() error {
 	var subject pkix.Name
 	switch c.Target {
-	case Admin:
+	case Admin, AdminInCluster:
 		subject = pkix.Name{CommonName: AdminCN, Organization: []string{Organization}}
 		c.authInfo = GenerateAuthInfoAdminName(c.CpName)
 		c.secretName = util.AdminConfSecret
@@ -153,6 +164,9 @@ func (c *ConfigGen) generateConfig() *clientcmdapi.Config {
 }
 
 func (c *ConfigGen) generateServerEndpoint() string {
+	if c.Target == ControllerManager || c.Target == AdminInCluster {
+		return fmt.Sprintf("https://%s.%s.svc.cluster.local:%d", c.CpName, c.CpNamespace, shared.SecurePort)
+	}
 	return fmt.Sprintf("https://%s:%d", util.GenerateDevLocalDNSName(c.CpName, c.CpDomain), c.CpPort)
 }
 
@@ -166,4 +180,12 @@ func GenerateAuthInfoAdminName(cpName string) string {
 
 func GenerateContextName(cpName string) string {
 	return cpName
+}
+
+func GenerateKubeconfigBytes(conf *ConfigGen) ([]byte, error) {
+	if err := conf.generateConfigCerts(); err != nil {
+		return nil, err
+	}
+	kConfig := conf.generateConfig()
+	return clientcmd.Write(*kConfig)
 }

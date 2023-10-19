@@ -64,7 +64,7 @@ func (r *K8sReconciler) ReconcileCertsSecret(ctx context.Context, hcp *tenancyv1
 	return nil, nil
 }
 
-func (r *K8sReconciler) ReconcileKubeconfigSecret(ctx context.Context, crts *certs.Certs, conf certs.ConfigGen, hcp *tenancyv1alpha1.ControlPlane) error {
+func (r *K8sReconciler) ReconcileKubeconfigSecret(ctx context.Context, crts *certs.Certs, conf *certs.ConfigGen, hcp *tenancyv1alpha1.ControlPlane) error {
 	// TODO - temp hack - we should make this independent of the certs gen.
 	// Should gen kconfig from certs secret otherwise it may fail if certs are not generated before this func
 	if crts == nil {
