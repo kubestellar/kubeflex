@@ -23,6 +23,28 @@ the KubeFlex operator:
 ```shell
 kflex init --create-kind
 ```
+## Install KubeFlex on an existing cluster
+
+You can install KubeFlex on an existing cluster with nginx ingress configured for SSL passthru.
+At this time, we have only tested this option with Kind. To create a kind cluster with nginx ingress,
+follow the instructions [here](https://kind.sigs.k8s.io/docs/user/ingress/). Once you have 
+your ingress running, you will need to configure nginx ingress for SSL passthru. Run the command:
+
+```shell
+kubectl edit deployment ingress-nginx-controller -n ingress-nginx
+```
+
+and add `--enable-ssl-passthrough` to the list of args for the container named `controller`.
+
+## Use a different DNS service
+
+To use a different domain for DNS resolution, you can specify the `--domain` option when 
+you run `kflex init`. This domain should point to the IP address of your ingress controller, 
+which handles the routing of requests to different control plane instances based on the hostname. 
+A wildcard DNS service is recommended, so that any subdomain of your domain (such as *.<domain>) 
+will resolve to the same IP address. The default domain in KubeFlex is localtest.me, which is a
+wildcard DNS service that always resolves to 127.0.0.1. 
+For example, `cp1.localtest.me` and `cp2.localtest.me` will both resolve to your local machine.
 
 ## Creating a new control plane
 
