@@ -36,6 +36,34 @@ kubectl edit deployment ingress-nginx-controller -n ingress-nginx
 
 and add `--enable-ssl-passthrough` to the list of args for the container named `controller`.
 
+## Installing KubeFlex with helm
+
+To install KubeFlex on a cluster that already has nginx ingress with SSL passthru enabled, 
+you can use helm instead of the KubeFlex CLI. First, create the `kubeflex-system` namespace
+and install the shared database with the following commands:
+
+```shell
+kubectl create ns kubeflex-system
+helm upgrade --install postgres oci://registry-1.docker.io/bitnamicharts/postgresql \
+--namespace kubeflex-system \
+--set primary.extendedConfiguration=max_connections=1000 \
+--set primary.priorityClassName=system-node-critical 
+```
+
+Then, check what is the [latest release version tag](https://github.com/kubestellar/kubeflex/releases) 
+and install the KubeFlex operator with the command:
+
+```shell
+helm upgrade --install kubeflex-operator oci://ghcr.io/kubestellar/kubeflex/chart/kubeflex-operator \
+--version <latest-release-version-tag> \
+--namespace kubeflex-system \
+--set domain=localtest.me \
+--set externalPort=9443
+```
+
+The `kubeflex-system` namespace is required for installing and running KubeFlex. Do not use 
+any other namespace for this purpose.
+
 ## Use a different DNS service
 
 To use a different domain for DNS resolution, you can specify the `--domain` option when 
