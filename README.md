@@ -24,8 +24,9 @@ A flexible and scalable platform for running Kubernetes control plane APIs.
 ## Installation
 
 [kind](https://kind.sigs.k8s.io) and [kubectl](https://kubernetes.io/docs/tasks/tools/) are 
-required. Note that we plan to add support for other Kube distros. A hosting kind cluster 
-is created automatically by the kubeflex CLI.
+required. A kind hosting cluster is created automatically by the kubeflex CLI. You may
+also install KubeFlex on other Kube distros, as long as they support an nginx ingress
+with SSL passthru, or on OpenShift. See the [User's Guide](docs/users.md) for more details.
 
 Download the latest kubeflex CLI binary release for your OS/Architecture from the 
 [release page](https://github.com/kubestellar/kubeflex/releases) and copy it

@@ -41,6 +41,8 @@ type BaseReconciler struct {
 type SharedConfig struct {
 	ExternalPort int
 	Domain       string
+	IsOpenShift  bool
+	ExternalURL  string
 }
 
 func (r *BaseReconciler) UpdateStatusForSyncingError(hcp *tenancyv1alpha1.ControlPlane, e error) (ctrl.Result, error) {
@@ -77,8 +79,13 @@ func (r *BaseReconciler) GetConfig(ctx context.Context) (*SharedConfig, error) {
 	if err != nil {
 		return nil, err
 	}
+	isOpenShift, err := strconv.ParseBool(cmap.Data["isOpenShift"])
+	if err != nil {
+		return nil, err
+	}
 	return &SharedConfig{
 		Domain:       cmap.Data["domain"],
 		ExternalPort: port,
+		IsOpenShift:  isOpenShift,
 	}, nil
 }

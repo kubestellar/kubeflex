@@ -37,7 +37,7 @@ import (
 	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
-func (r *K8sReconciler) ReconcileAPIServerDeployment(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
+func (r *K8sReconciler) ReconcileAPIServerDeployment(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane, isOCP bool) error {
 	_ = clog.FromContext(ctx)
 	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
 	deployment := &appsv1.Deployment{
@@ -51,7 +51,7 @@ func (r *K8sReconciler) ReconcileAPIServerDeployment(ctx context.Context, hcp *t
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			dbName := replaceNotAllowedCharsInDBName(hcp.Name)
-			deployment, err = r.generateAPIServerDeployment(namespace, dbName)
+			deployment, err = r.generateAPIServerDeployment(namespace, dbName, isOCP)
 			if err != nil {
 				return err
 			}
@@ -96,7 +96,7 @@ func (r *K8sReconciler) ReconcileCMDeployment(ctx context.Context, hcp *tenancyv
 	return nil
 }
 
-func (r *K8sReconciler) generateAPIServerDeployment(namespace, dbName string) (*appsv1.Deployment, error) {
+func (r *K8sReconciler) generateAPIServerDeployment(namespace, dbName string, isOCP bool) (*appsv1.Deployment, error) {
 	dbPassword, err := r.getDBPassword()
 	if err != nil {
 		return nil, err
@@ -242,6 +242,16 @@ func (r *K8sReconciler) generateAPIServerDeployment(namespace, dbName string) (*
 								Name:      "k8s-certs",
 								ReadOnly:  true,
 							}},
+							SecurityContext: &v1.SecurityContext{
+								Capabilities: &v1.Capabilities{
+									Add: []v1.Capability{
+										"NET_BIND_SERVICE",
+									},
+									Drop: []v1.Capability{
+										"ALL",
+									},
+								},
+							},
 						},
 					},
 					PriorityClassName: "system-node-critical",
@@ -256,6 +266,14 @@ func (r *K8sReconciler) generateAPIServerDeployment(namespace, dbName string) (*
 				},
 			},
 		},
+	}
+	if isOCP {
+		deployment.Spec.Template.Spec.SecurityContext = &v1.PodSecurityContext{
+			RunAsNonRoot: pointer.Bool(true),
+			SeccompProfile: &v1.SeccompProfile{
+				Type: v1.SeccompProfileTypeRuntimeDefault,
+			},
+		}
 	}
 	return deployment, nil
 }

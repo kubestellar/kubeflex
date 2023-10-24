@@ -67,7 +67,6 @@ func (r *OCMReconciler) ReconcileOCMService(ctx context.Context, hcp *tenancyv1a
 }
 
 func generateAPIServerService(name, namespace string) *corev1.Service {
-	ds := corev1.IPFamilyPolicyPreferDualStack
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -80,16 +79,11 @@ func generateAPIServerService(name, namespace string) *corev1.Service {
 			Type: corev1.ServiceTypeNodePort,
 			Ports: []corev1.ServicePort{
 				{
-					Port:       shared.SecurePort,
+					Port:       shared.DefaulPort,
 					Name:       "https",
 					Protocol:   "TCP",
 					TargetPort: intstr.FromInt(TargetPort),
 				},
-			},
-			IPFamilyPolicy: &ds,
-			IPFamilies: []corev1.IPFamily{
-				corev1.IPv4Protocol,
-				corev1.IPv6Protocol,
 			},
 		},
 	}

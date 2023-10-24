@@ -6,3 +6,4 @@ metadata:
 data:
   domain: "{{ .Values.domain }}"
   externalPort: "{{ .Values.externalPort }}"
+  isOpenShift: "{{ .Values.isOpenShift }}"

@@ -44,9 +44,25 @@ var (
 
 func (r *VClusterReconciler) ReconcileChart(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane, cfg *shared.SharedConfig) error {
 	_ = clog.FromContext(ctx)
-	localDNSName := util.GenerateDevLocalDNSName(hcp.Name, cfg.Domain)
-	configs = append(configs, fmt.Sprintf("syncer.extraArgs[0]=--tls-san=%s", localDNSName))
-	configs = append(configs, fmt.Sprintf("syncer.extraArgs[1]=--out-kube-config-server=https://%s:%d", localDNSName, cfg.ExternalPort))
+	dnsName := util.GenerateDevLocalDNSName(hcp.Name, cfg.Domain)
+	port := cfg.ExternalPort
+	if cfg.ExternalURL != "" {
+		dnsName = cfg.ExternalURL
+		port = 443
+		// TODO - this is specific to OpenShift, not to having an external URL - ok for now, but to improve later
+		//configs = append(configs, "openshift.enable=true")
+		ocpConfigs := []string{
+			"openshift.enable=true",
+			"securityContext.allowPrivilegeEscalation=false",
+			"securityContext.capabilities.drop={ALL}",
+			"securityContext.runAsUser=null",
+			"securityContext.runAsGroup=null",
+			"securityContext.seccompProfil.type=RuntimeDefault",
+		}
+		configs = append(configs, ocpConfigs...)
+	}
+	configs = append(configs, fmt.Sprintf("syncer.extraArgs[0]=--tls-san=%s", dnsName))
+	configs = append(configs, fmt.Sprintf("syncer.extraArgs[1]=--out-kube-config-server=https://%s:%d", dnsName, port))
 	h := &helm.HelmHandler{
 		URL:         URL,
 		RepoName:    RepoName,

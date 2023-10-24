@@ -37,7 +37,7 @@ const (
 	image   = "quay.io/pdettori/cmupdate:latest"
 )
 
-func (r *OCMReconciler) ReconcileUpdateClusterInfoJob(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
+func (r *OCMReconciler) ReconcileUpdateClusterInfoJob(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane, externalURL string) error {
 	_ = clog.FromContext(ctx)
 	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
 
@@ -52,7 +52,7 @@ func (r *OCMReconciler) ReconcileUpdateClusterInfoJob(ctx context.Context, hcp *
 	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(job), job, &client.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			job := generateClusterInfoJob(jobName, namespace)
+			job := generateClusterInfoJob(jobName, namespace, externalURL)
 			if err := controllerutil.SetControllerReference(hcp, job, r.Scheme); err != nil {
 				return nil
 			}
@@ -66,8 +66,8 @@ func (r *OCMReconciler) ReconcileUpdateClusterInfoJob(ctx context.Context, hcp *
 	return nil
 }
 
-func generateClusterInfoJob(name, namespace string) *batchv1.Job {
-	return &batchv1.Job{
+func generateClusterInfoJob(name, namespace, externalURL string) *batchv1.Job {
+	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
@@ -98,4 +98,12 @@ func generateClusterInfoJob(name, namespace string) *batchv1.Job {
 			},
 		},
 	}
+	if externalURL != "" {
+		env := corev1.EnvVar{
+			Name:  "EXTERNAL_URL",
+			Value: externalURL,
+		}
+		job.Spec.Template.Spec.Containers[0].Env = append(job.Spec.Template.Spec.Containers[0].Env, env)
+	}
+	return job
 }

@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -39,9 +40,18 @@ func Init(ctx context.Context, kubeconfig, version, buildDate string, domain, ex
 	util.PrintStatus(fmt.Sprintf("Kubeflex %s %s", version, buildDate), done, &wg)
 	done <- true
 
-	util.PrintStatus("Installing shared backend DB...", done, &wg)
+	util.PrintStatus("Ensuring kubeflex-system namespace...", done, &wg)
 	ensureSystemNamespace(kubeconfig, util.SystemNamespace)
-	ensureSystemDB(ctx)
+	done <- true
+	util.PrintStatus("Checking if OpenShift cluster...", done, &wg)
+	isOCP := util.IsOpenShift(*(client.GetClientSet(kubeconfig)))
+	if isOCP {
+		done <- true
+		util.PrintStatus("OpenShift cluster detected", done, &wg)
+	}
+	done <- true
+	util.PrintStatus("Installing shared backend DB...", done, &wg)
+	ensureSystemDB(ctx, isOCP)
 	done <- true
 
 	util.PrintStatus("Waiting for shared backend DB to become ready...", done, &wg)
@@ -52,7 +62,7 @@ func Init(ctx context.Context, kubeconfig, version, buildDate string, domain, ex
 	done <- true
 
 	util.PrintStatus("Installing kubeflex operator...", done, &wg)
-	ensureKFlexOperator(ctx, version, domain, externalPort)
+	ensureKFlexOperator(ctx, version, domain, externalPort, isOCP)
 	done <- true
 
 	util.PrintStatus("Waiting for kubeflex operator to become ready...", done, &wg)
@@ -65,14 +75,30 @@ func Init(ctx context.Context, kubeconfig, version, buildDate string, domain, ex
 	wg.Wait()
 }
 
-func ensureSystemDB(ctx context.Context) {
+func ensureSystemDB(ctx context.Context, isOCP bool) {
+	vars := []string{
+		"primary.extendedConfiguration=max_connections=1000",
+		"primary.priorityClassName=system-node-critical",
+	}
+	if isOCP {
+		vars = append(vars,
+			"primary.podSecurityContext.fsGroup=null",
+			"primary.podSecurityContext.seccompProfile.type=RuntimeDefault",
+			"primary.containerSecurityContext.runAsUser=null",
+			"primary.containerSecurityContext.allowPrivilegeEscalation=false",
+			"primary.containerSecurityContext.runAsNonRoot=true",
+			"primary.containerSecurityContext.seccompProfile.type=RuntimeDefault",
+			"volumePermissions.enabled=false",
+			"shmVolume.enabled=false",
+		)
+	}
 	h := &helm.HelmHandler{
 		URL:         PostgresURL,
 		RepoName:    PostgresRepoName,
 		ChartName:   PostgresChartName,
 		Namespace:   util.SystemNamespace,
 		ReleaseName: PostgresReleaseName,
-		Args:        PostgresArgs,
+		Args:        map[string]string{"set": strings.Join(vars, ",")},
 	}
 	err := helm.Init(ctx, h)
 	if err != nil {
@@ -89,16 +115,21 @@ func ensureSystemDB(ctx context.Context) {
 	}
 }
 
-func ensureKFlexOperator(ctx context.Context, fullVersion, domain, externalPort string) {
+func ensureKFlexOperator(ctx context.Context, fullVersion, domain, externalPort string, isOCP bool) {
 	version := util.ParseVersionNumber(fullVersion)
-	OperatorConfigs = append(OperatorConfigs, fmt.Sprintf("domain=%s,externalPort=%s", domain, externalPort))
+	vars := []string{
+		fmt.Sprintf("version=%s", version),
+		fmt.Sprintf("domain=%s", domain),
+		fmt.Sprintf("externalPort=%s", externalPort),
+		fmt.Sprintf("isOpenShift=%s", strconv.FormatBool(isOCP)),
+	}
 	h := &helm.HelmHandler{
 		URL:         fmt.Sprintf("%s:%s", KflexOperatorURL, version),
 		RepoName:    KflexOperatorRepoName,
 		ChartName:   KflexOperatorChartName,
 		Namespace:   util.SystemNamespace,
 		ReleaseName: KflexOperatorReleaseName,
-		Args:        map[string]string{"set": strings.Join(OperatorConfigs, ",")},
+		Args:        map[string]string{"set": strings.Join(vars, ",")},
 	}
 	err := helm.Init(ctx, h)
 	if err != nil {
