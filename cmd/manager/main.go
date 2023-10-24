@@ -24,6 +24,8 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	routev1 "github.com/openshift/api/route/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -89,6 +91,9 @@ func main() {
 		os.Exit(1)
 	}
 
+	// add additional types required by the controller
+	addExtraTypesToScheme(mgr.GetScheme())
+
 	if err = (&controller.ControlPlaneReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
@@ -112,4 +117,9 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+func addExtraTypesToScheme(scheme *runtime.Scheme) {
+	scheme.AddKnownTypes(routev1.GroupVersion, &routev1.Route{}, &routev1.RouteList{})
+	metav1.AddToGroupVersion(scheme, routev1.GroupVersion)
 }

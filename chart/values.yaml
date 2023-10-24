@@ -4,3 +4,4 @@
 
 domain: localtest.me
 externalPort: "9443"
+isOpenShift: "false"

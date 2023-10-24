@@ -27,7 +27,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/kubestellar/kubeflex/pkg/reconcilers/shared"
 	"github.com/kubestellar/kubeflex/pkg/util"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -54,6 +53,7 @@ type ConfigGen struct {
 	CpHost      string
 	CpDomain    string
 	CpPort      int
+	CpExtraDNS  string
 	Target      ConfigTarget
 	caKey       *rsa.PrivateKey
 	caTemplate  x509.Certificate
@@ -73,7 +73,7 @@ func GenerateKubeConfigSecret(ctx context.Context, certs *Certs, conf *ConfigGen
 	if err != nil {
 		return nil, err
 	}
-	// generate the admin kubeconfig for in-cluster usage
+	// generate the admin kubeconfig
 	if conf.Target == Admin {
 		conf.Target = AdminInCluster
 		kconfInCluster, err = GenerateKubeconfigBytes(conf)
@@ -165,7 +165,11 @@ func (c *ConfigGen) generateConfig() *clientcmdapi.Config {
 
 func (c *ConfigGen) generateServerEndpoint() string {
 	if c.Target == ControllerManager || c.Target == AdminInCluster {
-		return fmt.Sprintf("https://%s.%s.svc.cluster.local:%d", c.CpName, c.CpNamespace, shared.SecurePort)
+		return fmt.Sprintf("https://%s.%s.svc.cluster.local", c.CpName, c.CpNamespace)
+	}
+	// if an external URL (e.g. OCP route) is provided, just use it
+	if c.CpExtraDNS != "" {
+		return fmt.Sprintf("https://%s", c.CpExtraDNS)
 	}
 	return fmt.Sprintf("https://%s:%d", util.GenerateDevLocalDNSName(c.CpName, c.CpDomain), c.CpPort)
 }

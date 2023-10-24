@@ -25,16 +25,32 @@ kflex init --create-kind
 ```
 ## Install KubeFlex on an existing cluster
 
-You can install KubeFlex on an existing cluster with nginx ingress configured for SSL passthru.
-At this time, we have only tested this option with Kind. To create a kind cluster with nginx ingress,
-follow the instructions [here](https://kind.sigs.k8s.io/docs/user/ingress/). Once you have 
-your ingress running, you will need to configure nginx ingress for SSL passthru. Run the command:
+You can install KubeFlex on an existing cluster with nginx ingress configured for SSL passthru,
+or on a OpenShift cluster. At this time, we have only tested this option with Kind and OpenShift. 
+
+### Installing on kind
+
+To create a kind cluster with nginx ingress, follow the instructions [here](https://kind.sigs.k8s.io/docs/user/ingress/). 
+Once you have your ingress running, you will need to configure nginx ingress for SSL passthru. Run the command:
 
 ```shell
 kubectl edit deployment ingress-nginx-controller -n ingress-nginx
 ```
 
-and add `--enable-ssl-passthrough` to the list of args for the container named `controller`.
+and add `--enable-ssl-passthrough` to the list of args for the container named `controller`. Then you can
+run the command to install KubeFlex:
+
+```shell
+kflex init
+```
+### Installing on OpenShift
+
+If you are installing on an OpenShift cluster you do not need any special configuration. Just run
+the command:
+
+```shell
+kflex init
+```
 
 ## Installing KubeFlex with helm
 
@@ -64,6 +80,39 @@ helm upgrade --install kubeflex-operator oci://ghcr.io/kubestellar/kubeflex/char
 The `kubeflex-system` namespace is required for installing and running KubeFlex. Do not use 
 any other namespace for this purpose.
 
+### Installing KubeFlex with helm on OpenShift
+
+If you are installing on OpenShift with the `kflex` CLI, the CLI auto-detects OpenShift and autoimatically
+configure the installation of the shared DB and the operator, but if you are using directly helm to install
+you will need to add additional parameters:
+
+To install the shared DB on OpenShift run:
+
+```shell
+helm upgrade --install postgres oci://registry-1.docker.io/bitnamicharts/postgresql \
+--namespace kubeflex-system \
+--set primary.extendedConfiguration=max_connections=1000 \
+--set primary.priorityClassName=system-node-critical \
+--set primary.podSecurityContext.fsGroup=null \
+--set primary.podSecurityContext.seccompProfile.type=RuntimeDefault \
+--set primary.containerSecurityContext.runAsUser=null \
+--set primary.containerSecurityContext.allowPrivilegeEscalation=false \
+--set primary.containerSecurityContext.runAsNonRoot=true \
+--set primary.containerSecurityContext.seccompProfile.type=RuntimeDefault \
+--set primary.containerSecurityContext.capabilities.drop={ALL} \
+--set volumePermissions.enabled=false \
+--set shmVolume.enabled=false
+```
+
+To install the operator on OpenShift run:
+
+```shell
+helm upgrade --install kubeflex-operator oci://ghcr.io/kubestellar/kubeflex/chart/kubeflex-operator \
+--version <latest-release-version-tag> \
+--namespace kubeflex-system \
+--set isOpenShift=true
+```
+
 ## Use a different DNS service
 
 To use a different domain for DNS resolution, you can specify the `--domain` option when 
@@ -73,6 +122,7 @@ A wildcard DNS service is recommended, so that any subdomain of your domain (suc
 will resolve to the same IP address. The default domain in KubeFlex is localtest.me, which is a
 wildcard DNS service that always resolves to 127.0.0.1. 
 For example, `cp1.localtest.me` and `cp2.localtest.me` will both resolve to your local machine.
+Note that this option is ignored if you are installing on OpenShift.
 
 ## Creating a new control plane
 

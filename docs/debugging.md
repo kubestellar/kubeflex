@@ -105,6 +105,12 @@ ko build --local --push=false -B ./cmd/cmupdate -t latest --platform linux/amd64
 docker tag ko.local/cmupdate:latest quay.io/pdettori/cmupdate:latest
 docker push quay.io/pdettori/cmupdate:latest
 ```
+alternative command (e.g., in rancher desktop)
+
+```shell
+export KO_DOCKER_REPO=quay.io/pdettori
+ko build  -B ./cmd/cmupdate -t latest --platform linux/amd64,linux/arm64
+```
 
 ### Steps to make release
 

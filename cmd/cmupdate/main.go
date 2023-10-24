@@ -55,6 +55,10 @@ func main() {
 	} else {
 		log.Printf("Current Namespace: %s", namespace)
 	}
+	externalURL := os.Getenv("EXTERNAL_URL")
+	if externalURL != "" {
+		log.Printf("Using external URL: %s", externalURL)
+	}
 	ctx := context.TODO()
 
 	// Create the Kubernetes clientset
@@ -96,6 +100,9 @@ func main() {
 	}
 
 	serverURL := fmt.Sprintf("%s:%d", baseURL, nodePort)
+	if externalURL != "" {
+		serverURL = fmt.Sprintf("https://%s", externalURL)
+	}
 	updatedConfigMap := updateConfigMap(configMap, clusterName, keyToUpdate, serverURL)
 
 	err = updateConfigMapValue(clientForHostedServer, ctx, updatedConfigMap)

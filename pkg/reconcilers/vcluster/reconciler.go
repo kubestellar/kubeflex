@@ -18,6 +18,7 @@ package vcluster
 
 import (
 	"context"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -52,6 +53,7 @@ func New(cl client.Client, scheme *runtime.Scheme) *VClusterReconciler {
 }
 
 func (r *VClusterReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
+	var routeURL string
 	_ = clog.FromContext(ctx)
 
 	cfg, err := r.BaseReconciler.GetConfig(ctx)
@@ -63,11 +65,26 @@ func (r *VClusterReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
-	if err := r.ReconcileChart(ctx, hcp, cfg); err != nil {
-		return r.UpdateStatusForSyncingError(hcp, err)
+	if cfg.IsOpenShift {
+		if err = r.ReconcileAPIServerRoute(ctx, hcp, ServiceName, shared.SecurePort, cfg.Domain); err != nil {
+			return r.UpdateStatusForSyncingError(hcp, err)
+		}
+		routeURL, err = r.GetAPIServerRouteURL(ctx, hcp)
+		if err != nil {
+			return r.UpdateStatusForSyncingError(hcp, err)
+		}
+		// re-queue until valid route URL is retrieved
+		if routeURL == "" {
+			return ctrl.Result{RequeueAfter: 3 * time.Second}, nil
+		}
+		cfg.ExternalURL = routeURL
+	} else {
+		if err := r.ReconcileAPIServerIngress(ctx, hcp, ServiceName, ServicePort, cfg.Domain); err != nil {
+			return r.UpdateStatusForSyncingError(hcp, err)
+		}
 	}
 
-	if err := r.ReconcileAPIServerIngress(ctx, hcp, ServiceName, ServicePort, cfg.Domain); err != nil {
+	if err := r.ReconcileChart(ctx, hcp, cfg); err != nil {
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 

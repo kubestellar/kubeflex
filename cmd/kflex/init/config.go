@@ -17,7 +17,7 @@ limitations under the License.
 package init
 
 const (
-	PostgresURL         = "oci://registry-1.docker.io/bitnamicharts/postgresql:12.5.6"
+	PostgresURL         = "oci://registry-1.docker.io/bitnamicharts/postgresql:13.1.2"
 	PostgresRepoName    = "bitnami"
 	PostgresChartName   = "postgresql"
 	PostgresReleaseName = "postgres"
@@ -26,13 +26,4 @@ const (
 	KflexOperatorRepoName    = "kubestellar"
 	KflexOperatorChartName   = "kubeflex-operator"
 	KflexOperatorReleaseName = "kubeflex-operator"
-)
-
-var (
-	PostgresArgs = map[string]string{
-		"set": "primary.extendedConfiguration=max_connections=1000,primary.priorityClassName=system-node-critical",
-	}
-	OperatorConfigs = []string{
-		"version=v0.1.0",
-	}
 )

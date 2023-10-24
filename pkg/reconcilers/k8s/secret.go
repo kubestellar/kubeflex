@@ -32,7 +32,7 @@ import (
 	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
-func (r *K8sReconciler) ReconcileCertsSecret(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane, cfg *shared.SharedConfig) (*certs.Certs, error) {
+func (r *K8sReconciler) ReconcileCertsSecret(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane, cfg *shared.SharedConfig, extraDNSName string) (*certs.Certs, error) {
 	_ = clog.FromContext(ctx)
 	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
 
@@ -47,7 +47,7 @@ func (r *K8sReconciler) ReconcileCertsSecret(ctx context.Context, hcp *tenancyv1
 	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(csecret), csecret, &client.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			csecret, crts, err := generateCertsSecret(ctx, hcp.Name, namespace, cfg.Domain)
+			csecret, crts, err := generateCertsSecret(ctx, hcp.Name, namespace, cfg.Domain, extraDNSName)
 			if err != nil {
 				return nil, err
 			}
@@ -95,9 +95,12 @@ func (r *K8sReconciler) ReconcileKubeconfigSecret(ctx context.Context, crts *cer
 	return nil
 }
 
-func generateCertsSecret(ctx context.Context, name, namespace, domain string) (*v1.Secret, *certs.Certs, error) {
+func generateCertsSecret(ctx context.Context, name, namespace, domain, extraDNSName string) (*v1.Secret, *certs.Certs, error) {
 	extraDnsNames := util.GenerateHostedDNSName(namespace, name)
 	extraDnsNames = append(extraDnsNames, util.GenerateDevLocalDNSName(name, domain))
+	if extraDNSName != "" {
+		extraDnsNames = append(extraDnsNames, extraDNSName)
+	}
 	c, err := certs.New(ctx, extraDnsNames)
 	if err != nil {
 		return nil, nil, err

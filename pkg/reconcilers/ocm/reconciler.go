@@ -18,6 +18,7 @@ package ocm
 
 import (
 	"context"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,6 +48,7 @@ func New(cl client.Client, scheme *runtime.Scheme) *OCMReconciler {
 }
 
 func (r *OCMReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
+	var routeURL string
 	_ = clog.FromContext(ctx)
 
 	cfg, err := r.BaseReconciler.GetConfig(ctx)
@@ -58,15 +60,30 @@ func (r *OCMReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.Cont
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
-	if err := r.ReconcileChart(ctx, hcp, cfg); err != nil {
-		return r.UpdateStatusForSyncingError(hcp, err)
-	}
-
 	if err := r.ReconcileOCMService(ctx, hcp); err != nil {
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
-	if err := r.ReconcileAPIServerIngress(ctx, hcp, ServiceName, shared.SecurePort, cfg.Domain); err != nil {
+	if cfg.IsOpenShift {
+		if err = r.ReconcileAPIServerRoute(ctx, hcp, ServiceName, shared.SecurePort, cfg.Domain); err != nil {
+			return r.UpdateStatusForSyncingError(hcp, err)
+		}
+		routeURL, err = r.GetAPIServerRouteURL(ctx, hcp)
+		if err != nil {
+			return r.UpdateStatusForSyncingError(hcp, err)
+		}
+		// re-queue until valid route URL is retrieved
+		if routeURL == "" {
+			return ctrl.Result{RequeueAfter: 3 * time.Second}, nil
+		}
+		cfg.ExternalURL = routeURL
+	} else {
+		if err := r.ReconcileAPIServerIngress(ctx, hcp, ServiceName, shared.DefaulPort, cfg.Domain); err != nil {
+			return r.UpdateStatusForSyncingError(hcp, err)
+		}
+	}
+
+	if err := r.ReconcileChart(ctx, hcp, cfg); err != nil {
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
@@ -78,7 +95,7 @@ func (r *OCMReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.Cont
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
-	if err := r.ReconcileUpdateClusterInfoJob(ctx, hcp); err != nil {
+	if err := r.ReconcileUpdateClusterInfoJob(ctx, hcp, cfg.ExternalURL); err != nil {
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 

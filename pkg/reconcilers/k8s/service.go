@@ -23,6 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	clog "sigs.k8s.io/controller-runtime/pkg/log"
@@ -73,9 +74,10 @@ func generateAPIServerService(name, namespace string) *corev1.Service {
 			Type: corev1.ServiceTypeNodePort,
 			Ports: []corev1.ServicePort{
 				{
-					Port:     shared.SecurePort,
-					Name:     "https",
-					Protocol: "TCP",
+					Port:       shared.DefaulPort,
+					TargetPort: intstr.FromInt(shared.SecurePort),
+					Name:       "https",
+					Protocol:   "TCP",
 				},
 			},
 		},

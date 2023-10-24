@@ -39,13 +39,19 @@ var (
 		"image=quay.io/pdettori/multicluster-controlplane:latest",
 		"route.enabled=false",
 		"apiserver.internalHostname=kubeflex-control-plane",
-		"apiserver.port=9443",
 		"nodeport.enabled=false",
 	}
 )
 
 func (r *OCMReconciler) ReconcileChart(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane, cfg *shared.SharedConfig) error {
-	configs = append(configs, fmt.Sprintf("apiserver.externalHostname=%s", util.GenerateDevLocalDNSName(hcp.Name, cfg.Domain)))
+	dnsName := util.GenerateDevLocalDNSName(hcp.Name, cfg.Domain)
+	port := cfg.ExternalPort
+	if cfg.ExternalURL != "" {
+		dnsName = cfg.ExternalURL
+		port = 443
+	}
+	configs = append(configs, fmt.Sprintf("apiserver.externalHostname=%s", dnsName))
+	configs = append(configs, fmt.Sprintf("apiserver.port=%d", port))
 	h := &helm.HelmHandler{
 		URL:         URL,
 		RepoName:    RepoName,
