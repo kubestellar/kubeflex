@@ -52,6 +52,22 @@ func LoadAndMerge(ctx context.Context, client kubernetes.Clientset, name, contro
 	return WriteKubeconfig(ctx, konfig)
 }
 
+// LoadAndMergeNoWrite: works as LoadAndMerge but on supplied konfig from file and does not write it back
+func LoadAndMergeNoWrite(ctx context.Context, client kubernetes.Clientset, name, controlPlaneType string, konfig *clientcmdapi.Config) error {
+	cpKonfig, err := loadControlPlaneKubeconfig(ctx, client, name, controlPlaneType)
+	if err != nil {
+		return err
+	}
+	adjustConfigKeys(cpKonfig, name, controlPlaneType)
+
+	err = merge(konfig, cpKonfig)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func loadControlPlaneKubeconfig(ctx context.Context, client kubernetes.Clientset, name, controlPlaneType string) (*clientcmdapi.Config, error) {
 	namespace := util.GenerateNamespaceFromControlPlaneName(name)
 
