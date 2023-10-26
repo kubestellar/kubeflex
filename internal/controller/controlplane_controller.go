@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	clog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
@@ -35,6 +36,8 @@ import (
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/vcluster"
 	"github.com/kubestellar/kubeflex/pkg/util"
 )
+
+const kfFinalizer = "kflex.kubestellar.org/finalizer"
 
 // ControlPlaneReconciler reconciles a ControlPlane object
 type ControlPlaneReconciler struct {
@@ -52,6 +55,7 @@ type ControlPlaneReconciler struct {
 //+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=route.openshift.io,resources=routes,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="batch",resources=jobs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=clusterroles,verbs=get;list;watch;create;update;patch;delete
@@ -93,6 +97,30 @@ func (r *ControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 	hcp := hostedControlPlane.DeepCopy()
 
+	// finalizer logic
+	if hcp.GetDeletionTimestamp() != nil {
+		if controllerutil.ContainsFinalizer(hcp, kfFinalizer) {
+			if err := r.deleteExternalResources(ctx, hcp); err != nil {
+				return ctrl.Result{}, err
+			}
+
+			controllerutil.RemoveFinalizer(hcp, kfFinalizer)
+			err := r.Update(ctx, hcp)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+		return ctrl.Result{}, nil
+	}
+
+	if !controllerutil.ContainsFinalizer(hcp, kfFinalizer) {
+		controllerutil.AddFinalizer(hcp, kfFinalizer)
+		err = r.Update(ctx, hcp)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	// check if API server is already in a ready state
 	ready, _ := util.IsAPIServerDeploymentReady(r.Client, *hcp)
 	if ready {
@@ -129,4 +157,25 @@ func (r *ControlPlaneReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.ServiceAccount{}).
 		Complete(r)
+}
+
+func (r *ControlPlaneReconciler) deleteExternalResources(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
+	// bypass cleanup when running out of cluster as there is no connectivity to the DB
+	if !util.IsInCluster() {
+		return nil
+	}
+	// select the type of delete action (for now only k8s using sharedDB)
+	switch hcp.Spec.Type {
+	case tenancyv1alpha1.ControlPlaneTypeK8S:
+		if err := util.DropDatabase(ctx, hcp.Name, r.Client); err != nil {
+			return err
+		}
+	case tenancyv1alpha1.ControlPlaneTypeOCM:
+
+	case tenancyv1alpha1.ControlPlaneTypeVCluster:
+
+	default:
+		return nil
+	}
+	return nil
 }
