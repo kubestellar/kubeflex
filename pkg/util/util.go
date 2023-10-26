@@ -18,6 +18,7 @@ package util
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
@@ -58,14 +59,6 @@ func GenerateHostedDNSName(namespace, name string) []string {
 		fmt.Sprintf("%s.%s.svc.cluster", name, namespace),
 		fmt.Sprintf("%s.%s.svc.cluster.local", name, namespace),
 	}
-}
-
-func GeneratePSecretName(releaseName string) string {
-	return fmt.Sprintf("%s-postgresql", releaseName)
-}
-
-func GeneratePSReplicaSetName(releaseName string) string {
-	return fmt.Sprintf("%s-postgresql", releaseName)
 }
 
 func GenerateOperatorDeploymentName() string {
@@ -124,4 +117,11 @@ func GetAPIServerDeploymentNameByControlPlaneType(controlPlaneType string) strin
 		// TODO - should we instead throw an error?
 		return APIServerDeploymentName
 	}
+}
+
+func IsInCluster() bool {
+	if kubeHost := os.Getenv("KUBERNETES_SERVICE_HOST"); kubeHost != "" {
+		return true
+	}
+	return false
 }

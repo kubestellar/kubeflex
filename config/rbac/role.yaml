@@ -266,6 +266,18 @@ rules:
   - update
   - watch
 - apiGroups:
+  - route.openshift.io
+  resources:
+  - routes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - tenancy.kflex.kubestellar.org
   resources:
   - controlplanes

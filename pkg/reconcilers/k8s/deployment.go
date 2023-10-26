@@ -19,7 +19,6 @@ package k8s
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -50,7 +49,7 @@ func (r *K8sReconciler) ReconcileAPIServerDeployment(ctx context.Context, hcp *t
 	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(deployment), deployment, &client.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			dbName := replaceNotAllowedCharsInDBName(hcp.Name)
+			dbName := util.ReplaceNotAllowedCharsInDBName(hcp.Name)
 			deployment, err = r.generateAPIServerDeployment(namespace, dbName, isOCP)
 			if err != nil {
 				return err
@@ -97,7 +96,7 @@ func (r *K8sReconciler) ReconcileCMDeployment(ctx context.Context, hcp *tenancyv
 }
 
 func (r *K8sReconciler) generateAPIServerDeployment(namespace, dbName string, isOCP bool) (*appsv1.Deployment, error) {
-	dbPassword, err := r.getDBPassword()
+	dbPassword, err := util.GetPGDBPassword(r.Client)
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +127,7 @@ func (r *K8sReconciler) generateAPIServerDeployment(namespace, dbName string, is
 						{
 							Name:    "kine",
 							Image:   "rancher/kine:v0.9.9-amd64",
-							Command: []string{"kine", "--endpoint", fmt.Sprintf("postgres://postgres:%s@%s-postgresql.%s.svc/%s?sslmode=disable", dbPassword, util.DBReleaseName, util.SystemNamespace, dbName)},
+							Command: []string{"kine", "--endpoint", util.GeneratePGConnectionString(dbPassword, dbName)},
 							Ports: []v1.ContainerPort{{
 								ContainerPort: 2379,
 							}},
@@ -401,25 +400,4 @@ func (r *K8sReconciler) generateCMDeployment(cpName, namespace string) (*appsv1.
 		},
 	}
 	return deployment, nil
-}
-
-func (r *K8sReconciler) getDBPassword() (string, error) {
-	// create certs secret object
-	pSecret := &v1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      util.GeneratePSecretName(util.DBReleaseName),
-			Namespace: util.SystemNamespace,
-		},
-	}
-
-	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(pSecret), pSecret, &client.GetOptions{})
-	if err != nil {
-		return "", err
-	}
-
-	return string(pSecret.Data["postgres-password"]), nil
-}
-
-func replaceNotAllowedCharsInDBName(name string) string {
-	return strings.ReplaceAll(name, "-", "_")
 }
