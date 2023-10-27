@@ -1,8 +1,16 @@
 package util
 
 import (
+	"context"
+
+	"github.com/kubestellar/kubeflex/pkg/client"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
+)
+
+const (
+	kubeflexServiceAccount = "system:serviceaccount:kubeflex-system:kubeflex-controller-manager"
 )
 
 func IsOpenShift(clientset kubernetes.Clientset) bool {
@@ -30,4 +38,25 @@ func checkResourceExists(discoveryClient discovery.DiscoveryInterface, group, ve
 	}
 
 	return false, nil
+}
+
+func AddSCCtoUserPolicy(kubeconfig string) error {
+	securityClient, err := client.GetOpendShiftSecClient("")
+	if err != nil {
+		return err
+	}
+
+	anyuidSCC, err := securityClient.SecurityV1().SecurityContextConstraints().Get(context.Background(), "anyuid", metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	anyuidSCC.Users = append(anyuidSCC.Users, kubeflexServiceAccount)
+
+	_, err = securityClient.SecurityV1().SecurityContextConstraints().Update(context.Background(), anyuidSCC, metav1.UpdateOptions{})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

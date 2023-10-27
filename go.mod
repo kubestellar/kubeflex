@@ -11,7 +11,8 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/onsi/ginkgo/v2 v2.9.5
 	github.com/onsi/gomega v1.27.7
-	github.com/openshift/api v0.0.0-20231020115248-f404f2bc3524
+	github.com/openshift/api v0.0.0-20231024112103-79b9cd5e6020
+	github.com/openshift/client-go v0.0.0-20231024221206-506d798bc61c
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.7.0
 	go.uber.org/zap v1.24.0
@@ -20,7 +21,7 @@ require (
 	k8s.io/api v0.28.2
 	k8s.io/apimachinery v0.28.2
 	k8s.io/client-go v0.28.2
-	k8s.io/utils v0.0.0-20230406110748-d93618cff8a2
+	k8s.io/utils v0.0.0-20230505201702-9f6742963106
 	sigs.k8s.io/controller-runtime v0.15.0
 )
 

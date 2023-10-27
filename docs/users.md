@@ -113,6 +113,13 @@ helm upgrade --install kubeflex-operator oci://ghcr.io/kubestellar/kubeflex/char
 --set isOpenShift=true
 ```
 
+Finally, add the the OpenShift anyuid SCC to the KubeFlex service account (note that this is done 
+automatically by `kflex init` if you are using the kflex CLI installer):
+
+```shell
+oc adm policy add-scc-to-user anyuid -z kubeflex-controller-manager -n kubeflex-system
+```
+
 ## Use a different DNS service
 
 To use a different domain for DNS resolution, you can specify the `--domain` option when 
@@ -465,4 +472,19 @@ vcluster-0                                          2/2     Running   0         
 
 The nginx pod is the one with the name `nginx-x-default-x-vcluster`.
 
+## Uninstalling KubeFlex
 
+To uninstall KubeFlex, first ensure you remove all you control planes:
+
+```shell
+kubectl delete cps --all
+```
+
+Then, uninstall KubeFlex with the commands:
+
+```shell
+helm delete -n kubeflex-system kubeflex-operator
+helm delete -n kubeflex-system postgres
+kubectl delete pvc data-postgres-postgresql-0
+kubectl delete ns kubeflex-system
+```
