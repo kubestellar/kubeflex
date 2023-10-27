@@ -64,6 +64,7 @@ func Init(ctx context.Context, handler *HelmHandler) error {
 	handler.log = clog.FromContext(ctx)
 	handler.settings = cli.New()
 	handler.settings.SetNamespace(handler.Namespace)
+	handler.settings.RegistryConfig = "/tmp"
 	return nil
 }
 
