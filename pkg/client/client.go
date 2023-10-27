@@ -23,6 +23,7 @@ import (
 
 	homedir "github.com/mitchellh/go-homedir"
 
+	"github.com/openshift/client-go/security/clientset/versioned"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -67,6 +68,11 @@ func GetClient(kubeconfig string) *client.Client {
 		os.Exit(1)
 	}
 	return &c
+}
+
+func GetOpendShiftSecClient(kubeconfig string) (*versioned.Clientset, error) {
+	config := getConfig(kubeconfig)
+	return versioned.NewForConfig(config)
 }
 
 func getConfig(kubeconfig string) *rest.Config {

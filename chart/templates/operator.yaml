@@ -197,6 +197,18 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - endpoints/restricted
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
   - events
   verbs:
   - create
@@ -431,6 +443,18 @@ rules:
   - update
   - watch
 - apiGroups:
+  - route.openshift.io
+  resources:
+  - routes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - tenancy.kflex.kubestellar.org
   resources:
   - controlplanes
@@ -564,6 +588,7 @@ apiVersion: v1
 data:
   domain: '{{ .Values.domain }}'
   externalPort: '{{ .Values.externalPort }}'
+  isOpenShift: '{{ .Values.isOpenShift }}'
 kind: ConfigMap
 metadata:
   name: kubeflex-config
