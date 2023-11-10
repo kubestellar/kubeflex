@@ -97,6 +97,20 @@ spec:
               observedGeneration:
                 format: int64
                 type: integer
+              secretRef:
+                description: SecretRef contains a referece to the secret containing
+                  the Kubeconfig for the control plane
+                properties:
+                  name:
+                    description: '`name` is the name of the secret. Required'
+                    type: string
+                  namespace:
+                    description: '`namespace` is the namespace of the secret. Required'
+                    type: string
+                required:
+                - name
+                - namespace
+                type: object
             required:
             - conditions
             - observedGeneration

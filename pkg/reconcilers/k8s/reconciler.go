@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/shared"
+	"github.com/kubestellar/kubeflex/pkg/util"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -110,6 +111,8 @@ func (r *K8sReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.Cont
 	if err = r.ReconcileCMDeployment(ctx, hcp); err != nil {
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
+
+	r.UpdateStatusWithSecretRef(hcp, util.AdminConfSecret)
 
 	return r.UpdateStatusForSyncingSuccess(ctx, hcp)
 }

@@ -92,6 +92,8 @@ func (r *VClusterReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
+	r.UpdateStatusWithSecretRef(hcp, util.VClusterKubeConfigSecret)
+
 	return r.UpdateStatusForSyncingSuccess(ctx, hcp)
 }
 
