@@ -365,7 +365,7 @@ apiVersion: work.open-cluster-management.io/v1
 kind: ManifestWork
 metadata:
   namespace: cluster1
-  name: my-first-work
+  name: deployment1
 spec:
   workload:
     manifests:
