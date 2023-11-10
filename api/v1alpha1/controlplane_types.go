@@ -30,6 +30,8 @@ type ControlPlaneSpec struct {
 type ControlPlaneStatus struct {
 	Conditions         []ControlPlaneCondition `json:"conditions"`
 	ObservedGeneration int64                   `json:"observedGeneration"`
+	// SecretRef contains a referece to the secret containing the Kubeconfig for the control plane
+	SecretRef *SecretReference `json:"secretRef,omitempty"`
 }
 
 // ControlPlane is the Schema for the controlplanes API
@@ -73,6 +75,17 @@ const (
 	ControlPlaneTypeOCM      ControlPlaneType = "ocm"
 	ControlPlaneTypeVCluster ControlPlaneType = "vcluster"
 )
+
+// We do not use ObjectReference as its use is discouraged in favor of a locally defined type.
+// See ObjectReference in https://github.com/kubernetes/api/blob/master/core/v1/types.go
+type SecretReference struct {
+	// `namespace` is the namespace of the secret.
+	// Required
+	Namespace string `json:"namespace"`
+	// `name` is the name of the secret.
+	// Required
+	Name string `json:"name"`
+}
 
 func init() {
 	SchemeBuilder.Register(&ControlPlane{}, &ControlPlaneList{})

@@ -103,6 +103,8 @@ func (r *OCMReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.Cont
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
+	r.UpdateStatusWithSecretRef(hcp, util.OCMKubeConfigSecret)
+
 	return r.UpdateStatusForSyncingSuccess(ctx, hcp)
 }
 

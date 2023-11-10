@@ -89,3 +89,12 @@ func (r *BaseReconciler) GetConfig(ctx context.Context) (*SharedConfig, error) {
 		IsOpenShift:  isOpenShift,
 	}, nil
 }
+
+func (r *BaseReconciler) UpdateStatusWithSecretRef(hcp *tenancyv1alpha1.ControlPlane, secretName string) {
+	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
+	hcp.Status.SecretRef = &tenancyv1alpha1.SecretReference{
+		Name:      secretName,
+		Namespace: namespace,
+	}
+	//return r.Status().Update(context.Background(), hcp)
+}
