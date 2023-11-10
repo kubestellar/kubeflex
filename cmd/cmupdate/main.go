@@ -145,7 +145,7 @@ func createClientForHostedServer(configData []byte, namespace string) (*kubernet
 	}
 
 	restConfig, err := config.ClientConfig()
-	restConfig.Host = fmt.Sprintf("multicluster-controlplane.%s:9444", namespace)
+	restConfig.Host = fmt.Sprintf("multicluster-controlplane.%s", namespace)
 	if err != nil {
 		return nil, err
 	}

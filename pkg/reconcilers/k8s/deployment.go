@@ -308,7 +308,7 @@ func (r *K8sReconciler) generateCMDeployment(cpName, namespace string) (*appsv1.
 							ImagePullPolicy: v1.PullIfNotPresent,
 							Command: []string{
 								"kube-controller-manager",
-								fmt.Sprintf("--master=https://%s:%d", cpName+"."+cpName+"-system", shared.SecurePort),
+								fmt.Sprintf("--master=https://%s", cpName+"."+cpName+"-system"),
 								"--authentication-kubeconfig=/etc/kubernetes/kubeconfig",
 								"--authorization-kubeconfig=/etc/kubernetes/kubeconfig",
 								"--bind-address=0.0.0.0",
@@ -316,7 +316,7 @@ func (r *K8sReconciler) generateCMDeployment(cpName, namespace string) (*appsv1.
 								"--cluster-name=kubernetes",
 								"--cluster-signing-cert-file=/etc/kubernetes/pki/ca.crt",
 								"--cluster-signing-key-file=/etc/kubernetes/pki/ca.key",
-								"--controllers=csrapproving,csrcleaner,csrsigning,namespace,root-ca-cert-publisher,serviceaccount,serviceaccount-token,bootstrapsigner,tokencleaner",
+								"--controllers=csrapproving,csrcleaner,csrsigning,namespace,root-ca-cert-publisher,serviceaccount,serviceaccount-token,bootstrapsigner,tokencleaner,garbagecollector",
 								"--kubeconfig=/etc/kubernetes/kubeconfig",
 								"--leader-elect=true",
 								"--requestheader-client-ca-file=/etc/kubernetes/pki/front-proxy-ca.crt",
