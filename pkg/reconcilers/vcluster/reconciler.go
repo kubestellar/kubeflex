@@ -34,8 +34,9 @@ import (
 )
 
 const (
-	ServiceName = "vcluster"
-	ServicePort = 443
+	ServiceName      = "vcluster"
+	ServicePort      = 443
+	kubeconfigSecret = "TODO"
 )
 
 // VClusterReconciler reconciles a OCM ControlPlane
@@ -43,11 +44,12 @@ type VClusterReconciler struct {
 	*shared.BaseReconciler
 }
 
-func New(cl client.Client, scheme *runtime.Scheme) *VClusterReconciler {
+func New(cl client.Client, scheme *runtime.Scheme, version string) *VClusterReconciler {
 	return &VClusterReconciler{
 		BaseReconciler: &shared.BaseReconciler{
-			Client: cl,
-			Scheme: scheme,
+			Client:  cl,
+			Scheme:  scheme,
+			Version: version,
 		},
 	}
 }
@@ -88,7 +90,23 @@ func (r *VClusterReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
+	if err := r.ReconcileNodePortService(ctx, hcp); err != nil {
+		return r.UpdateStatusForSyncingError(hcp, err)
+	}
+
 	if err := r.addOwnerReference(ctx, hcp); err != nil {
+		return r.UpdateStatusForSyncingError(hcp, err)
+	}
+
+	if err := r.ReconcileUpdateClusterInfoJobRole(ctx, hcp); err != nil {
+		return r.UpdateStatusForSyncingError(hcp, err)
+	}
+
+	if err := r.ReconcileUpdateClusterInfoJobRoleBinding(ctx, hcp); err != nil {
+		return r.UpdateStatusForSyncingError(hcp, err)
+	}
+
+	if err := r.ReconcileUpdateClusterInfoJob(ctx, hcp, cfg.ExternalURL, r.Version); err != nil {
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 

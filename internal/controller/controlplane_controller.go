@@ -42,7 +42,8 @@ const kfFinalizer = "kflex.kubestellar.org/finalizer"
 // ControlPlaneReconciler reconciles a ControlPlane object
 type ControlPlaneReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme  *runtime.Scheme
+	Version string
 }
 
 //+kubebuilder:rbac:groups=tenancy.kflex.kubestellar.org,resources=controlplanes,verbs=get;list;watch;create;update;patch;delete
@@ -133,13 +134,13 @@ func (r *ControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// select the reconciler to use for the type of control plane
 	switch hcp.Spec.Type {
 	case tenancyv1alpha1.ControlPlaneTypeK8S:
-		reconciler := k8s.New(r.Client, r.Scheme)
+		reconciler := k8s.New(r.Client, r.Scheme, r.Version)
 		return reconciler.Reconcile(ctx, hcp)
 	case tenancyv1alpha1.ControlPlaneTypeOCM:
-		reconciler := ocm.New(r.Client, r.Scheme)
+		reconciler := ocm.New(r.Client, r.Scheme, r.Version)
 		return reconciler.Reconcile(ctx, hcp)
 	case tenancyv1alpha1.ControlPlaneTypeVCluster:
-		reconciler := vcluster.New(r.Client, r.Scheme)
+		reconciler := vcluster.New(r.Client, r.Scheme, r.Version)
 		return reconciler.Reconcile(ctx, hcp)
 	default:
 		return ctrl.Result{}, fmt.Errorf("unsupported control plane type: %s", hcp.Spec.Type)

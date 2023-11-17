@@ -23,6 +23,8 @@ import (
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/client"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 const (
@@ -37,6 +39,8 @@ const (
 	AdminConfSecret              = "admin-kubeconfig"
 	OCMKubeConfigSecret          = "multicluster-controlplane-kubeconfig"
 	VClusterKubeConfigSecret     = "vc-vcluster"
+	VClusterNodePortServiceName  = "vcluster-nodeport"
+	VClusterServiceName          = "vcluster"
 	KubeconfigSecretKeyDefault   = "kubeconfig"
 	KubeconfigSecretKeyInCluster = "kubeconfig-incluster"
 	KubeconfigSecretKeyVCluster  = "config"
@@ -124,4 +128,16 @@ func IsInCluster() bool {
 		return true
 	}
 	return false
+}
+
+func ZeroFields(obj runtime.Object) runtime.Object {
+	zeroed := obj.DeepCopyObject()
+	mObj := zeroed.(metav1.Object)
+	mObj.SetManagedFields(nil)
+	mObj.SetCreationTimestamp(metav1.Time{})
+	mObj.SetGeneration(0)
+	mObj.SetResourceVersion("")
+	mObj.SetUID("")
+
+	return zeroed
 }

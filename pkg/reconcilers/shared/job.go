@@ -14,10 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package ocm
+package shared
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/kubestellar/kubeflex/pkg/util"
 	batchv1 "k8s.io/api/batch/v1"
@@ -33,11 +35,11 @@ import (
 )
 
 const (
-	jobName = "update-cluster-info"
-	image   = "quay.io/pdettori/cmupdate:latest"
+	jobName   = "update-cluster-info"
+	baseImage = "quay.io/pdettori/cmupdate"
 )
 
-func (r *OCMReconciler) ReconcileUpdateClusterInfoJob(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane, externalURL string) error {
+func (r *BaseReconciler) ReconcileUpdateClusterInfoJob(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane, externalURL, version string) error {
 	_ = clog.FromContext(ctx)
 	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
 
@@ -49,10 +51,13 @@ func (r *OCMReconciler) ReconcileUpdateClusterInfoJob(ctx context.Context, hcp *
 		},
 	}
 
+	kubeconfigSecret := util.GetKubeconfSecretNameByControlPlaneType(string(hcp.Spec.Type))
+	kubeconfigSecretKey := util.GetKubeconfSecretKeyNameByControlPlaneType(string(hcp.Spec.Type))
+
 	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(job), job, &client.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			job := generateClusterInfoJob(jobName, namespace, externalURL)
+			job := generateClusterInfoJob(jobName, namespace, externalURL, kubeconfigSecret, kubeconfigSecretKey, r.Version)
 			if err := controllerutil.SetControllerReference(hcp, job, r.Scheme); err != nil {
 				return nil
 			}
@@ -66,7 +71,7 @@ func (r *OCMReconciler) ReconcileUpdateClusterInfoJob(ctx context.Context, hcp *
 	return nil
 }
 
-func generateClusterInfoJob(name, namespace, externalURL string) *batchv1.Job {
+func generateClusterInfoJob(name, namespace, externalURL, kubeconfigSecret, kubeconfigSecretKey, version string) *batchv1.Job {
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -79,8 +84,8 @@ func generateClusterInfoJob(name, namespace, externalURL string) *batchv1.Job {
 					Containers: []corev1.Container{
 						{
 							Name:            name,
-							Image:           image,
-							ImagePullPolicy: corev1.PullIfNotPresent,
+							Image:           buildImageRef(version),
+							ImagePullPolicy: corev1.PullAlways,
 							Env: []corev1.EnvVar{
 								{
 									Name: "KUBERNETES_NAMESPACE",
@@ -89,6 +94,14 @@ func generateClusterInfoJob(name, namespace, externalURL string) *batchv1.Job {
 											FieldPath: "metadata.namespace",
 										},
 									},
+								},
+								{
+									Name:  "KUBECONFIG_SECRET",
+									Value: kubeconfigSecret,
+								},
+								{
+									Name:  "KUBECONFIG_SECRET_KEY",
+									Value: kubeconfigSecretKey,
 								},
 							},
 						},
@@ -106,4 +119,13 @@ func generateClusterInfoJob(name, namespace, externalURL string) *batchv1.Job {
 		job.Spec.Template.Spec.Containers[0].Env = append(job.Spec.Template.Spec.Containers[0].Env, env)
 	}
 	return job
+}
+
+func buildImageRef(version string) string {
+	tag := "latest"
+	if version != "" {
+		tagWithPrefix := util.ParseVersionNumber(version)
+		tag = strings.TrimPrefix(tagWithPrefix, "v")
+	}
+	return fmt.Sprintf("%s:%s", baseImage, tag)
 }
