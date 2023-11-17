@@ -85,7 +85,7 @@ func generateClusterInfoJob(name, namespace, externalURL, kubeconfigSecret, kube
 						{
 							Name:            name,
 							Image:           buildImageRef(version),
-							ImagePullPolicy: corev1.PullAlways,
+							ImagePullPolicy: corev1.PullIfNotPresent,
 							Env: []corev1.EnvVar{
 								{
 									Name: "KUBERNETES_NAMESPACE",
