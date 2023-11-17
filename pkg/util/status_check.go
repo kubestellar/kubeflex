@@ -67,8 +67,7 @@ func WaitForDeploymentReady(clientset kubernetes.Clientset, name, namespace stri
 
 func WaitForStatefulSetReady(clientset kubernetes.Clientset, name, namespace string) error {
 	watcher, err := clientset.AppsV1().StatefulSets(namespace).Watch(context.Background(), metav1.ListOptions{
-		FieldSelector:   fmt.Sprintf("metadata.name=%s", name),
-		ResourceVersion: "0",
+		FieldSelector: fmt.Sprintf("metadata.name=%s", name),
 	})
 	if err != nil {
 		return err
@@ -97,8 +96,7 @@ func WaitForStatefulSetReady(clientset kubernetes.Clientset, name, namespace str
 
 func WaitForNamespaceDeletion(clientset kubernetes.Clientset, name string) error {
 	watcher, err := clientset.CoreV1().Namespaces().Watch(context.Background(), metav1.ListOptions{
-		FieldSelector:   fmt.Sprintf("metadata.name=%s", name),
-		ResourceVersion: "0",
+		FieldSelector: fmt.Sprintf("metadata.name=%s", name),
 	})
 	if err != nil {
 		return err

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package ocm
+package shared
 
 import (
 	"context"
@@ -34,7 +34,7 @@ const (
 	roleName = "cluster-info-updater"
 )
 
-func (r *OCMReconciler) ReconcileUpdateClusterInfoJobRole(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
+func (r *BaseReconciler) ReconcileUpdateClusterInfoJobRole(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
 	_ = clog.FromContext(ctx)
 	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
 
@@ -72,7 +72,7 @@ func generateClusterInfoJobRole(name, namespace string) *rbacv1.Role {
 		Rules: []rbacv1.PolicyRule{
 			{
 				APIGroups: []string{"apps"},
-				Resources: []string{"deployments"},
+				Resources: []string{"deployments", "statefulsets"},
 				Verbs:     []string{"watch", "list"},
 			},
 			{
@@ -89,7 +89,7 @@ func generateClusterInfoJobRole(name, namespace string) *rbacv1.Role {
 	}
 }
 
-func (r *OCMReconciler) ReconcileUpdateClusterInfoJobRoleBinding(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
+func (r *BaseReconciler) ReconcileUpdateClusterInfoJobRoleBinding(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
 	_ = clog.FromContext(ctx)
 	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
 

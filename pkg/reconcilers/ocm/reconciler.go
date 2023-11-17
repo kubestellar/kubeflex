@@ -38,11 +38,12 @@ type OCMReconciler struct {
 	*shared.BaseReconciler
 }
 
-func New(cl client.Client, scheme *runtime.Scheme) *OCMReconciler {
+func New(cl client.Client, scheme *runtime.Scheme, version string) *OCMReconciler {
 	return &OCMReconciler{
 		BaseReconciler: &shared.BaseReconciler{
-			Client: cl,
-			Scheme: scheme,
+			Client:  cl,
+			Scheme:  scheme,
+			Version: version,
 		},
 	}
 }
@@ -95,7 +96,7 @@ func (r *OCMReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.Cont
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
-	if err := r.ReconcileUpdateClusterInfoJob(ctx, hcp, cfg.ExternalURL); err != nil {
+	if err := r.ReconcileUpdateClusterInfoJob(ctx, hcp, cfg.ExternalURL, r.Version); err != nil {
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 

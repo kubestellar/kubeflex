@@ -32,10 +32,16 @@ import (
 	clog "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+const (
+	// field owner for all server-side applies
+	FieldOwner = "kubeflex.kubestellar.io"
+)
+
 // BaseReconciler provide common reconcilers used by other reconcilers
 type BaseReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme  *runtime.Scheme
+	Version string
 }
 
 type SharedConfig struct {
@@ -96,5 +102,4 @@ func (r *BaseReconciler) UpdateStatusWithSecretRef(hcp *tenancyv1alpha1.ControlP
 		Name:      secretName,
 		Namespace: namespace,
 	}
-	//return r.Status().Update(context.Background(), hcp)
 }

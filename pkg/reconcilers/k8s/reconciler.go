@@ -36,7 +36,7 @@ type K8sReconciler struct {
 	*shared.BaseReconciler
 }
 
-func New(cl client.Client, scheme *runtime.Scheme) *K8sReconciler {
+func New(cl client.Client, scheme *runtime.Scheme, version string) *K8sReconciler {
 	return &K8sReconciler{
 		BaseReconciler: &shared.BaseReconciler{
 			Client: cl,
