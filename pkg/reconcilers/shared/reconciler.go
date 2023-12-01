@@ -27,6 +27,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	clog "sigs.k8s.io/controller-runtime/pkg/log"
@@ -40,8 +42,10 @@ const (
 // BaseReconciler provide common reconcilers used by other reconcilers
 type BaseReconciler struct {
 	client.Client
-	Scheme  *runtime.Scheme
-	Version string
+	Scheme        *runtime.Scheme
+	Version       string
+	ClientSet     *kubernetes.Clientset
+	DynamicClient *dynamic.DynamicClient
 }
 
 type SharedConfig struct {

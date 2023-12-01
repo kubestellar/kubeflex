@@ -25,6 +25,8 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -42,8 +44,10 @@ const kfFinalizer = "kflex.kubestellar.org/finalizer"
 // ControlPlaneReconciler reconciles a ControlPlane object
 type ControlPlaneReconciler struct {
 	client.Client
-	Scheme  *runtime.Scheme
-	Version string
+	Scheme        *runtime.Scheme
+	Version       string
+	ClientSet     *kubernetes.Clientset
+	DynamicClient *dynamic.DynamicClient
 }
 
 //+kubebuilder:rbac:groups=tenancy.kflex.kubestellar.org,resources=controlplanes,verbs=get;list;watch;create;update;patch;delete
@@ -134,13 +138,13 @@ func (r *ControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// select the reconciler to use for the type of control plane
 	switch hcp.Spec.Type {
 	case tenancyv1alpha1.ControlPlaneTypeK8S:
-		reconciler := k8s.New(r.Client, r.Scheme, r.Version)
+		reconciler := k8s.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient)
 		return reconciler.Reconcile(ctx, hcp)
 	case tenancyv1alpha1.ControlPlaneTypeOCM:
-		reconciler := ocm.New(r.Client, r.Scheme, r.Version)
+		reconciler := ocm.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient)
 		return reconciler.Reconcile(ctx, hcp)
 	case tenancyv1alpha1.ControlPlaneTypeVCluster:
-		reconciler := vcluster.New(r.Client, r.Scheme, r.Version)
+		reconciler := vcluster.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient)
 		return reconciler.Reconcile(ctx, hcp)
 	default:
 		return ctrl.Result{}, fmt.Errorf("unsupported control plane type: %s", hcp.Spec.Type)

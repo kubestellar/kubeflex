@@ -32,6 +32,7 @@ gitr(){
   echo "rebasing $CURRENT"
   git checkout main && git fetch upstream && git merge upstream/main && git checkout $CURRENT && git rebase main
 }
+gitr
 ```
 4. git push upstream <release branch> # e.g. release-0.2
 5. check existing tags e.g.,

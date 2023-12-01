@@ -1,0 +1,31 @@
+apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
+kind: PostCreateHook
+metadata:
+  name: ocm
+spec:
+  templates:
+  - apiVersion: batch/v1
+    kind: Job
+    metadata:
+      name: "{{.HookName}}"
+    spec:
+      template:
+        spec:
+          containers:
+          - name: "{{.HookName}}"
+            image: quay.io/pdettori/clusteradm:0.7.1
+            args:
+            - init
+            env:
+            - name: KUBECONFIG
+              value: "/etc/kube/kubeconfig-incluster"    
+            volumeMounts:
+            - name: kubeconfig
+              mountPath: "/etc/kube"
+              readOnly: true  
+          volumes:
+          - name: kubeconfig
+            secret:
+              secretName: admin-kubeconfig
+          restartPolicy: Never
+      backoffLimit: 1

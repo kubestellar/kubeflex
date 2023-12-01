@@ -73,17 +73,17 @@ func generateClusterInfoJobRole(name, namespace string) *rbacv1.Role {
 			{
 				APIGroups: []string{"apps"},
 				Resources: []string{"deployments", "statefulsets"},
-				Verbs:     []string{"watch", "list"},
+				Verbs:     []string{"get", "watch", "list", "create", "update"},
 			},
 			{
 				APIGroups: []string{""},
 				Resources: []string{"services"},
-				Verbs:     []string{"get", "list"},
+				Verbs:     []string{"get", "list", "create", "update"},
 			},
 			{
 				APIGroups: []string{""},
 				Resources: []string{"secrets"},
-				Verbs:     []string{"get", "list"},
+				Verbs:     []string{"get", "list", "create", "update"},
 			},
 		},
 	}

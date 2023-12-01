@@ -23,11 +23,13 @@ import (
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/shared"
 	"github.com/kubestellar/kubeflex/pkg/util"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	clog "sigs.k8s.io/controller-runtime/pkg/log"
 
-	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
+	"github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/certs"
 )
 
@@ -36,16 +38,18 @@ type K8sReconciler struct {
 	*shared.BaseReconciler
 }
 
-func New(cl client.Client, scheme *runtime.Scheme, version string) *K8sReconciler {
+func New(cl client.Client, scheme *runtime.Scheme, version string, clientSet *kubernetes.Clientset, dynamicClient *dynamic.DynamicClient) *K8sReconciler {
 	return &K8sReconciler{
 		BaseReconciler: &shared.BaseReconciler{
-			Client: cl,
-			Scheme: scheme,
+			Client:        cl,
+			Scheme:        scheme,
+			ClientSet:     clientSet,
+			DynamicClient: dynamicClient,
 		},
 	}
 }
 
-func (r *K8sReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
+func (r *K8sReconciler) Reconcile(ctx context.Context, hcp *v1alpha1.ControlPlane) (ctrl.Result, error) {
 	var routeURL string
 	_ = clog.FromContext(ctx)
 
@@ -113,6 +117,13 @@ func (r *K8sReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.Cont
 	}
 
 	r.UpdateStatusWithSecretRef(hcp, util.AdminConfSecret)
+
+	if hcp.Spec.PostCreateHook != nil &&
+		v1alpha1.HasConditionAvailable(hcp.Status.Conditions) {
+		if err := r.ReconcileUpdatePostCreateHook(ctx, hcp); err != nil {
+			return r.UpdateStatusForSyncingError(hcp, err)
+		}
+	}
 
 	return r.UpdateStatusForSyncingSuccess(ctx, hcp)
 }

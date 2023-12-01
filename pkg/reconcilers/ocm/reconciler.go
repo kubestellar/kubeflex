@@ -23,6 +23,8 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -38,12 +40,13 @@ type OCMReconciler struct {
 	*shared.BaseReconciler
 }
 
-func New(cl client.Client, scheme *runtime.Scheme, version string) *OCMReconciler {
+func New(cl client.Client, scheme *runtime.Scheme, version string, clientSet *kubernetes.Clientset, dynamicClient *dynamic.DynamicClient) *OCMReconciler {
 	return &OCMReconciler{
 		BaseReconciler: &shared.BaseReconciler{
-			Client:  cl,
-			Scheme:  scheme,
-			Version: version,
+			Client:        cl,
+			Scheme:        scheme,
+			ClientSet:     clientSet,
+			DynamicClient: dynamicClient,
 		},
 	}
 }
@@ -105,6 +108,13 @@ func (r *OCMReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.Cont
 	}
 
 	r.UpdateStatusWithSecretRef(hcp, util.OCMKubeConfigSecret)
+
+	if hcp.Spec.PostCreateHook != nil &&
+		tenancyv1alpha1.HasConditionAvailable(hcp.Status.Conditions) {
+		if err := r.ReconcileUpdatePostCreateHook(ctx, hcp); err != nil {
+			return r.UpdateStatusForSyncingError(hcp, err)
+		}
+	}
 
 	return r.UpdateStatusForSyncingSuccess(ctx, hcp)
 }

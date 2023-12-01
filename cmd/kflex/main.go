@@ -42,6 +42,7 @@ var Version string
 var BuildDate string
 var CType string
 var BkType string
+var Hook string
 var domain string
 var externalPort int
 
@@ -106,7 +107,7 @@ var createCmd = &cobra.Command{
 			BkType = BKTypeDefault
 		}
 		// create passing the control plane type and backend type
-		cp.Create(CType, BkType)
+		cp.Create(CType, BkType, Hook)
 	},
 }
 
@@ -164,6 +165,7 @@ func init() {
 	createCmd.Flags().IntVarP(&verbosity, "verbosity", "v", 0, "log level") // TODO - figure out how to inject verbosity
 	createCmd.Flags().StringVarP(&CType, "type", "t", "", "type of control plane: k8s|ocm|vcluster")
 	createCmd.Flags().StringVarP(&BkType, "backend-type", "b", "", "backend DB sharing: shared|dedicated")
+	createCmd.Flags().StringVarP(&Hook, "postcreate-hook", "p", "", "name of post create hook to run")
 
 	deleteCmd.Flags().StringVarP(&kubeconfig, "kubeconfig", "k", "", "path to kubeconfig file")
 	deleteCmd.Flags().IntVarP(&verbosity, "verbosity", "v", 0, "log level") // TODO - figure out how to inject verbosity

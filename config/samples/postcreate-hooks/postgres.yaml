@@ -1,0 +1,59 @@
+apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
+kind: PostCreateHook
+metadata:
+  name: postgres
+spec:
+  templates:
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: Role
+    metadata:
+      name: "{{.HookName}}"
+    rules:
+    - apiGroups:
+      - apps
+      resources:
+      - statefulsets
+      verbs:
+      - get
+      - create
+    - apiGroups:
+      - ""
+      resources:
+      - secrets
+      - services
+      verbs:
+      - get
+      - create
+      - list
+      - update
+  - apiVersion: rbac.authorization.k8s.io/v1  
+    kind: RoleBinding
+    metadata:
+      name: "{{.HookName}}"
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: Role
+      name: "{{.HookName}}"
+    subjects:
+    - kind: ServiceAccount
+      name: default
+      namespace: "{{.Namespace}}"   
+  - apiVersion: batch/v1
+    kind: Job
+    metadata:
+      name: "{{.HookName}}"
+    spec:
+      template:
+        spec:
+          containers:
+          - name: "{{.HookName}}"
+            image: quay.io/pdettori/helm:v3.13.2
+            args:
+              - upgrade
+              - --install
+              - -n
+              - "{{.Namespace}}"
+              - "{{.HookName}}"
+              - oci://registry-1.docker.io/bitnamicharts/postgresql
+          restartPolicy: Never
+      backoffLimit: 1

@@ -1,0 +1,19 @@
+apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
+kind: PostCreateHook
+metadata:
+  name: hello
+spec:
+  templates:
+  - apiVersion: batch/v1
+    kind: Job
+    metadata:
+      name: hello
+    spec:
+      template:
+        spec:
+          containers:
+          - name: hello
+            image: public.ecr.aws/docker/library/busybox:1.36
+            command: ["echo",  "Hello", "World"]
+          restartPolicy: Never
+      backoffLimit: 1

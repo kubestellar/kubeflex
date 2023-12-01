@@ -5,17 +5,17 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.3
   creationTimestamp: null
-  name: controlplanes.tenancy.kflex.kubestellar.org
+  name: postcreatehooks.tenancy.kflex.kubestellar.org
 spec:
   group: tenancy.kflex.kubestellar.org
   names:
-    kind: ControlPlane
-    listKind: ControlPlaneList
-    plural: controlplanes
+    kind: PostCreateHook
+    listKind: PostCreateHookList
+    plural: postcreatehooks
     shortNames:
-    - cp
-    - cps
-    singular: controlplane
+    - pch
+    - pchs
+    singular: postcreatehook
   scope: Cluster
   versions:
   - additionalPrinterColumns:
@@ -34,7 +34,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: ControlPlane is the Schema for the controlplanes API
+        description: PostCreateHook is the Schema for the controlplanes API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -49,24 +49,18 @@ spec:
           metadata:
             type: object
           spec:
-            description: ControlPlaneSpec defines the desired state of ControlPlane
+            description: PostCreateHookSpec defines the desired state of PostCreateHook
             properties:
-              backend:
-                enum:
-                - shared
-                - dedicated
-                type: string
-              postCreateHook:
-                type: string
-              type:
-                enum:
-                - k8s
-                - ocm
-                - vcluster
-                type: string
+              templates:
+                items:
+                  description: Manifest represents a resource to be deployed
+                  type: object
+                  x-kubernetes-embedded-resource: true
+                  x-kubernetes-preserve-unknown-fields: true
+                type: array
             type: object
           status:
-            description: ControlPlaneStatus defines the observed state of ControlPlane
+            description: PostCreateHookStatus defines the observed state of PostCreateHook
             properties:
               conditions:
                 items:
@@ -99,10 +93,6 @@ spec:
               observedGeneration:
                 format: int64
                 type: integer
-              postCreateHooks:
-                additionalProperties:
-                  type: boolean
-                type: object
               secretRef:
                 description: SecretRef contains a referece to the secret containing
                   the Kubeconfig for the control plane
