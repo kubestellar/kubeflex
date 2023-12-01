@@ -123,6 +123,13 @@ func (r *VClusterReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1
 		}
 	}
 
+	// update kubeconfig secret to add the incluster config
+	if tenancyv1alpha1.HasConditionAvailable(hcp.Status.Conditions) {
+		if err := r.ReconcileKubeconfigSecret(ctx, hcp); err != nil {
+			return r.UpdateStatusForSyncingError(hcp, err)
+		}
+	}
+
 	return r.UpdateStatusForSyncingSuccess(ctx, hcp)
 }
 
