@@ -59,7 +59,7 @@ func (r *VClusterReconciler) ReconcileKubeconfigSecret(ctx context.Context, hcp 
 
 	// there is only one cluster in the generated config, but to be on the safe
 	// side update all
-	for k, _ := range config.Clusters {
+	for k := range config.Clusters {
 		config.Clusters[k].Server = fmt.Sprintf("https://vcluster.%s", namespace)
 	}
 
