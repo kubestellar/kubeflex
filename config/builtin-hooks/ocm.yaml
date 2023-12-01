@@ -18,7 +18,7 @@ spec:
             - init
             env:
             - name: KUBECONFIG
-              value: "/etc/kube/kubeconfig-incluster"    
+              value: "/etc/kube/config-incluster"    
             volumeMounts:
             - name: kubeconfig
               mountPath: "/etc/kube"
@@ -26,6 +26,6 @@ spec:
           volumes:
           - name: kubeconfig
             secret:
-              secretName: admin-kubeconfig
+              secretName: vc-vcluster
           restartPolicy: Never
       backoffLimit: 1
