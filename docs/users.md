@@ -472,6 +472,127 @@ vcluster-0                                          2/2     Running   0         
 
 The nginx pod is the one with the name `nginx-x-default-x-vcluster`.
 
+## Post-create hooks
+
+With post-create hooks you can automate applying kubernetes templates on the hosting cluster or on 
+a hosted control plane right after the creation of a control plane. Some relevant use cases are:
+
+- Applying OpenShift CRDs on a control plane to be used as a Workload Description Space (WDS) for deplying
+workloads to OpenShift clusters.
+
+- Starting a new controller in the namespace of a control plane in the hosting cluster that interacts
+with objects in the control plane.
+
+- Installing software components on a hosted control plane of type vcluster. An example of that is installing
+the Open Cluster Management Hub on a vcluster.
+
+### Defining hooks
+
+To use a post-create hook, first you define the templates to apply when a control plane is created in
+a `PostCreateHook` custom resource. An example "hello world" hook is defined as follows:
+
+```yaml
+apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
+kind: PostCreateHook
+metadata:
+  name: hello
+spec:
+  templates:
+  - apiVersion: batch/v1
+    kind: Job
+    metadata:
+      name: hello
+    spec:
+      template:
+        spec:
+          containers:
+          - name: hello
+            image: public.ecr.aws/docker/library/busybox:1.36
+            command: ["echo",  "Hello", "World"]
+          restartPolicy: Never
+      backoffLimit: 1
+```
+
+This hook will launch a job in the same namespace of the control plane that will print 
+"Hello World" to the standard output. Typically, a hook runs a job that by default
+interacts with the hosting cluster API server. To make the job interact with the hosted 
+control plane  API server you can mount the secret with the in-cluster kubeconfig
+for that API server. For example, for a control plane of type `k8s` you can define
+a volume for a secret as follows:
+
+```yaml
+volumes:
+- name: kubeconfig
+  secret:
+    secretName: admin-kubeconfig
+```
+
+Then, you can mount the volume and define the `KUBECONFIG` env variable as follows:
+
+```yaml
+env:
+- name: KUBECONFIG
+  value: "/etc/kube/kubeconfig-incluster"    
+volumeMounts:
+- name: kubeconfig
+  mountPath: "/etc/kube"
+  readOnly: true  
+```
+
+A complete example for installing OpenShift CRDs on a control plane is available
+[here](../config/samples/postcreate-hooks/openshift-crds.yaml). More examples
+are available [here](../config/samples/postcreate-hooks).
+
+### Built-in objects
+
+You can specify built-in objects in the templates that will be replaced at run-time.
+Variables are specified using helm-like syntax:
+
+```yaml
+"{{.<Object Name>}}"
+```
+
+Note that the double quotes are required for a valid yaml.
+
+Currently avilable built-in objects are:
+
+- "{{.Namespace}}" - the namespace hosting the control plane
+- "{{ControlPlaneName}}" - the name of the control plane
+- "{{HookName}}" - the name of the hook.        
+
+### Using the hooks
+
+Once you define a new hook, you can just apply it in the KubeFlex hosting cluster:
+
+```shell
+kflex ctx
+kubectl apply -f <hook-file.yaml> # e.g. kubectl apply -f hello.yaml
+```
+
+You can then reference the hook by name when you create a new control plane. 
+
+With kflex CLI (you can use --postcreate-hook or -p):
+
+```shell
+kflex create cp1 --postcreate-hook <my-hook-name> # e.g. kflex create cp1 -p hello
+```
+
+If you are using directly a ControlPlane CRD with kubectl, you can create a control plane
+with the post-create hook as in the following example:
+
+```shell
+kubectl apply -f - <<EOF
+apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
+kind: ControlPlane
+metadata:
+  name: cp1
+spec:
+  backend: shared
+  postCreateHook: hello
+  type: k8s
+EOF
+```
+
 ## Uninstalling KubeFlex
 
 To uninstall KubeFlex, first ensure you remove all you control planes:

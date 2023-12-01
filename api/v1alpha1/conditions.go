@@ -101,6 +101,17 @@ func AreConditionSlicesSame(c1, c2 []ControlPlaneCondition) bool {
 	return true
 }
 
+func HasConditionAvailable(conditions []ControlPlaneCondition) bool {
+	for _, condition := range conditions {
+		if condition.Type == TypeReady &&
+			condition.Status == corev1.ConditionTrue &&
+			condition.Reason == ReasonAvailable {
+			return true
+		}
+	}
+	return false
+}
+
 func EnsureCondition(cp *ControlPlane, newCondition ControlPlaneCondition) {
 	if cp.Status.Conditions == nil {
 		cp.Status.Conditions = []ControlPlaneCondition{}

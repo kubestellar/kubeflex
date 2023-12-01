@@ -3,6 +3,7 @@
 # It should be run by config/default
 resources:
 - bases/tenancy.kflex.kubestellar.org_controlplanes.yaml
+- bases/tenancy.kflex.kubestellar.org_postcreatehooks.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:

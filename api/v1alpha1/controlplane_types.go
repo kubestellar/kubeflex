@@ -22,8 +22,9 @@ import (
 
 // ControlPlaneSpec defines the desired state of ControlPlane
 type ControlPlaneSpec struct {
-	Type    ControlPlaneType `json:"type,omitempty"`
-	Backend BackendDBType    `json:"backend,omitempty"`
+	Type           ControlPlaneType `json:"type,omitempty"`
+	Backend        BackendDBType    `json:"backend,omitempty"`
+	PostCreateHook *string          `json:"postCreateHook,omitempty"`
 }
 
 // ControlPlaneStatus defines the observed state of ControlPlane
@@ -32,6 +33,8 @@ type ControlPlaneStatus struct {
 	ObservedGeneration int64                   `json:"observedGeneration"`
 	// SecretRef contains a referece to the secret containing the Kubeconfig for the control plane
 	SecretRef *SecretReference `json:"secretRef,omitempty"`
+	// +optional
+	PostCreateHooks map[string]bool `json:"postCreateHooks,omitempty"`
 }
 
 // ControlPlane is the Schema for the controlplanes API

@@ -38,7 +38,7 @@ type CPCreate struct {
 }
 
 // Create a ne control plane
-func (c *CPCreate) Create(controlPlaneType, backendType string) {
+func (c *CPCreate) Create(controlPlaneType, backendType, hook string) {
 	done := make(chan bool)
 	var wg sync.WaitGroup
 	cx := cont.CPCtx{}
@@ -46,9 +46,9 @@ func (c *CPCreate) Create(controlPlaneType, backendType string) {
 
 	cl := *(kfclient.GetClient(c.Kubeconfig))
 
-	cp := c.generateControlPlane(controlPlaneType, backendType)
+	cp := c.generateControlPlane(controlPlaneType, backendType, hook)
 
-	util.PrintStatus(fmt.Sprintf("Creating new control plane %s...", c.Name), done, &wg)
+	util.PrintStatus(fmt.Sprintf("Creating new control plane %s of type %s ...", c.Name, controlPlaneType), done, &wg)
 	if err := cl.Create(context.TODO(), cp, &client.CreateOptions{}); err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating instance: %v\n", err)
 		os.Exit(1)
@@ -87,8 +87,8 @@ func (c *CPCreate) Create(controlPlaneType, backendType string) {
 	wg.Wait()
 }
 
-func (c *CPCreate) generateControlPlane(controlPlaneType, backendType string) *tenancyv1alpha1.ControlPlane {
-	return &tenancyv1alpha1.ControlPlane{
+func (c *CPCreate) generateControlPlane(controlPlaneType, backendType, hook string) *tenancyv1alpha1.ControlPlane {
+	cp := &tenancyv1alpha1.ControlPlane{
 		ObjectMeta: v1.ObjectMeta{
 			Name: c.Name,
 		},
@@ -97,4 +97,8 @@ func (c *CPCreate) generateControlPlane(controlPlaneType, backendType string) *t
 			Backend: tenancyv1alpha1.BackendDBType(backendType),
 		},
 	}
+	if hook != "" {
+		cp.Spec.PostCreateHook = &hook
+	}
+	return cp
 }
