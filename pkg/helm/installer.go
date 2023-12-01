@@ -52,9 +52,11 @@ type HelmHandler struct {
 	ChartName   string
 	ReleaseName string
 	Namespace   string
-	Args        map[string]string
-	log         logr.Logger
-	settings    *cli.EnvSettings
+	// version is only used for "classic" helm charts, not OCI
+	Version  string
+	Args     map[string]string
+	log      logr.Logger
+	settings *cli.EnvSettings
 }
 
 func Init(ctx context.Context, handler *HelmHandler) error {
@@ -194,6 +196,11 @@ func (h *HelmHandler) chartInstall() error {
 
 	if client.Version == "" && client.Devel {
 		client.Version = ">0.0.0-0"
+	}
+
+	// set the version if specified, otherwise default to latest version
+	if h.Version != "" {
+		client.ChartPathOptions.Version = h.Version
 	}
 
 	client.ReleaseName = h.ReleaseName
