@@ -31,6 +31,7 @@ import (
 
 const (
 	URL                = "https://charts.loft.sh"
+	Version            = "0.16.4"
 	RepoName           = "loft"
 	ChartName          = "vcluster"
 	ReleaseName        = "vcluster"
@@ -69,6 +70,7 @@ func (r *VClusterReconciler) ReconcileChart(ctx context.Context, hcp *tenancyv1a
 		URL:         URL,
 		RepoName:    RepoName,
 		ChartName:   ChartName,
+		Version:     Version,
 		Namespace:   util.GenerateNamespaceFromControlPlaneName(hcp.Name),
 		ReleaseName: ReleaseName,
 		Args:        map[string]string{"set": strings.Join(configs, ",")},
