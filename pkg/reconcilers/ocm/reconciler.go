@@ -107,7 +107,7 @@ func (r *OCMReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.Cont
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
-	r.UpdateStatusWithSecretRef(hcp, util.OCMKubeConfigSecret)
+	r.UpdateStatusWithSecretRef(hcp, util.OCMKubeConfigSecret, util.KubeconfigSecretKeyDefault, "")
 
 	if hcp.Spec.PostCreateHook != nil &&
 		tenancyv1alpha1.HasConditionAvailable(hcp.Status.Conditions) {

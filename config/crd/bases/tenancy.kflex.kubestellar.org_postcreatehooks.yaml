@@ -97,6 +97,12 @@ spec:
                 description: SecretRef contains a referece to the secret containing
                   the Kubeconfig for the control plane
                 properties:
+                  inClusterKey:
+                    description: Required
+                    type: string
+                  key:
+                    description: Required
+                    type: string
                   name:
                     description: '`name` is the name of the secret. Required'
                     type: string
@@ -104,6 +110,8 @@ spec:
                     description: '`namespace` is the namespace of the secret. Required'
                     type: string
                 required:
+                - inClusterKey
+                - key
                 - name
                 - namespace
                 type: object
