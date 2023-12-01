@@ -18,7 +18,6 @@ package shared
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -64,7 +63,7 @@ func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp 
 	}
 	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(hook), hook, &client.GetOptions{})
 	if err != nil {
-		return errors.Join(fmt.Errorf("error retrieving post create hook %s", *hcp.Spec.PostCreateHook), err)
+		return fmt.Errorf("error retrieving post create hook %s %s", *hcp.Spec.PostCreateHook, err)
 	}
 
 	if err := applyPostCreateHook(ctx, r.ClientSet, r.DynamicClient, hook, vars); err != nil {
@@ -93,7 +92,7 @@ func applyPostCreateHook(ctx context.Context, clientSet *kubernetes.Clientset, d
 		}
 
 		if obj == nil {
-			return errors.New("null object in template")
+			return fmt.Errorf("null object in template")
 		}
 
 		gvk := util.GetGroupVersionKindFromObject(obj)
