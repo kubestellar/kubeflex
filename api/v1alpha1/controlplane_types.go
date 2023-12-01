@@ -88,6 +88,10 @@ type SecretReference struct {
 	// `name` is the name of the secret.
 	// Required
 	Name string `json:"name"`
+	// Required
+	Key string `json:"key"`
+	// Required
+	InClusterKey string `json:"inClusterKey"`
 }
 
 func init() {
