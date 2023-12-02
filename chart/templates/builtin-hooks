@@ -1,0 +1,265 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postcreate-hooks
+data:
+  hooks.yaml: |
+    apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
+    kind: PostCreateHook
+    metadata:
+      name: kubeflex-kslight
+      namespace: kubeflex-system
+    spec:
+      templates:
+      - apiVersion: rbac.authorization.k8s.io/v1
+        kind: ClusterRole
+        metadata:
+          name: '{{.Namespace}}-{{.HookName}}'
+        rules:
+        - nonResourceURLs:
+          - /metrics
+          verbs:
+          - get
+        - apiGroups:
+          - authentication.k8s.io
+          resources:
+          - tokenreviews
+          verbs:
+          - create
+        - apiGroups:
+          - authorization.k8s.io
+          resources:
+          - subjectaccessreviews
+          verbs:
+          - create
+        - apiGroups:
+          - ""
+          resources:
+          - configmaps
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - secrets
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - apiextensions.k8s.io
+          resources:
+          - customresourcedefinitions
+          verbs:
+          - get
+          - create
+        - apiGroups:
+          - rbac.authorization.k8s.io
+          resources:
+          - clusterroles
+          - clusterrolebindings
+          verbs:
+          - get
+          - create
+        - apiGroups:
+          - edge.kubestellar.io
+          resources:
+          - placementpolicies
+          - placementpolicies/status
+          - placementpolicies/finalizers
+          verbs:
+          - get
+          - create
+          - delete
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - tenancy.kflex.kubestellar.org
+          resources:
+          - controlplanes
+          verbs:
+          - list
+      - apiVersion: rbac.authorization.k8s.io/v1
+        kind: ClusterRoleBinding
+        metadata:
+          name: '{{.Namespace}}-{{.HookName}}'
+        roleRef:
+          apiGroup: rbac.authorization.k8s.io
+          kind: ClusterRole
+          name: '{{.Namespace}}-{{.HookName}}'
+        subjects:
+        - kind: ServiceAccount
+          name: default
+          namespace: '{{.Namespace}}'
+      - apiVersion: rbac.authorization.k8s.io/v1
+        kind: Role
+        metadata:
+          name: '{{.HookName}}'
+        rules:
+        - apiGroups:
+          - rbac.authorization.k8s.io
+          resources:
+          - roles
+          - rolebindings
+          verbs:
+          - get
+          - create
+        - apiGroups:
+          - apps
+          resources:
+          - deployments
+          verbs:
+          - get
+          - create
+        - apiGroups:
+          - ""
+          resources:
+          - services
+          - serviceaccounts
+          - configmaps
+          - events
+          verbs:
+          - get
+          - create
+          - delete
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - coordination.k8s.io
+          resources:
+          - leases
+          verbs:
+          - get
+          - create
+          - delete
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - secrets
+          verbs:
+          - get
+          - create
+          - list
+          - update
+      - apiVersion: rbac.authorization.k8s.io/v1
+        kind: RoleBinding
+        metadata:
+          name: '{{.HookName}}'
+        roleRef:
+          apiGroup: rbac.authorization.k8s.io
+          kind: Role
+          name: '{{.HookName}}'
+        subjects:
+        - kind: ServiceAccount
+          name: default
+          namespace: '{{.Namespace}}'
+      - apiVersion: batch/v1
+        kind: Job
+        metadata:
+          name: '{{.HookName}}'
+        spec:
+          backoffLimit: 1
+          template:
+            spec:
+              containers:
+              - args:
+                - upgrade
+                - --install
+                - -n
+                - '{{.Namespace}}'
+                - kslight
+                - oci://ghcr.io/kubestellar/kubeflex/kslight-operator-chart
+                - --version
+                - 0.1.0
+                image: quay.io/pdettori/helm:v3.13.2
+                name: '{{.HookName}}'
+              restartPolicy: Never
+    ---
+    apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
+    kind: PostCreateHook
+    metadata:
+      name: kubeflex-ocm
+      namespace: kubeflex-system
+    spec:
+      templates:
+      - apiVersion: batch/v1
+        kind: Job
+        metadata:
+          name: '{{.HookName}}'
+        spec:
+          backoffLimit: 1
+          template:
+            spec:
+              containers:
+              - args:
+                - init
+                env:
+                - name: KUBECONFIG
+                  value: /etc/kube/kubeconfig-incluster
+                image: quay.io/pdettori/clusteradm:0.7.1
+                name: '{{.HookName}}'
+                volumeMounts:
+                - mountPath: /etc/kube
+                  name: kubeconfig
+                  readOnly: true
+              restartPolicy: Never
+              volumes:
+              - name: kubeconfig
+                secret:
+                  secretName: admin-kubeconfig
+    ---
+    apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
+    kind: PostCreateHook
+    metadata:
+      name: kubeflex-openshift-crds
+      namespace: kubeflex-system
+    spec:
+      templates:
+      - apiVersion: batch/v1
+        kind: Job
+        metadata:
+          name: '{{.HookName}}'
+        spec:
+          backoffLimit: 1
+          template:
+            spec:
+              containers:
+              - args:
+                - upgrade
+                - --install
+                - '{{.HookName}}'
+                - oci://quay.io/pdettori/openshift-crds
+                - --version
+                - 0.1.0
+                env:
+                - name: KUBECONFIG
+                  value: /etc/kube/kubeconfig-incluster
+                image: quay.io/pdettori/helm:v3.13.2
+                name: '{{.HookName}}'
+                volumeMounts:
+                - mountPath: /etc/kube
+                  name: kubeconfig
+                  readOnly: true
+              restartPolicy: Never
+              volumes:
+              - name: kubeconfig
+                secret:
+                  secretName: admin-kubeconfig

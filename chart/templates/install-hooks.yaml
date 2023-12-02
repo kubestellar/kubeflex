@@ -1,0 +1,50 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ .Release.Name }}"
+spec:
+  template:
+    metadata:
+      name: "{{ .Release.Name }}"
+    spec:
+      containers:
+      - name: "{{ .Release.Name }}"
+        image: public.ecr.aws/bitnami/kubectl:1.27.8-debian-11-r0
+        command:
+        - sh
+        - -c
+        - |
+          kubectl apply -f /etc/kube/hooks.yaml
+        volumeMounts:
+        - name: hooks
+          mountPath: "/etc/kube"
+          readOnly: true    
+      restartPolicy: OnFailure
+      volumes:
+      - name: hooks
+        configMap:
+          name: postcreate-hooks
+      restartPolicy: Never
+  backoffLimit: 4 
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: postcreatehooks
+rules:
+- apiGroups: ["tenancy.kflex.kubestellar.org"]
+  resources: ["postcreatehooks"]
+  verbs: ["get", "create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: postcreatehooks-binding
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: postcreatehooks
+  apiGroup: rbac.authorization.k8s.io
