@@ -315,3 +315,11 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - tenancy.kflex.kubestellar.org
+  resources:
+  - postcreatehooks
+  verbs:
+  - get
+  - list
+  - watch

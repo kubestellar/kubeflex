@@ -22,8 +22,8 @@ spec:
       restartPolicy: OnFailure
       volumes:
       - name: hooks
-        configMap:
-          name: postcreate-hooks
+        secret:
+          secretName: postcreate-hooks
       restartPolicy: Never
   backoffLimit: 4 
 ---
