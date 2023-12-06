@@ -159,6 +159,7 @@ rules:
   - get
   - list
   - patch
+  - services
   - update
   - watch
 - apiGroups:
@@ -209,6 +210,18 @@ rules:
   - batch
   resources:
   - jobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
   verbs:
   - create
   - delete

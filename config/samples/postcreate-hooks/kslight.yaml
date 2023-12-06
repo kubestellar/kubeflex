@@ -9,52 +9,41 @@ spec:
     metadata:
       name: "{{.Namespace}}-{{.HookName}}"
     rules:
-    - nonResourceURLs:
-      - "/metrics"
-      verbs:
-      - get
-    - apiGroups:
-      - "authentication.k8s.io"
-      resources:
-      - "tokenreviews"
-      verbs:
-      - create
-    - apiGroups:
-      - "authorization.k8s.io"
-      resources:
-      - "subjectaccessreviews"
-      verbs:
-      - create
     - apiGroups:
       - ""
       resources:
-      - "configmaps"
+      - secrets
       verbs:
-      - create
-      - delete
       - get
       - list
-      - patch
-      - update
       - watch
     - apiGroups:
-      - ""
+      - tenancy.kflex.kubestellar.org
       resources:
-      - "secrets"
+      - controlplanes
       verbs:
-      - create
-      - delete
       - get
       - list
-      - patch
-      - update
-      - watch    
+      - watch
     - apiGroups:
-      - apiextensions.k8s.io
+      - tenancy.kflex.kubestellar.org
       resources:
-      - customresourcedefinitions
+      - controlplanes/status
       verbs:
       - get
+      - patch
+      - update
+    - apiGroups:
+      - authentication.k8s.io
+      resources:
+      - tokenreviews
+      verbs:
+      - create
+    - apiGroups:
+      - authorization.k8s.io
+      resources:
+      - subjectaccessreviews
+      verbs:
       - create
     - apiGroups:
       - rbac.authorization.k8s.io
@@ -63,27 +52,17 @@ spec:
       - clusterrolebindings
       verbs:
       - get
-      - create
-    - apiGroups:
-      - edge.kubestellar.io
-      resources:
-      - placementpolicies
-      - placementpolicies/status
-      - placementpolicies/finalizers
-      verbs:
-      - get
-      - create 
-      - delete
       - list
-      - patch
-      - update
       - watch
     - apiGroups:
-      - tenancy.kflex.kubestellar.org
+      - rbac.authorization.k8s.io
       resources:
-      - controlplanes
+      - roles
+      - rolebindings
       verbs:
+      - get
       - list
+      - watch      
   - apiVersion: rbac.authorization.k8s.io/v1  
     kind: ClusterRoleBinding
     metadata:
@@ -102,13 +81,51 @@ spec:
       name: "{{.HookName}}"
     rules:
     - apiGroups:
-      - rbac.authorization.k8s.io
+      - ""
       resources:
-      - roles
-      - rolebindings
+      - configmaps
+      verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+    - apiGroups:
+      - coordination.k8s.io
+      resources:
+      - leases
+      verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+    - apiGroups:
+      - ""
+      resources:
+      - events
+      - secrets
+      - services
+      verbs:
+      - create
+      - patch
+    - apiGroups:
+      - ""
+      resources:
+      - serviceaccounts
       verbs:
       - get
       - create
+    - apiGroups:
+      - ""
+      resources:
+      - services
+      verbs:
+      - get      
     - apiGroups:
       - apps
       resources:
@@ -117,41 +134,12 @@ spec:
       - get
       - create
     - apiGroups:
-      - ""
+      - rbac.authorization.k8s.io
       resources:
-      - services
-      - serviceaccounts
-      - configmaps
-      - events
+      - roles
+      - rolebindings
       verbs:
-      - get
-      - create 
-      - delete
-      - list
-      - patch
-      - update
-      - watch
-    - apiGroups:
-      - coordination.k8s.io
-      resources:
-      - leases
-      verbs:
-      - get
-      - create 
-      - delete
-      - list
-      - patch
-      - update
-      - watch  
-    - apiGroups:
-      - ""
-      resources:
-      - secrets
-      verbs:
-      - get
-      - create
-      - list
-      - update
+      - create                
   - apiVersion: rbac.authorization.k8s.io/v1  
     kind: RoleBinding
     metadata:
