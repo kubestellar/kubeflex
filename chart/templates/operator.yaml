@@ -324,6 +324,10 @@ metadata:
   creationTimestamp: null
   name: kubeflex-manager-role
 rules:
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
 - apiGroups:
   - ""
   resources:

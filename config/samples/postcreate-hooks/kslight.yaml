@@ -9,6 +9,10 @@ spec:
     metadata:
       name: "{{.Namespace}}-{{.HookName}}"
     rules:
+    - nonResourceURLs:
+      - /metrics
+      verbs:
+      - get
     - apiGroups:
       - ""
       resources:
@@ -17,6 +21,9 @@ spec:
       - get
       - list
       - watch
+      - create
+      - patch
+      - update
     - apiGroups:
       - tenancy.kflex.kubestellar.org
       resources:
@@ -54,6 +61,9 @@ spec:
       - get
       - list
       - watch
+      - create
+      - update
+      - patch
     - apiGroups:
       - rbac.authorization.k8s.io
       resources:
@@ -113,6 +123,7 @@ spec:
       verbs:
       - create
       - patch
+      - update
     - apiGroups:
       - ""
       resources:
@@ -162,6 +173,7 @@ spec:
           containers:
           - name: "{{.HookName}}"
             image: quay.io/pdettori/helm:v3.13.2
+            imagePullPolicy: Always
             args:
               - upgrade
               - --install
@@ -171,5 +183,7 @@ spec:
               - oci://ghcr.io/kubestellar/kubeflex/kslight-operator-chart
               - --version
               - "0.1.0"
+              - --set
+              - "ControlPlaneName={{.ControlPlaneName}}"
           restartPolicy: Never
       backoffLimit: 1

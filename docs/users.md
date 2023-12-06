@@ -557,8 +557,8 @@ Note that the double quotes are required for a valid yaml.
 Currently avilable built-in objects are:
 
 - "{{.Namespace}}" - the namespace hosting the control plane
-- "{{ControlPlaneName}}" - the name of the control plane
-- "{{HookName}}" - the name of the hook.        
+- "{{.ControlPlaneName}}" - the name of the control plane
+- "{{.HookName}}" - the name of the hook.        
 
 ### Using the hooks
 
