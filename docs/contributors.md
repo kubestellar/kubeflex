@@ -24,7 +24,7 @@ export PATH=$(pwd)/bin:$PATH
 ### Steps to make release
 
 1. delete branch "brew" from https://github.com/kubestellar/kubeflex 
-2. git checkout <release branch> # e.g. release-0.2
+2. git checkout <release branch> # e.g. release-0.3
 3. Run the rebase from main
 ```
 gitr(){
@@ -34,21 +34,25 @@ gitr(){
 }
 gitr
 ```
-4. git push upstream <release branch> # e.g. release-0.2
+4. Push the release branch with "git push" - open PR and review/merge to update release branch upstream.
+
 5. check existing tags e.g.,
 ```
 git tag 
 v0.1.0
 v0.1.1
 v0.2.0
-v0.2.1
+...
+v0.3.1
 ```
 6. create a new tag e.g.
 ```
-git tag v0.2.2
+git tag v0.3.2
 ```
 7. Push the tag upstream
 ```
-git push upstream --tag v0.2.2
+git push upstream --tag v0.3.2
 ```
-Finally, make a PR from the brew branch for the brew install script.
+Wait until goreleaser completes the release process.
+
+8. Make a PR from the brew branch for the brew install script.
