@@ -169,7 +169,13 @@ func (r *ControlPlaneReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *ControlPlaneReconciler) deleteExternalResources(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
-	// bypass cleanup when running out of cluster as there is no connectivity to the DB
+	// add owner reference to cluster-scoped resources associated with the control plane
+	// so that the Kube GC will clean those when the CP is removed
+	if err := util.SetClusterScopedOwnerRefs(r.Client, r.Scheme, hcp); err != nil {
+		return err
+	}
+
+	// bypass DB cleanup when running out of cluster as there is no connectivity to the DB
 	if !util.IsInCluster() {
 		return nil
 	}
