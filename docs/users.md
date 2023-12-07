@@ -496,6 +496,8 @@ apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
 kind: PostCreateHook
 metadata:
   name: hello
+  labels:
+    mylabelkey: mylabelvalue
 spec:
   templates:
   - apiVersion: batch/v1
@@ -559,6 +561,17 @@ Currently avilable built-in objects are:
 - "{{.Namespace}}" - the namespace hosting the control plane
 - "{{.ControlPlaneName}}" - the name of the control plane
 - "{{.HookName}}" - the name of the hook.        
+
+### Labels propagation
+
+There are scenarios where you may need to setup labels on control planes based on the 
+features that the control plane acquires after the hook runs. For example you may want 
+to label a control plane where the OpenShift CRDs have been applied as a control plane 
+with OpenShift flavor.
+
+To propagate labels, simply set the labels on the PostCreateHook as shown in the example
+*hello* hook. The labels are then automatically propagated to any newly created control plane
+where the hook is applied.
 
 ### Using the hooks
 
