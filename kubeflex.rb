@@ -5,20 +5,20 @@
 class Kubeflex < Formula
   desc ""
   homepage "https://github.com/kubestellar/kubeflex"
-  version "0.3.0"
+  version "0.3.1"
 
   on_macos do
     if Hardware::CPU.arm?
-      url "https://github.com/kubestellar/kubeflex/releases/download/v0.3.0/kubeflex_0.3.0_darwin_arm64.tar.gz"
-      sha256 "ecbfe68382a23d32ad9d51f77940b58970b313fc4c82d83df9856718cd841dbb"
+      url "https://github.com/kubestellar/kubeflex/releases/download/v0.3.1/kubeflex_0.3.1_darwin_arm64.tar.gz"
+      sha256 "d00c167ab2afc5093df4849c16fe77a6642d398a22ff27f64d611f5ed87582e7"
 
       def install
         bin.install "bin/kflex"
       end
     end
     if Hardware::CPU.intel?
-      url "https://github.com/kubestellar/kubeflex/releases/download/v0.3.0/kubeflex_0.3.0_darwin_amd64.tar.gz"
-      sha256 "90cebd0bf724eb707968e610a86539eb2262daeef4b9dfcea43967895819e16d"
+      url "https://github.com/kubestellar/kubeflex/releases/download/v0.3.1/kubeflex_0.3.1_darwin_amd64.tar.gz"
+      sha256 "1b74a82b112c9133755eb9ae5543a0092e68960189026143f8790d9964608b0c"
 
       def install
         bin.install "bin/kflex"
@@ -28,16 +28,16 @@ class Kubeflex < Formula
 
   on_linux do
     if Hardware::CPU.arm? && Hardware::CPU.is_64_bit?
-      url "https://github.com/kubestellar/kubeflex/releases/download/v0.3.0/kubeflex_0.3.0_linux_arm64.tar.gz"
-      sha256 "c49b5ac85330a9c7c144818e91855e1aeae4c3744b2241a62868d94ff103d44c"
+      url "https://github.com/kubestellar/kubeflex/releases/download/v0.3.1/kubeflex_0.3.1_linux_arm64.tar.gz"
+      sha256 "e49737d42d4dbcc7d6e3ba7b2f10fd334b5ff9b227e31e6d3f7e5f6526c951e2"
 
       def install
         bin.install "bin/kflex"
       end
     end
     if Hardware::CPU.intel?
-      url "https://github.com/kubestellar/kubeflex/releases/download/v0.3.0/kubeflex_0.3.0_linux_amd64.tar.gz"
-      sha256 "41f1e6e2724068546cbefc1d795bd45b010358e29bbe4385e6ad740a14fe854f"
+      url "https://github.com/kubestellar/kubeflex/releases/download/v0.3.1/kubeflex_0.3.1_linux_amd64.tar.gz"
+      sha256 "af418f63894060cb9d2d0d41fd7f7063f776828a160d402ab0a5c1e50c9fb3f0"
 
       def install
         bin.install "bin/kflex"
