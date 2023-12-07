@@ -8,7 +8,16 @@ is created automatically by the kubeflex CLI.
 
 Download the latest kubeflex CLI binary release for your OS/Architecture from the 
 [release page](https://github.com/kubestellar/kubeflex/releases) and copy it
-to `/usr/local/bin` or another location in your `$PATH`.
+to `/usr/local/bin` or another location in your `$PATH`. For example, on linux amd64:
+
+```shell
+OS_ARCH=linux_amd64
+LATEST_RELEASE_URL=$(curl -H "Accept: application/vnd.github.v3+json"   https://api.github.com/repos/kubestellar/kubeflex/releases/latest   | jq -r '.assets[] | select(.name | test("'${OS_ARCH}'")) | .browser_download_url')
+curl -LO $LATEST_RELEASE_URL
+tar xzvf $(basename $LATEST_RELEASE_URL)
+sudo install -o root -g root -m 0755 bin/kflex /usr/local/bin/kflex
+```
+
 
 If you have [Homebrew](https://brew.sh), use the following commands to install kubeflex:
 
