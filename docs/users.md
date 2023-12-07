@@ -18,7 +18,6 @@ tar xzvf $(basename $LATEST_RELEASE_URL)
 sudo install -o root -g root -m 0755 bin/kflex /usr/local/bin/kflex
 ```
 
-
 If you have [Homebrew](https://brew.sh), use the following commands to install kubeflex:
 
 ```shell
@@ -26,12 +25,21 @@ brew tap kubestellar/kubeflex https://github.com/kubestellar/kubeflex
 brew install kubeflex
 ```
 
+## Starting Kubeflex
+
 Once the CLI is installed, the following CLI command creates a kind cluster and installs
 the KubeFlex operator:
 
 ```shell
 kflex init --create-kind
 ```
+
+## Upgrading Kubeflex
+
+For a kind test/dev installation, the simplest approach after updating the 'kflex' binary
+is to use `kind delete --name kubeflex` and re-running `kflex init --create-kind`. Procedures
+for non-disruptive upgrades will be documented later on.
+
 ## Install KubeFlex on an existing cluster
 
 You can install KubeFlex on an existing cluster with nginx ingress configured for SSL passthru,
