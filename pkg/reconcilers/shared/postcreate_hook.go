@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -47,6 +48,12 @@ func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp 
 		return nil
 	}
 
+	// hook is only applied once after CP creation
+	_, ok := hcp.Status.PostCreateHooks[*hcp.Spec.PostCreateHook]
+	if ok {
+		return nil
+	}
+
 	vars := Vars{
 		Namespace:        namespace,
 		ControlPlaneName: hcp.Name,
@@ -66,14 +73,23 @@ func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp 
 		return fmt.Errorf("error retrieving post create hook %s %s", *hcp.Spec.PostCreateHook, err)
 	}
 
-	if err := applyPostCreateHook(ctx, r.ClientSet, r.DynamicClient, hook, vars); err != nil {
+	if err := applyPostCreateHook(ctx, r.ClientSet, r.DynamicClient, hook, vars, hcp); err != nil {
+		return err
+	}
+
+	// if hook was successfully applied update status
+	if hcp.Status.PostCreateHooks == nil {
+		hcp.Status.PostCreateHooks = map[string]bool{}
+	}
+	hcp.Status.PostCreateHooks[*hcp.Spec.PostCreateHook] = true
+	if err := r.Client.Status().Update(context.TODO(), hcp, &client.SubResourceUpdateOptions{}); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func applyPostCreateHook(ctx context.Context, clientSet *kubernetes.Clientset, dynamicClient *dynamic.DynamicClient, hook *v1alpha1.PostCreateHook, vars Vars) error {
+func applyPostCreateHook(ctx context.Context, clientSet *kubernetes.Clientset, dynamicClient *dynamic.DynamicClient, hook *v1alpha1.PostCreateHook, vars Vars, hcp *v1alpha1.ControlPlane) error {
 	logger := clog.FromContext(ctx)
 	apiResourceLists, err := clientSet.DiscoveryClient.ServerPreferredResources()
 	if err != nil {
@@ -109,6 +125,7 @@ func applyPostCreateHook(ctx context.Context, clientSet *kubernetes.Clientset, d
 		logger.Info("Applying", "object", util.GenerateObjectInfoString(*obj))
 
 		if clusterScoped {
+			setTrackingLabelsAndAnnotations(obj, hcp.Name)
 			_, err = dynamicClient.Resource(*gvr).Apply(context.TODO(), obj.GetName(), obj, metav1.ApplyOptions{FieldManager: FieldManager})
 		} else {
 			_, err = dynamicClient.Resource(*gvr).Namespace(vars.Namespace).Apply(context.TODO(), obj.GetName(), obj, metav1.ApplyOptions{FieldManager: FieldManager})
@@ -118,4 +135,24 @@ func applyPostCreateHook(ctx context.Context, clientSet *kubernetes.Clientset, d
 		}
 	}
 	return nil
+}
+
+// set the same labels used by helm install so that we can use the same
+// approach to GC
+func setTrackingLabelsAndAnnotations(obj *unstructured.Unstructured, cpName string) {
+	namespace := util.GenerateNamespaceFromControlPlaneName(cpName)
+
+	labels := obj.GetLabels()
+	if labels == nil {
+		labels = map[string]string{}
+	}
+	labels[util.ManagedByKey] = "Helm"
+	obj.SetLabels(labels)
+
+	annotations := obj.GetAnnotations()
+	if annotations == nil {
+		annotations = map[string]string{}
+	}
+	annotations[util.HelmReleaseNamespaceAnnotationKey] = namespace
+	obj.SetAnnotations(annotations)
 }

@@ -27,6 +27,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	routev1 "github.com/openshift/api/route/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -51,6 +52,9 @@ func init() {
 
 	utilruntime.Must(tenancyv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
+
+	// needed for handling CRDs
+	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 }
 
 func main() {
