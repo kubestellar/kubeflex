@@ -2,6 +2,8 @@ apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
 kind: PostCreateHook
 metadata:
   name: openshift-crds
+  labels:
+    kflex.kubestellar.io/flavor: openshift
 spec:
   templates:
   - apiVersion: batch/v1

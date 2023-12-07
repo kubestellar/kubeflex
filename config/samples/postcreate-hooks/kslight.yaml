@@ -2,6 +2,8 @@ apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
 kind: PostCreateHook
 metadata:
   name: kslight
+  labels:
+    kflex.kubestellar.io/cptype: wds
 spec:
   templates:
   - apiVersion: rbac.authorization.k8s.io/v1

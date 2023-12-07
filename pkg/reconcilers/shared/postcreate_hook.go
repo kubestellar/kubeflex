@@ -86,6 +86,10 @@ func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp 
 		return err
 	}
 
+	if err := propagateLabels(hook, hcp, r.Client); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -155,4 +159,34 @@ func setTrackingLabelsAndAnnotations(obj *unstructured.Unstructured, cpName stri
 	}
 	annotations[util.HelmReleaseNamespaceAnnotationKey] = namespace
 	obj.SetAnnotations(annotations)
+}
+
+func propagateLabels(hook *v1alpha1.PostCreateHook, hcp *v1alpha1.ControlPlane, c client.Client) error {
+	hookLabels := hook.GetLabels()
+	if hookLabels == nil || hookLabels != nil && len(hookLabels) == 0 {
+		return nil
+	}
+
+	hcpLabels := hcp.GetLabels()
+	if hcpLabels == nil {
+		hcpLabels = map[string]string{}
+	}
+
+	updateRequired := false
+	for key, value := range hookLabels {
+		v, ok := hcpLabels[key]
+		if !ok || ok && !(v == value) {
+			updateRequired = true
+		}
+		hcpLabels[key] = value
+	}
+	hcp.SetLabels(hcpLabels)
+
+	if updateRequired {
+		if err := c.Update(context.TODO(), hcp, &client.SubResourceUpdateOptions{}); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
