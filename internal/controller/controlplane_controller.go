@@ -58,7 +58,7 @@ type ControlPlaneReconciler struct {
 //+kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete;services
 //+kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=route.openshift.io,resources=routes,verbs=get;list;watch;create;update;patch;delete
@@ -78,6 +78,8 @@ type ControlPlaneReconciler struct {
 //+kubebuilder:rbac:groups="",resources=pods/log,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=pods/portforward,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="apps",resources=replicasets,verbs=get;list;watch
+//+kubebuilder:rbac:groups="coordination.k8s.io",resources=leases,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:urls=/metrics,verbs=get
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -167,7 +169,13 @@ func (r *ControlPlaneReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *ControlPlaneReconciler) deleteExternalResources(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
-	// bypass cleanup when running out of cluster as there is no connectivity to the DB
+	// add owner reference to cluster-scoped resources associated with the control plane
+	// so that the Kube GC will clean those when the CP is removed
+	if err := util.SetClusterScopedOwnerRefs(r.Client, r.Scheme, hcp); err != nil {
+		return err
+	}
+
+	// bypass DB cleanup when running out of cluster as there is no connectivity to the DB
 	if !util.IsInCluster() {
 		return nil
 	}

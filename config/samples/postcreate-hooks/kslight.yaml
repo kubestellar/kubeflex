@@ -10,51 +10,47 @@ spec:
       name: "{{.Namespace}}-{{.HookName}}"
     rules:
     - nonResourceURLs:
-      - "/metrics"
+      - /metrics
       verbs:
       - get
-    - apiGroups:
-      - "authentication.k8s.io"
-      resources:
-      - "tokenreviews"
-      verbs:
-      - create
-    - apiGroups:
-      - "authorization.k8s.io"
-      resources:
-      - "subjectaccessreviews"
-      verbs:
-      - create
     - apiGroups:
       - ""
       resources:
-      - "configmaps"
+      - secrets
       verbs:
-      - create
-      - delete
       - get
       - list
+      - watch
+      - create
       - patch
       - update
+    - apiGroups:
+      - tenancy.kflex.kubestellar.org
+      resources:
+      - controlplanes
+      verbs:
+      - get
+      - list
       - watch
     - apiGroups:
-      - ""
+      - tenancy.kflex.kubestellar.org
       resources:
-      - "secrets"
+      - controlplanes/status
       verbs:
-      - create
-      - delete
       - get
-      - list
       - patch
       - update
-      - watch    
     - apiGroups:
-      - apiextensions.k8s.io
+      - authentication.k8s.io
       resources:
-      - customresourcedefinitions
+      - tokenreviews
       verbs:
-      - get
+      - create
+    - apiGroups:
+      - authorization.k8s.io
+      resources:
+      - subjectaccessreviews
+      verbs:
       - create
     - apiGroups:
       - rbac.authorization.k8s.io
@@ -63,27 +59,20 @@ spec:
       - clusterrolebindings
       verbs:
       - get
+      - list
+      - watch
       - create
+      - update
+      - patch
     - apiGroups:
-      - edge.kubestellar.io
+      - rbac.authorization.k8s.io
       resources:
-      - placementpolicies
-      - placementpolicies/status
-      - placementpolicies/finalizers
+      - roles
+      - rolebindings
       verbs:
       - get
-      - create 
-      - delete
       - list
-      - patch
-      - update
-      - watch
-    - apiGroups:
-      - tenancy.kflex.kubestellar.org
-      resources:
-      - controlplanes
-      verbs:
-      - list
+      - watch      
   - apiVersion: rbac.authorization.k8s.io/v1  
     kind: ClusterRoleBinding
     metadata:
@@ -102,13 +91,52 @@ spec:
       name: "{{.HookName}}"
     rules:
     - apiGroups:
-      - rbac.authorization.k8s.io
+      - ""
       resources:
-      - roles
-      - rolebindings
+      - configmaps
+      verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+    - apiGroups:
+      - coordination.k8s.io
+      resources:
+      - leases
+      verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+    - apiGroups:
+      - ""
+      resources:
+      - events
+      - secrets
+      - services
+      verbs:
+      - create
+      - patch
+      - update
+    - apiGroups:
+      - ""
+      resources:
+      - serviceaccounts
       verbs:
       - get
       - create
+    - apiGroups:
+      - ""
+      resources:
+      - services
+      verbs:
+      - get      
     - apiGroups:
       - apps
       resources:
@@ -117,41 +145,12 @@ spec:
       - get
       - create
     - apiGroups:
-      - ""
+      - rbac.authorization.k8s.io
       resources:
-      - services
-      - serviceaccounts
-      - configmaps
-      - events
+      - roles
+      - rolebindings
       verbs:
-      - get
-      - create 
-      - delete
-      - list
-      - patch
-      - update
-      - watch
-    - apiGroups:
-      - coordination.k8s.io
-      resources:
-      - leases
-      verbs:
-      - get
-      - create 
-      - delete
-      - list
-      - patch
-      - update
-      - watch  
-    - apiGroups:
-      - ""
-      resources:
-      - secrets
-      verbs:
-      - get
-      - create
-      - list
-      - update
+      - create                
   - apiVersion: rbac.authorization.k8s.io/v1  
     kind: RoleBinding
     metadata:
@@ -174,6 +173,7 @@ spec:
           containers:
           - name: "{{.HookName}}"
             image: quay.io/pdettori/helm:v3.13.2
+            imagePullPolicy: Always
             args:
               - upgrade
               - --install
@@ -183,5 +183,7 @@ spec:
               - oci://ghcr.io/kubestellar/kubeflex/kslight-operator-chart
               - --version
               - "0.1.0"
+              - --set
+              - "ControlPlaneName={{.ControlPlaneName}}"
           restartPolicy: Never
       backoffLimit: 1
