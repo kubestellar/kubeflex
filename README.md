@@ -39,6 +39,12 @@ brew tap kubestellar/kubeflex https://github.com/kubestellar/kubeflex
 brew install kubeflex
 ```
 
+To upgrade the kubeflex CLI to the latest release, you may run:
+
+```shell
+brew upgrade kubeflex
+```
+
 ## Quickstart
 
 Create the hosting kind cluster with ingress controller and install 
