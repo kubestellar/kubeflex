@@ -175,7 +175,7 @@ spec:
           containers:
           - name: "{{.HookName}}"
             image: quay.io/pdettori/helm:v3.13.2
-            imagePullPolicy: Always
+            imagePullPolicy: IfNotPresent
             args:
               - upgrade
               - --install
@@ -187,5 +187,8 @@ spec:
               - "0.1.0"
               - --set
               - "ControlPlaneName={{.ControlPlaneName}}"
+            env:
+            - name: XDG_CACHE_HOME
+              value: /tmp/helm/.cache  
           restartPolicy: Never
       backoffLimit: 1
