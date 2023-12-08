@@ -34,12 +34,6 @@ the KubeFlex operator:
 kflex init --create-kind
 ```
 
-## Upgrading Kubeflex
-
-For a kind test/dev installation, the simplest approach after updating the 'kflex' binary
-is to use `kind delete --name kubeflex` and re-running `kflex init --create-kind`. Procedures
-for non-disruptive upgrades will be documented later on.
-
 ## Install KubeFlex on an existing cluster
 
 You can install KubeFlex on an existing cluster with nginx ingress configured for SSL passthru,
@@ -136,6 +130,17 @@ automatically by `kflex init` if you are using the kflex CLI installer):
 ```shell
 oc adm policy add-scc-to-user anyuid -z kubeflex-controller-manager -n kubeflex-system
 ```
+
+## Upgrading Kubeflex
+
+The KubeFlex CLI can be upgraded with `brew upgrade kubeflex` (for brew installs). For linux
+systems, manually download and update the binary. To upgrade the KubeFlex controller, just 
+upgrade the helm chart according to the instructions for [kubernetes](#installing-kubeflex-with-helm)
+or for [OpenShift](#installing-kubeflex-with-helm-on-openshift).
+
+Note that for a kind test/dev installation, the simplest approach to get a fresh install 
+after updating the 'kflex' binary is to use `kind delete --name kubeflex` and re-running 
+`kflex init --create-kind`. 
 
 ## Use a different DNS service
 
