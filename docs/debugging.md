@@ -19,6 +19,12 @@ sleep 5
 kubectl --context kind-kubeflex patch deployment kubeflex-controller-manager --namespace kubeflex-system --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/1/imagePullPolicy", "value": "IfNotPresent"}]'
 ```
 
+### Installing the helm chart from the local repo
+
+```shell
+helm upgrade --install kubeflex-operator chart --namespace kubeflex-system --set domain=localtest.me --set externalPort=9443
+```
+
 ### How to view certs info
 
 ```shell
