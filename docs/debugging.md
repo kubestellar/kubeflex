@@ -9,6 +9,16 @@ kubectl run -i --tty --rm debug -n kubeflex-system --image=postgres --restart=Ne
 psql -h mypsql-postgresql.kubeflex-system.svc -U postgres
 ```
 
+### Forcing image update
+
+This is useful when using a new image with same tag (not a best practice but may be useful for testing)
+
+```shell
+kubectl --context kind-kubeflex patch deployment kubeflex-controller-manager --namespace kubeflex-system --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/1/imagePullPolicy", "value": "Always"}]'
+sleep 5
+kubectl --context kind-kubeflex patch deployment kubeflex-controller-manager --namespace kubeflex-system --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/1/imagePullPolicy", "value": "IfNotPresent"}]'
+```
+
 ### How to view certs info
 
 ```shell

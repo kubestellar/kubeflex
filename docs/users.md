@@ -8,7 +8,15 @@ is created automatically by the kubeflex CLI.
 
 Download the latest kubeflex CLI binary release for your OS/Architecture from the 
 [release page](https://github.com/kubestellar/kubeflex/releases) and copy it
-to `/usr/local/bin` or another location in your `$PATH`.
+to `/usr/local/bin` or another location in your `$PATH`. For example, on linux amd64:
+
+```shell
+OS_ARCH=linux_amd64
+LATEST_RELEASE_URL=$(curl -H "Accept: application/vnd.github.v3+json"   https://api.github.com/repos/kubestellar/kubeflex/releases/latest   | jq -r '.assets[] | select(.name | test("'${OS_ARCH}'")) | .browser_download_url')
+curl -LO $LATEST_RELEASE_URL
+tar xzvf $(basename $LATEST_RELEASE_URL)
+sudo install -o root -g root -m 0755 bin/kflex /usr/local/bin/kflex
+```
 
 If you have [Homebrew](https://brew.sh), use the following commands to install kubeflex:
 
@@ -17,12 +25,15 @@ brew tap kubestellar/kubeflex https://github.com/kubestellar/kubeflex
 brew install kubeflex
 ```
 
+## Starting Kubeflex
+
 Once the CLI is installed, the following CLI command creates a kind cluster and installs
 the KubeFlex operator:
 
 ```shell
 kflex init --create-kind
 ```
+
 ## Install KubeFlex on an existing cluster
 
 You can install KubeFlex on an existing cluster with nginx ingress configured for SSL passthru,
@@ -119,6 +130,17 @@ automatically by `kflex init` if you are using the kflex CLI installer):
 ```shell
 oc adm policy add-scc-to-user anyuid -z kubeflex-controller-manager -n kubeflex-system
 ```
+
+## Upgrading Kubeflex
+
+The KubeFlex CLI can be upgraded with `brew upgrade kubeflex` (for brew installs). For linux
+systems, manually download and update the binary. To upgrade the KubeFlex controller, just 
+upgrade the helm chart according to the instructions for [kubernetes](#installing-kubeflex-with-helm)
+or for [OpenShift](#installing-kubeflex-with-helm-on-openshift).
+
+Note that for a kind test/dev installation, the simplest approach to get a fresh install 
+after updating the 'kflex' binary is to use `kind delete --name kubeflex` and re-running 
+`kflex init --create-kind`. 
 
 ## Use a different DNS service
 
