@@ -346,7 +346,7 @@ switches the context to the new cluster `cluster`, so the `clusteramd join` comm
 new cluster context.
 
 ```shell
-clusteradm join --hub-token <some value> --hub-apiserver https://cp2.localtest.me:9443/ --cluster-name cluster1 --force-internal-endpoint-lookup
+clusteradm join --hub-token <some value> --hub-apiserver https://cp3.localtest.me:9443/ --cluster-name cluster1 --force-internal-endpoint-lookup
 ```
 
 At this point, switch back the context to the OCM control plane with the command:
