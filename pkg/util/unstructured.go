@@ -28,11 +28,18 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+const (
+	UnableToRetrieveCompleteAPIListError = "unable to retrieve the complete list of server APIs"
+)
+
 // Convert GroupVersionKind to GroupVersionResource
 func GroupVersionKindToResource(clientset *kubernetes.Clientset, gvk schema.GroupVersionKind) (*schema.GroupVersionResource, error) {
 	resourceList, err := clientset.Discovery().ServerPreferredResources()
 	if err != nil {
-		return nil, err
+		// ignore the error caused by a stale API service
+		if !strings.Contains(err.Error(), UnableToRetrieveCompleteAPIListError) {
+			return nil, err
+		}
 	}
 
 	for _, resource := range resourceList {

@@ -73,10 +73,12 @@ and install the shared database with the following commands:
 kubectl create ns kubeflex-system
 helm upgrade --install postgres oci://registry-1.docker.io/bitnamicharts/postgresql \
 --namespace kubeflex-system \
+--version 13.1.5 \
 --set primary.extendedConfiguration=max_connections=1000 \
 --set primary.priorityClassName=system-node-critical 
 ```
 
+Note that at this time we have tested only with version 13.1.5 of the chart.
 Then, check what is the [latest release version tag](https://github.com/kubestellar/kubeflex/releases) 
 and install the KubeFlex operator with the command:
 
@@ -102,6 +104,7 @@ To install the shared DB on OpenShift run:
 ```shell
 helm upgrade --install postgres oci://registry-1.docker.io/bitnamicharts/postgresql \
 --namespace kubeflex-system \
+--version 13.1.5 \
 --set primary.extendedConfiguration=max_connections=1000 \
 --set primary.priorityClassName=system-node-critical \
 --set primary.podSecurityContext.fsGroup=null \
