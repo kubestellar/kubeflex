@@ -116,7 +116,7 @@ func applyPostCreateHook(ctx context.Context, clientSet *kubernetes.Clientset, d
 		}
 
 		gvk := util.GetGroupVersionKindFromObject(obj)
-		gvr, err := util.GroupVersionKindToResource(clientSet, gvk)
+		gvr, err := util.GVKToGVR(clientSet, gvk)
 		if err != nil {
 			return err
 		}
@@ -130,9 +130,9 @@ func applyPostCreateHook(ctx context.Context, clientSet *kubernetes.Clientset, d
 
 		if clusterScoped {
 			setTrackingLabelsAndAnnotations(obj, hcp.Name)
-			_, err = dynamicClient.Resource(*gvr).Apply(context.TODO(), obj.GetName(), obj, metav1.ApplyOptions{FieldManager: FieldManager})
+			_, err = dynamicClient.Resource(gvr).Apply(context.TODO(), obj.GetName(), obj, metav1.ApplyOptions{FieldManager: FieldManager})
 		} else {
-			_, err = dynamicClient.Resource(*gvr).Namespace(vars.Namespace).Apply(context.TODO(), obj.GetName(), obj, metav1.ApplyOptions{FieldManager: FieldManager})
+			_, err = dynamicClient.Resource(gvr).Namespace(vars.Namespace).Apply(context.TODO(), obj.GetName(), obj, metav1.ApplyOptions{FieldManager: FieldManager})
 		}
 		if err != nil {
 			return err

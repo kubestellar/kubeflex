@@ -26,31 +26,39 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/restmapper"
 )
 
 const (
 	UnableToRetrieveCompleteAPIListError = "unable to retrieve the complete list of server APIs"
 )
 
-// Convert GroupVersionKind to GroupVersionResource
-func GroupVersionKindToResource(clientset *kubernetes.Clientset, gvk schema.GroupVersionKind) (*schema.GroupVersionResource, error) {
-	resourceList, err := clientset.Discovery().ServerPreferredResources()
+func GVRToGVK(clientset *kubernetes.Clientset, gvr schema.GroupVersionResource) (schema.GroupVersionKind, error) {
+	discoveryClient := clientset.Discovery()
+	groupResources, err := restmapper.GetAPIGroupResources(discoveryClient)
 	if err != nil {
-		// ignore the error caused by a stale API service
-		if !strings.Contains(err.Error(), UnableToRetrieveCompleteAPIListError) {
-			return nil, err
-		}
+		return schema.GroupVersionKind{}, err
 	}
 
-	for _, resource := range resourceList {
-		for _, apiResource := range resource.APIResources {
-			if apiResource.Kind == gvk.Kind && resource.GroupVersion == gvk.GroupVersion().String() {
-				return &schema.GroupVersionResource{Group: gvk.Group, Version: gvk.Version, Resource: apiResource.Name}, nil
-			}
-		}
+	restMapper := restmapper.NewDiscoveryRESTMapper(groupResources)
+	return restMapper.KindFor(gvr)
+}
+
+func GVKToGVR(clientset *kubernetes.Clientset, gvk schema.GroupVersionKind) (schema.GroupVersionResource, error) {
+	discoveryClient := clientset.Discovery()
+	groupResources, err := restmapper.GetAPIGroupResources(discoveryClient)
+	if err != nil {
+		return schema.GroupVersionResource{}, err
 	}
 
-	return nil, fmt.Errorf("GroupVersionResource not found for GroupVersionKind: %v", gvk)
+	restMapper := restmapper.NewDiscoveryRESTMapper(groupResources)
+	gk := schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind}
+	mapping, err := restMapper.RESTMapping(gk, gvk.Version)
+	if err != nil {
+		return schema.GroupVersionResource{}, err
+	}
+
+	return mapping.Resource, nil
 }
 
 func ToUnstructured(raw []byte) (*unstructured.Unstructured, error) {
