@@ -174,7 +174,7 @@ chart: manifests kustomize
 	$(KUSTOMIZE) build config/default > chart/templates/operator.yaml
 	@cat config/samples/postcreate-hooks/ocm.yaml > /tmp/hooks.yaml
 	@echo "---" >> /tmp/hooks.yaml
-	@cat config/samples/postcreate-hooks/kslight.yaml >> /tmp/hooks.yaml
+	@cat config/samples/postcreate-hooks/kubestellar.yaml >> /tmp/hooks.yaml
 	@echo "---" >> /tmp/hooks.yaml 
 	@cat config/samples/postcreate-hooks/openshift-crds.yaml >> /tmp/hooks.yaml
 	@kubectl create secret generic postcreate-hooks --from-file=/tmp/hooks.yaml --dry-run=client --output=yaml > chart/templates/builtin-hooks.yaml

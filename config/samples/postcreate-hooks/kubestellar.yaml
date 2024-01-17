@@ -1,7 +1,7 @@
 apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
 kind: PostCreateHook
 metadata:
-  name: kslight
+  name: kubestellar
   labels:
     kflex.kubestellar.io/cptype: wds
 spec:
@@ -174,17 +174,17 @@ spec:
         spec:
           containers:
           - name: "{{.HookName}}"
-            image: quay.io/pdettori/helm:v3.13.2
+            image: quay.io/kubestellar/helm:v3.13.2
             imagePullPolicy: IfNotPresent
             args:
               - upgrade
               - --install
               - -n
               - "{{.Namespace}}"
-              - kslight
-              - oci://ghcr.io/kubestellar/kubeflex/kslight-operator-chart
+              - kubestellar
+              - oci://ghcr.io/kubestellar/kubestellar/kubestellar-operator-chart
               - --version
-              - "0.1.0"
+              - "0.20.0"
               - --set
               - "ControlPlaneName={{.ControlPlaneName}}"
             env:

@@ -631,6 +631,30 @@ spec:
 EOF
 ```
 
+## Initial Context
+
+The KubeFlex CLI (kflex) relies on the extensions field in the kubeconfig 
+file to store the initial context of the hosting cluster. This context is 
+needed for kflex to switch back to the hosting cluster when performing 
+lifecycle operations.
+
+If the extensions field is deleted or overwritten by other apps, you 
+need to restore it manually in the kubeconfig file. Otherwise, kflex 
+context switching may not work properly. Here is an example of an 
+extension for a hosting cluster with the default context name `kind-kubeflex`:
+
+```yaml
+preferences:
+  extensions:
+  - extension:
+      data:
+        kflex-initial-ctx-name: kind-kubeflex
+      metadata:
+        creationTimestamp: null
+        name: kflex-config-extension-name
+    name: kflex-config-extension-name
+```
+
 ## Uninstalling KubeFlex
 
 To uninstall KubeFlex, first ensure you remove all you control planes:

@@ -76,16 +76,8 @@ func DeleteContext(config *clientcmdapi.Config, cpName string) error {
 	}
 	delete(config.Contexts, ctxName)
 
-	_, ok = config.Clusters[clusterName]
-	if !ok {
-		return fmt.Errorf("cluster %s not found for control plane %s", clusterName, cpName)
-	}
 	delete(config.Clusters, clusterName)
 
-	_, ok = config.AuthInfos[authName]
-	if !ok {
-		return fmt.Errorf("authInfo %s not found for control plane %s", authName, cpName)
-	}
 	delete(config.AuthInfos, authName)
 
 	return nil

@@ -49,12 +49,12 @@ func (c *CPDelete) Delete() {
 		os.Exit(1)
 	}
 
-	if err = kubeconfig.DeleteContext(kconf, c.Name); err != nil {
-		fmt.Fprintf(os.Stderr, "no kubeconfig context for %s was found: %s\n", c.Name, err)
+	if err = kubeconfig.SwitchToInitialContext(kconf, false); err != nil {
+		fmt.Fprintf(os.Stderr, "no initial kubeconfig context was found: %s\n", err)
 	}
 
-	if err = kubeconfig.SwitchToInitialContext(kconf, true); err != nil {
-		fmt.Fprintf(os.Stderr, "no initial kubeconfig context was found: %s\n", err)
+	if err = kubeconfig.DeleteContext(kconf, c.Name); err != nil {
+		fmt.Fprintf(os.Stderr, "no kubeconfig context for %s was found: %s\n", c.Name, err)
 	}
 
 	if err = kubeconfig.WriteKubeconfig(c.Ctx, kconf); err != nil {

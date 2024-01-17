@@ -18,6 +18,8 @@ package kubeconfig
 
 import (
 	"context"
+	"fmt"
+	"os"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,20 +35,24 @@ import (
 )
 
 func LoadAndMerge(ctx context.Context, client kubernetes.Clientset, name, controlPlaneType string) error {
-	cpKonfig, err := loadControlPlaneKubeconfig(ctx, client, name, controlPlaneType)
-	if err != nil {
-		return err
-	}
-	adjustConfigKeys(cpKonfig, name, controlPlaneType)
-
 	konfig, err := LoadKubeconfig(ctx)
 	if err != nil {
 		return err
 	}
 
-	err = merge(konfig, cpKonfig)
-	if err != nil {
-		return err
+	if controlPlaneType != string(tenancyv1alpha1.ControlPlaneTypeHost) {
+		cpKonfig, err := loadControlPlaneKubeconfig(ctx, client, name, controlPlaneType)
+		if err != nil {
+			return err
+		}
+		adjustConfigKeys(cpKonfig, name, controlPlaneType)
+
+		err = merge(konfig, cpKonfig)
+		if err != nil {
+			return err
+		}
+	} else {
+		copyHostContextAndSetItToDefault(konfig, name)
 	}
 
 	return WriteKubeconfig(ctx, konfig)
@@ -169,4 +175,27 @@ func renameKey(m interface{}, oldKey string, newKey string) interface{} {
 		// no action
 	}
 	return m
+}
+
+func copyHostContextAndSetItToDefault(config *clientcmdapi.Config, name string) {
+	if _, ok := config.Contexts[name]; ok {
+		fmt.Fprintf(os.Stderr, "there is already a context with name %s\n", name)
+		return
+	}
+
+	// current context must be pointing at the hosting cluster
+	cContext := config.CurrentContext
+
+	hostContext, ok := config.Contexts[cContext]
+	if !ok {
+		fmt.Fprintf(os.Stderr, "current context with name %s not found\n", cContext)
+		return
+	}
+
+	config.Contexts[name] = &clientcmdapi.Context{
+		Cluster:  hostContext.Cluster,
+		AuthInfo: hostContext.AuthInfo,
+	}
+
+	config.CurrentContext = name
 }

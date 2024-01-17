@@ -63,6 +63,7 @@ spec:
                 - k8s
                 - ocm
                 - vcluster
+                - host
                 type: string
             type: object
           status:

@@ -29,6 +29,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/go-logr/logr"
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 )
 
@@ -123,7 +124,7 @@ func WaitForNamespaceDeletion(clientset kubernetes.Clientset, name string) error
 	}
 }
 
-func IsAPIServerDeploymentReady(c client.Client, hcp tenancyv1alpha1.ControlPlane) (bool, error) {
+func IsAPIServerDeploymentReady(log logr.Logger, c client.Client, hcp tenancyv1alpha1.ControlPlane) (bool, error) {
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: GenerateNamespaceFromControlPlaneName(hcp.Name),
@@ -133,7 +134,12 @@ func IsAPIServerDeploymentReady(c client.Client, hcp tenancyv1alpha1.ControlPlan
 		return false, err
 	}
 
-	if (hcp.Spec.Type) == tenancyv1alpha1.ControlPlaneTypeVCluster {
+	switch hcp.Spec.Type {
+
+	case tenancyv1alpha1.ControlPlaneTypeHost:
+		// host is always available
+		return true, nil
+	case tenancyv1alpha1.ControlPlaneTypeVCluster:
 		s := &v1.StatefulSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      GetAPIServerDeploymentNameByControlPlaneType(string(hcp.Spec.Type)),
@@ -151,7 +157,7 @@ func IsAPIServerDeploymentReady(c client.Client, hcp tenancyv1alpha1.ControlPlan
 			*s.Spec.Replicas > 0 {
 			return true, nil
 		}
-	} else {
+	case tenancyv1alpha1.ControlPlaneTypeK8S, tenancyv1alpha1.ControlPlaneTypeOCM:
 		d := &v1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      GetAPIServerDeploymentNameByControlPlaneType(string(hcp.Spec.Type)),
@@ -169,6 +175,9 @@ func IsAPIServerDeploymentReady(c client.Client, hcp tenancyv1alpha1.ControlPlan
 			*d.Spec.Replicas > 0 {
 			return true, nil
 		}
+	default:
+		log.Info("control plane type not supported", "type", hcp.Spec.Type)
+		return false, nil
 	}
 
 	return false, nil
