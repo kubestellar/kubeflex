@@ -33,6 +33,7 @@ import (
 	clog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
+	"github.com/kubestellar/kubeflex/pkg/reconcilers/host"
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/k8s"
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/ocm"
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/vcluster"
@@ -132,7 +133,7 @@ func (r *ControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	// check if API server is already in a ready state
-	ready, _ := util.IsAPIServerDeploymentReady(r.Client, *hcp)
+	ready, _ := util.IsAPIServerDeploymentReady(log, r.Client, *hcp)
 	if ready {
 		tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionAvailable())
 	} else {
@@ -149,6 +150,9 @@ func (r *ControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return reconciler.Reconcile(ctx, hcp)
 	case tenancyv1alpha1.ControlPlaneTypeVCluster:
 		reconciler := vcluster.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient)
+		return reconciler.Reconcile(ctx, hcp)
+	case tenancyv1alpha1.ControlPlaneTypeHost:
+		reconciler := host.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient)
 		return reconciler.Reconcile(ctx, hcp)
 	default:
 		return ctrl.Result{}, fmt.Errorf("unsupported control plane type: %s", hcp.Spec.Type)

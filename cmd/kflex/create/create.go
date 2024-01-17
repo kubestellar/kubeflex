@@ -60,7 +60,10 @@ func (c *CPCreate) Create(controlPlaneType, backendType, hook string) {
 	util.PrintStatus("Waiting for API server to become ready...", done, &wg)
 	kubeconfig.WatchForSecretCreation(clientset, c.Name, util.GetKubeconfSecretNameByControlPlaneType(controlPlaneType))
 
-	if controlPlaneType == string(tenancyv1alpha1.ControlPlaneTypeVCluster) {
+	switch controlPlaneType {
+	case string(tenancyv1alpha1.ControlPlaneTypeHost):
+		// hosting cluster is always ready
+	case string(tenancyv1alpha1.ControlPlaneTypeVCluster):
 		if err := util.WaitForStatefulSetReady(clientset,
 			util.GetAPIServerDeploymentNameByControlPlaneType(controlPlaneType),
 			util.GenerateNamespaceFromControlPlaneName(cp.Name)); err != nil {
@@ -68,7 +71,7 @@ func (c *CPCreate) Create(controlPlaneType, backendType, hook string) {
 			fmt.Fprintf(os.Stderr, "Error waiting for stateful set to become ready: %v\n", err)
 			os.Exit(1)
 		}
-	} else {
+	case string(tenancyv1alpha1.ControlPlaneTypeK8S), string(tenancyv1alpha1.ControlPlaneTypeOCM):
 		if err := util.WaitForDeploymentReady(clientset,
 			util.GetAPIServerDeploymentNameByControlPlaneType(controlPlaneType),
 			util.GenerateNamespaceFromControlPlaneName(cp.Name)); err != nil {
@@ -76,11 +79,15 @@ func (c *CPCreate) Create(controlPlaneType, backendType, hook string) {
 			fmt.Fprintf(os.Stderr, "Error waiting for deployment to become ready: %v\n", err)
 			os.Exit(1)
 		}
+	default:
+		fmt.Fprintf(os.Stderr, "unknown control plane type: %s\n", controlPlaneType)
+		os.Exit(1)
 	}
+
 	done <- true
 
 	if err := kubeconfig.LoadAndMerge(c.Ctx, clientset, c.Name, controlPlaneType); err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading and merging kubeconfig: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error loading and merging kubeconfig: %s\n", controlPlaneType)
 		os.Exit(1)
 	}
 

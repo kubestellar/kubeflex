@@ -70,13 +70,14 @@ const (
 	BackendDBTypeDedicated BackendDBType = "dedicated"
 )
 
-// +kubebuilder:validation:Enum=k8s;ocm;vcluster
+// +kubebuilder:validation:Enum=k8s;ocm;vcluster;host
 type ControlPlaneType string
 
 const (
 	ControlPlaneTypeK8S      ControlPlaneType = "k8s"
 	ControlPlaneTypeOCM      ControlPlaneType = "ocm"
 	ControlPlaneTypeVCluster ControlPlaneType = "vcluster"
+	ControlPlaneTypeHost     ControlPlaneType = "host"
 )
 
 // We do not use ObjectReference as its use is discouraged in favor of a locally defined type.
