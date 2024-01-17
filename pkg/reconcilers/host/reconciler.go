@@ -32,7 +32,7 @@ import (
 	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
-// HostReconciler reconciles a OCM ControlPlane
+// HostReconciler reconciles a Host ControlPlane that exposed the hosting cluster with the ControlPlane abstraction
 type HostReconciler struct {
 	*shared.BaseReconciler
 }
