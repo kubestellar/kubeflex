@@ -9,7 +9,7 @@ spec:
     spec:
       containers:
       - name: "{{ .Release.Name }}"
-        image: public.ecr.aws/bitnami/kubectl:1.27.8-debian-11-r0
+        image: bitnami/kubectl:1.27.8
         command:
         - sh
         - -c
