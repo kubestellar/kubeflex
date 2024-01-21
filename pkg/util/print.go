@@ -29,13 +29,13 @@ const (
 
 // PrintWithIcon prints a message with defined colors and a spinning icon in front
 // that can be changed to checkmark when completed.
-func PrintStatus(message string, done chan bool, wg *sync.WaitGroup) {
+func PrintStatus(message string, done chan bool, wg *sync.WaitGroup, chattyStatus bool) {
 	// Call the utility function in a go routine with a sample message and color
 	wg.Add(1)
-	go printWithIcon(message, colorWaiting, done, wg)
+	go printWithIcon(message, colorWaiting, done, wg, chattyStatus)
 }
 
-func printWithIcon(message string, colorAttr color.Attribute, done chan bool, wg *sync.WaitGroup) {
+func printWithIcon(message string, colorAttr color.Attribute, done chan bool, wg *sync.WaitGroup, chattyStatus bool) {
 	// Define the icons for waiting and done states
 	// there are different alternatives for the waiting icons
 	//waitingIcons := []string{"▁", "▂", "▃", "▄", "▅", "▆", "▇", "█", "▇", "▆"}
@@ -48,6 +48,7 @@ func printWithIcon(message string, colorAttr color.Attribute, done chan bool, wg
 	printer := color.New(colorAttr)
 
 	// Loop until the done channel receives a value
+    firstTime := true
 	for {
 		select {
 		case <-done:
@@ -60,7 +61,10 @@ func printWithIcon(message string, colorAttr color.Attribute, done chan bool, wg
 		default:
 			// Print the message with each waiting icon in sequence
 			for _, icon := range waitingIcons {
-				printer.Printf("\r%s %s", icon, message)
+				if firstTime || chattyStatus {
+					printer.Printf("\r%s %s", icon, message)
+                    firstTime = false
+                }
 				time.Sleep(100 * time.Millisecond)
 			}
 		}

@@ -39,7 +39,7 @@ type CPCtx struct {
 }
 
 // Context switch context in Kubeconfig
-func (c *CPCtx) Context() {
+func (c *CPCtx) Context(chattyStatus bool) {
 	done := make(chan bool)
 	var wg sync.WaitGroup
 	kconf, err := kubeconfig.LoadKubeconfig(c.Ctx)
@@ -50,11 +50,11 @@ func (c *CPCtx) Context() {
 
 	switch c.CP.Name {
 	case "":
-		util.PrintStatus("Checking for saved initial context...", done, &wg)
+		util.PrintStatus("Checking for saved initial context...", done, &wg, chattyStatus)
 		time.Sleep(1 * time.Second)
 		done <- true
 		if kubeconfig.IsInitialConfigSet(kconf) {
-			util.PrintStatus("Switching to initial context...", done, &wg)
+			util.PrintStatus("Switching to initial context...", done, &wg, chattyStatus)
 			if err = kubeconfig.SwitchToInitialContext(kconf, false); err != nil {
 				fmt.Fprintf(os.Stderr, "Error switching kubeconfig to initial context: %s\n", err)
 				os.Exit(1)
@@ -63,7 +63,7 @@ func (c *CPCtx) Context() {
 		}
 	default:
 		ctxName := certs.GenerateContextName(c.Name)
-		util.PrintStatus(fmt.Sprintf("Switching to context %s...", ctxName), done, &wg)
+		util.PrintStatus(fmt.Sprintf("Switching to context %s...", ctxName), done, &wg, chattyStatus)
 		if err = kubeconfig.SwitchContext(kconf, c.Name); err != nil {
 			fmt.Fprintf(os.Stderr, "kubeconfig context %s not found, trying to load from server...\n", err)
 			if err := c.switchToInitialContextAndWrite(kconf); err != nil {
