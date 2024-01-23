@@ -5,3 +5,25 @@
 domain: localtest.me
 externalPort: "9443"
 isOpenShift: "false"
+
+postgresql:
+  primary:
+    extendedConfiguration: max_connections=1000
+    priorityClassName: system-node-critical
+  # vvvv OpenShift vvvv
+  #   podSecurityContext:
+  #     fsGroup: null
+  #     seccompProfile:
+  #       type: RuntimeDefault
+  #   containerSecurityContext:
+  #     runAsUser: null
+  #     allowPrivilegeEscalation: false
+  #     runAsNonRoot: true
+  #     seccompProfile:
+  #       type: RuntimeDefault
+  # volumePermissions:
+  #   enabled: false
+  # shmVolume:
+  #   enabled: false
+  # ^^^^ OpenSHift ^^^^
+

@@ -2,5 +2,9 @@ apiVersion: v2
 name: kubeflex-operator
 description: Helm chart to install the KubeFlex operator
 type: application
-version: 0.1.0
-appVersion: 0.1.0
+version: 0.4.0
+appVersion: 0.4.0
+dependencies:
+- name: postgresql
+  version: 13.1.5
+  repository: oci://registry-1.docker.io/bitnamicharts
