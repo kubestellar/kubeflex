@@ -8,7 +8,7 @@ on:
 permissions:
   contents: write
   packages: write
- 
+
 env:
   REGISTRY: ghcr.io
   OPERATOR_IMAGE: kubestellar/kubeflex/manager
@@ -50,7 +50,7 @@ jobs:
       uses: azure/setup-helm@v3
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    
+
     - name: Login to registry
       uses: docker/login-action@v3
       with:
@@ -61,6 +61,6 @@ jobs:
     - name: Package and push chart
       run: |
         make chart IMG=${{ env.REGISTRY }}/${{ env.OPERATOR_IMAGE }}:${{github.ref_name}}
-        helm package ${{ env.CHART_PATH }} --destination . --version ${{github.ref_name}}
-        helm push ./*.tgz oci://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}    
+        helm package ${{ env.CHART_PATH }} --destination . --version ${{github.ref_name}} --app-version ${{github.ref_name}} --dependency-update
+        helm push ./*.tgz oci://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
