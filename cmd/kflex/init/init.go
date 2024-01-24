@@ -50,16 +50,6 @@ func Init(ctx context.Context, kubeconfig, version, buildDate string, domain, ex
 		util.PrintStatus("OpenShift cluster detected", done, &wg)
 	}
 	done <- true
-	util.PrintStatus("Installing shared backend DB...", done, &wg)
-	ensureSystemDB(ctx, isOCP)
-	done <- true
-
-	util.PrintStatus("Waiting for shared backend DB to become ready...", done, &wg)
-	util.WaitForStatefulSetReady(
-		*(client.GetClientSet(kubeconfig)),
-		util.GeneratePSReplicaSetName(util.DBReleaseName),
-		util.SystemNamespace)
-	done <- true
 
 	util.PrintStatus("Installing kubeflex operator...", done, &wg)
 	ensureKFlexOperator(ctx, version, domain, externalPort, isOCP)
@@ -81,46 +71,6 @@ func Init(ctx context.Context, kubeconfig, version, buildDate string, domain, ex
 	wg.Wait()
 }
 
-func ensureSystemDB(ctx context.Context, isOCP bool) {
-	vars := []string{
-		"primary.extendedConfiguration=max_connections=1000",
-		"primary.priorityClassName=system-node-critical",
-	}
-	if isOCP {
-		vars = append(vars,
-			"primary.podSecurityContext.fsGroup=null",
-			"primary.podSecurityContext.seccompProfile.type=RuntimeDefault",
-			"primary.containerSecurityContext.runAsUser=null",
-			"primary.containerSecurityContext.allowPrivilegeEscalation=false",
-			"primary.containerSecurityContext.runAsNonRoot=true",
-			"primary.containerSecurityContext.seccompProfile.type=RuntimeDefault",
-			"volumePermissions.enabled=false",
-			"shmVolume.enabled=false",
-		)
-	}
-	h := &helm.HelmHandler{
-		URL:         PostgresURL,
-		RepoName:    PostgresRepoName,
-		ChartName:   PostgresChartName,
-		Namespace:   util.SystemNamespace,
-		ReleaseName: PostgresReleaseName,
-		Args:        map[string]string{"set": strings.Join(vars, ",")},
-	}
-	err := helm.Init(ctx, h)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error initializing helm: %v\n", err)
-		os.Exit(1)
-	}
-
-	if !h.IsDeployed() {
-		err := h.Install()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error installing chart: %v\n", err)
-			os.Exit(1)
-		}
-	}
-}
-
 func ensureKFlexOperator(ctx context.Context, fullVersion, domain, externalPort string, isOCP bool) {
 	version := util.ParseVersionNumber(fullVersion)
 	vars := []string{
@@ -128,6 +78,20 @@ func ensureKFlexOperator(ctx context.Context, fullVersion, domain, externalPort 
 		fmt.Sprintf("domain=%s", domain),
 		fmt.Sprintf("externalPort=%s", externalPort),
 		fmt.Sprintf("isOpenShift=%s", strconv.FormatBool(isOCP)),
+		"postgresql.primary.extendedConfiguration=max_connections=1000",
+		"postgresql.primary.priorityClassName=system-node-critical",
+	}
+	if isOCP {
+		vars = append(vars,
+			"postgresql.primary.podSecurityContext.fsGroup=null",
+			"postgresql.primary.podSecurityContext.seccompProfile.type=RuntimeDefault",
+			"postgresql.primary.containerSecurityContext.runAsUser=null",
+			"postgresql.primary.containerSecurityContext.allowPrivilegeEscalation=false",
+			"postgresql.primary.containerSecurityContext.runAsNonRoot=true",
+			"postgresql.primary.containerSecurityContext.seccompProfile.type=RuntimeDefault",
+			"postgresql.volumePermissions.enabled=false",
+			"postgresql.shmVolume.enabled=false",
+		)
 	}
 	h := &helm.HelmHandler{
 		URL:         fmt.Sprintf("%s:%s", KflexOperatorURL, version),

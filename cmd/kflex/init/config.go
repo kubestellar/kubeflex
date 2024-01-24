@@ -17,11 +17,6 @@ limitations under the License.
 package init
 
 const (
-	PostgresURL         = "oci://registry-1.docker.io/bitnamicharts/postgresql:13.1.5"
-	PostgresRepoName    = "bitnami"
-	PostgresChartName   = "postgresql"
-	PostgresReleaseName = "postgres"
-
 	KflexOperatorURL         = "oci://ghcr.io/kubestellar/kubeflex/chart/kubeflex-operator"
 	KflexOperatorRepoName    = "kubestellar"
 	KflexOperatorChartName   = "kubeflex-operator"
