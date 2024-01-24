@@ -2,11 +2,11 @@
 
 ## Installation
 
-[kind](https://kind.sigs.k8s.io) and [kubectl](https://kubernetes.io/docs/tasks/tools/) are 
-required. Note that we plan to add support for other Kube distros. A hosting kind cluster 
+[kind](https://kind.sigs.k8s.io) and [kubectl](https://kubernetes.io/docs/tasks/tools/) are
+required. Note that we plan to add support for other Kube distros. A hosting kind cluster
 is created automatically by the kubeflex CLI.
 
-Download the latest kubeflex CLI binary release for your OS/Architecture from the 
+Download the latest kubeflex CLI binary release for your OS/Architecture from the
 [release page](https://github.com/kubestellar/kubeflex/releases) and copy it
 to `/usr/local/bin` or another location in your `$PATH`. For example, on linux amd64:
 
@@ -37,11 +37,11 @@ kflex init --create-kind
 ## Install KubeFlex on an existing cluster
 
 You can install KubeFlex on an existing cluster with nginx ingress configured for SSL passthru,
-or on a OpenShift cluster. At this time, we have only tested this option with Kind and OpenShift. 
+or on a OpenShift cluster. At this time, we have only tested this option with Kind and OpenShift.
 
 ### Installing on kind
 
-To create a kind cluster with nginx ingress, follow the instructions [here](https://kind.sigs.k8s.io/docs/user/ingress/). 
+To create a kind cluster with nginx ingress, follow the instructions [here](https://kind.sigs.k8s.io/docs/user/ingress/).
 Once you have your ingress running, you will need to configure nginx ingress for SSL passthru. Run the command:
 
 ```shell
@@ -65,24 +65,10 @@ kflex init
 
 ## Installing KubeFlex with helm
 
-To install KubeFlex on a cluster that already has nginx ingress with SSL passthru enabled, 
-you can use helm instead of the KubeFlex CLI. First, create the `kubeflex-system` namespace
-and install the shared database with the following commands:
+To install KubeFlex on a cluster that already has nginx ingress with SSL passthru enabled, you can use helm instead of the KubeFlex CLI. First, create the `kubeflex-system` namespace and install the the `kubeflex-operator`:
 
 ```shell
 kubectl create ns kubeflex-system
-helm upgrade --install postgres oci://registry-1.docker.io/bitnamicharts/postgresql \
---namespace kubeflex-system \
---version 13.1.5 \
---set primary.extendedConfiguration=max_connections=1000 \
---set primary.priorityClassName=system-node-critical 
-```
-
-Note that at this time we have tested only with version 13.1.5 of the chart.
-Then, check what is the [latest release version tag](https://github.com/kubestellar/kubeflex/releases) 
-and install the KubeFlex operator with the command:
-
-```shell
 helm upgrade --install kubeflex-operator oci://ghcr.io/kubestellar/kubeflex/chart/kubeflex-operator \
 --version <latest-release-version-tag> \
 --namespace kubeflex-system \
@@ -90,33 +76,13 @@ helm upgrade --install kubeflex-operator oci://ghcr.io/kubestellar/kubeflex/char
 --set externalPort=9443
 ```
 
-The `kubeflex-system` namespace is required for installing and running KubeFlex. Do not use 
-any other namespace for this purpose.
+The `kubeflex-system` namespace is required for installing and running KubeFlex. Do not use any other namespace for this purpose.
 
 ### Installing KubeFlex with helm on OpenShift
 
 If you are installing on OpenShift with the `kflex` CLI, the CLI auto-detects OpenShift and autoimatically
 configure the installation of the shared DB and the operator, but if you are using directly helm to install
 you will need to add additional parameters:
-
-To install the shared DB on OpenShift run:
-
-```shell
-helm upgrade --install postgres oci://registry-1.docker.io/bitnamicharts/postgresql \
---namespace kubeflex-system \
---version 13.1.5 \
---set primary.extendedConfiguration=max_connections=1000 \
---set primary.priorityClassName=system-node-critical \
---set primary.podSecurityContext.fsGroup=null \
---set primary.podSecurityContext.seccompProfile.type=RuntimeDefault \
---set primary.containerSecurityContext.runAsUser=null \
---set primary.containerSecurityContext.allowPrivilegeEscalation=false \
---set primary.containerSecurityContext.runAsNonRoot=true \
---set primary.containerSecurityContext.seccompProfile.type=RuntimeDefault \
---set primary.containerSecurityContext.capabilities.drop={ALL} \
---set volumePermissions.enabled=false \
---set shmVolume.enabled=false
-```
 
 To install the operator on OpenShift run:
 
@@ -125,9 +91,21 @@ helm upgrade --install kubeflex-operator oci://ghcr.io/kubestellar/kubeflex/char
 --version <latest-release-version-tag> \
 --namespace kubeflex-system \
 --set isOpenShift=true
+--set postgresql.primary.extendedConfiguration=max_connections=1000 \
+--set postgresql.primary.priorityClassName=system-node-critical \
+--set postgresql.primary.podSecurityContext.fsGroup=null \
+--set postgresql.primary.podSecurityContext.seccompProfile.type=RuntimeDefault \
+--set postgresql.primary.containerSecurityContext.runAsUser=null \
+--set postgresql.primary.containerSecurityContext.allowPrivilegeEscalation=false \
+--set postgresql.primary.containerSecurityContext.runAsNonRoot=true \
+--set postgresql.primary.containerSecurityContext.seccompProfile.type=RuntimeDefault \
+--set postgresql.primary.containerSecurityContext.capabilities.drop={ALL} \
+--set postgresql.volumePermissions.enabled=false \
+--set postgresql.shmVolume.enabled=false
+
 ```
 
-Finally, add the the OpenShift anyuid SCC to the KubeFlex service account (note that this is done 
+Finally, add the the OpenShift anyuid SCC to the KubeFlex service account (note that this is done
 automatically by `kflex init` if you are using the kflex CLI installer):
 
 ```shell
@@ -137,22 +115,22 @@ oc adm policy add-scc-to-user anyuid -z kubeflex-controller-manager -n kubeflex-
 ## Upgrading Kubeflex
 
 The KubeFlex CLI can be upgraded with `brew upgrade kubeflex` (for brew installs). For linux
-systems, manually download and update the binary. To upgrade the KubeFlex controller, just 
+systems, manually download and update the binary. To upgrade the KubeFlex controller, just
 upgrade the helm chart according to the instructions for [kubernetes](#installing-kubeflex-with-helm)
 or for [OpenShift](#installing-kubeflex-with-helm-on-openshift).
 
-Note that for a kind test/dev installation, the simplest approach to get a fresh install 
-after updating the 'kflex' binary is to use `kind delete --name kubeflex` and re-running 
-`kflex init --create-kind`. 
+Note that for a kind test/dev installation, the simplest approach to get a fresh install
+after updating the 'kflex' binary is to use `kind delete --name kubeflex` and re-running
+`kflex init --create-kind`.
 
 ## Use a different DNS service
 
-To use a different domain for DNS resolution, you can specify the `--domain` option when 
-you run `kflex init`. This domain should point to the IP address of your ingress controller, 
-which handles the routing of requests to different control plane instances based on the hostname. 
-A wildcard DNS service is recommended, so that any subdomain of your domain (such as *.<domain>) 
+To use a different domain for DNS resolution, you can specify the `--domain` option when
+you run `kflex init`. This domain should point to the IP address of your ingress controller,
+which handles the routing of requests to different control plane instances based on the hostname.
+A wildcard DNS service is recommended, so that any subdomain of your domain (such as *.<domain>)
 will resolve to the same IP address. The default domain in KubeFlex is localtest.me, which is a
-wildcard DNS service that always resolves to 127.0.0.1. 
+wildcard DNS service that always resolves to 127.0.0.1.
 For example, `cp1.localtest.me` and `cp2.localtest.me` will both resolve to your local machine.
 Note that this option is ignored if you are installing on OpenShift.
 
@@ -162,7 +140,7 @@ You can create a new control plane using the KubeFlex CLI or using any Kubernete
 
 To create a new control plane with name `cp1` using the KubeFlex CLI:
 
-```shell 
+```shell
 kflex create cp1
 ```
 
@@ -182,7 +160,7 @@ to switch the context back to the hosting cluster context, you may use the `ctx`
 kflex ctx
 ```
 
-To switch back to a control plane context, use the 
+To switch back to a control plane context, use the
 `ctx <control plane name>` command, e.g:
 
 ```shell
@@ -242,10 +220,10 @@ kubectl get secrets -n ${NAMESPACE} admin-kubeconfig -o jsonpath='{.data.kubecon
 
 ### Accessing the control plane from within a kind cluster
 
-For control plane of type k8s, the Kube API client can only use the 127.0.0.1 address. The DNS name 
+For control plane of type k8s, the Kube API client can only use the 127.0.0.1 address. The DNS name
 `<control-plane-name>.localtest.me`` is convenient for local test and dev but always resolves to 127.0.0.1, that does not work in a container. For accessing the control plane from within the KubeFlex hosting
 cluster, you may use the controller manager Kubeconfig, which is maintained in the secret with name
-`cm-kubeconfig` in the namespace hosting the control plane, or you may use the Kubeconfig in the 
+`cm-kubeconfig` in the namespace hosting the control plane, or you may use the Kubeconfig in the
 `admin-kubeconfig` secret with the address for the server `https://<control-plane-name>.<control-plane-namespace>:9443`.
 
 To access the control plane API server from another kind cluster on the same docker network, you
@@ -258,14 +236,14 @@ the URL for the server as `https://kubeflex-control-plane:<nodeport>`
 At this time KubFlex supports the following control plane types:
 
 - k8s: this is the stock Kube API server with a subset of controllers running in the controller manager.
-- ocm: this is the [Open Cluster Management Multicluster Control Plane](https://github.com/open-cluster-management-io/multicluster-controlplane), which provides a basic set of capabilities such as 
+- ocm: this is the [Open Cluster Management Multicluster Control Plane](https://github.com/open-cluster-management-io/multicluster-controlplane), which provides a basic set of capabilities such as
 clusters registration and support for the [`ManifestWork` API](https://open-cluster-management.io/concepts/manifestwork/).
 - vcluster: this is based on the [vcluster project](https://www.vcluster.com) and provides the ability to create pods in the hosting namespace of the hosting cluster.
 
 ## Control Plane Backends
 
 KubeFlex roadmap aims to provide different types of backends: shared, dedicated, and for
-each type the ability to choose if etcd or sql. At this time only the following 
+each type the ability to choose if etcd or sql. At this time only the following
 combinations are supported based on control plane type:
 
 - k8s: shared postgresql
@@ -331,7 +309,7 @@ used to register managed clusters:
 
 ```shell
 $ clusteradm get token --use-bootstrap-token
-clusteradm join --hub-token <some value> --hub-apiserver https://cp3.localtest.me:9443/ --cluster-name <cluster_name> 
+clusteradm join --hub-token <some value> --hub-apiserver https://cp3.localtest.me:9443/ --cluster-name <cluster_name>
 ```
 
 The command returns the command to run on the managed cluster (actual token value not shown in example).
@@ -432,7 +410,7 @@ kflex ctx kind-cluster1
 ```
 
 ```shell
-$ kubectl get deployments.apps 
+$ kubectl get deployments.apps
 NAME               READY   UP-TO-DATE   AVAILABLE   AGE
 nginx-deployment   3/3     3            3           20s
 ```
@@ -465,7 +443,7 @@ nginx   1/1     Running   0          24s
 Access the pod logs:
 
 ```shell
-$ kubectl logs nginx 
+$ kubectl logs nginx
 /docker-entrypoint.sh: /docker-entrypoint.d/ is not empty, will attempt to perform configuration
 /docker-entrypoint.sh: Looking for shell scripts in /docker-entrypoint.d/
 ...
@@ -488,7 +466,7 @@ kflex ctx
 ```
 
 ```shell
-$ kubectl get pods -n cp2-system 
+$ kubectl get pods -n cp2-system
 NAME                                                READY   STATUS    RESTARTS   AGE
 coredns-64c4b4d78f-2w9bx-x-kube-system-x-vcluster   1/1     Running   0          6m58s
 nginx-x-default-x-vcluster                          1/1     Running   0          4m26s
@@ -499,7 +477,7 @@ The nginx pod is the one with the name `nginx-x-default-x-vcluster`.
 
 ## Post-create hooks
 
-With post-create hooks you can automate applying kubernetes templates on the hosting cluster or on 
+With post-create hooks you can automate applying kubernetes templates on the hosting cluster or on
 a hosted control plane right after the creation of a control plane. Some relevant use cases are:
 
 - Applying OpenShift CRDs on a control plane to be used as a Workload Description Space (WDS) for deplying
@@ -540,9 +518,9 @@ spec:
       backoffLimit: 1
 ```
 
-This hook will launch a job in the same namespace of the control plane that will print 
+This hook will launch a job in the same namespace of the control plane that will print
 "Hello World" to the standard output. Typically, a hook runs a job that by default
-interacts with the hosting cluster API server. To make the job interact with the hosted 
+interacts with the hosting cluster API server. To make the job interact with the hosted
 control plane  API server you can mount the secret with the in-cluster kubeconfig
 for that API server. For example, for a control plane of type `k8s` you can define
 a volume for a secret as follows:
@@ -559,11 +537,11 @@ Then, you can mount the volume and define the `KUBECONFIG` env variable as follo
 ```yaml
 env:
 - name: KUBECONFIG
-  value: "/etc/kube/kubeconfig-incluster"    
+  value: "/etc/kube/kubeconfig-incluster"
 volumeMounts:
 - name: kubeconfig
   mountPath: "/etc/kube"
-  readOnly: true  
+  readOnly: true
 ```
 
 A complete example for installing OpenShift CRDs on a control plane is available
@@ -585,13 +563,13 @@ Currently avilable built-in objects are:
 
 - "{{.Namespace}}" - the namespace hosting the control plane
 - "{{.ControlPlaneName}}" - the name of the control plane
-- "{{.HookName}}" - the name of the hook.        
+- "{{.HookName}}" - the name of the hook.
 
 ### Labels propagation
 
-There are scenarios where you may need to setup labels on control planes based on the 
-features that the control plane acquires after the hook runs. For example you may want 
-to label a control plane where the OpenShift CRDs have been applied as a control plane 
+There are scenarios where you may need to setup labels on control planes based on the
+features that the control plane acquires after the hook runs. For example you may want
+to label a control plane where the OpenShift CRDs have been applied as a control plane
 with OpenShift flavor.
 
 To propagate labels, simply set the labels on the PostCreateHook as shown in the example
@@ -607,7 +585,7 @@ kflex ctx
 kubectl apply -f <hook-file.yaml> # e.g. kubectl apply -f hello.yaml
 ```
 
-You can then reference the hook by name when you create a new control plane. 
+You can then reference the hook by name when you create a new control plane.
 
 With kflex CLI (you can use --postcreate-hook or -p):
 
@@ -633,14 +611,14 @@ EOF
 
 ## Initial Context
 
-The KubeFlex CLI (kflex) relies on the extensions field in the kubeconfig 
-file to store the initial context of the hosting cluster. This context is 
-needed for kflex to switch back to the hosting cluster when performing 
+The KubeFlex CLI (kflex) relies on the extensions field in the kubeconfig
+file to store the initial context of the hosting cluster. This context is
+needed for kflex to switch back to the hosting cluster when performing
 lifecycle operations.
 
-If the extensions field is deleted or overwritten by other apps, you 
-need to restore it manually in the kubeconfig file. Otherwise, kflex 
-context switching may not work properly. Here is an example of an 
+If the extensions field is deleted or overwritten by other apps, you
+need to restore it manually in the kubeconfig file. Otherwise, kflex
+context switching may not work properly. Here is an example of an
 extension for a hosting cluster with the default context name `kind-kubeflex`:
 
 ```yaml
