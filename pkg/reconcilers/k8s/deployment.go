@@ -316,7 +316,7 @@ func (r *K8sReconciler) generateCMDeployment(cpName, namespace string) (*appsv1.
 								"--cluster-name=kubernetes",
 								"--cluster-signing-cert-file=/etc/kubernetes/pki/ca.crt",
 								"--cluster-signing-key-file=/etc/kubernetes/pki/ca.key",
-								"--controllers=csrapproving,csrcleaner,csrsigning,namespace,root-ca-cert-publisher,serviceaccount,serviceaccount-token,bootstrapsigner,tokencleaner,garbagecollector",
+								"--controllers=csrapproving,csrcleaner,csrsigning,namespace,root-ca-cert-publisher,serviceaccount,serviceaccount-token,bootstrapsigner,tokencleaner,garbagecollector,pv-protection,pvc-protection",
 								"--kubeconfig=/etc/kubernetes/kubeconfig",
 								"--leader-elect=true",
 								"--requestheader-client-ca-file=/etc/kubernetes/pki/front-proxy-ca.crt",

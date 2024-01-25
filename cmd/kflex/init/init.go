@@ -33,45 +33,45 @@ import (
 	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
-func Init(ctx context.Context, kubeconfig, version, buildDate string, domain, externalPort string) {
+func Init(ctx context.Context, kubeconfig, version, buildDate string, domain, externalPort string, chattyStatus bool) {
 	done := make(chan bool)
 	var wg sync.WaitGroup
 
-	util.PrintStatus(fmt.Sprintf("Kubeflex %s %s", version, buildDate), done, &wg)
+	util.PrintStatus(fmt.Sprintf("Kubeflex %s %s", version, buildDate), done, &wg, chattyStatus)
 	done <- true
 
-	util.PrintStatus("Ensuring kubeflex-system namespace...", done, &wg)
+	util.PrintStatus("Ensuring kubeflex-system namespace...", done, &wg, chattyStatus)
 	ensureSystemNamespace(kubeconfig, util.SystemNamespace)
 	done <- true
-	util.PrintStatus("Checking if OpenShift cluster...", done, &wg)
+	util.PrintStatus("Checking if OpenShift cluster...", done, &wg, chattyStatus)
 	isOCP := util.IsOpenShift(*(client.GetClientSet(kubeconfig)))
 	if isOCP {
 		done <- true
-		util.PrintStatus("OpenShift cluster detected", done, &wg)
+		util.PrintStatus("OpenShift cluster detected", done, &wg, chattyStatus)
 	}
 	done <- true
-	util.PrintStatus("Installing shared backend DB...", done, &wg)
+	util.PrintStatus("Installing shared backend DB...", done, &wg, chattyStatus)
 	ensureSystemDB(ctx, isOCP)
 	done <- true
 
-	util.PrintStatus("Waiting for shared backend DB to become ready...", done, &wg)
+	util.PrintStatus("Waiting for shared backend DB to become ready...", done, &wg, chattyStatus)
 	util.WaitForStatefulSetReady(
 		*(client.GetClientSet(kubeconfig)),
 		util.GeneratePSReplicaSetName(util.DBReleaseName),
 		util.SystemNamespace)
 	done <- true
 
-	util.PrintStatus("Installing kubeflex operator...", done, &wg)
+	util.PrintStatus("Installing kubeflex operator...", done, &wg, chattyStatus)
 	ensureKFlexOperator(ctx, version, domain, externalPort, isOCP)
 	done <- true
 
 	if isOCP {
-		util.PrintStatus("Adding OpenShift anyuid SCC to kubeflex SA...", done, &wg)
+		util.PrintStatus("Adding OpenShift anyuid SCC to kubeflex SA...", done, &wg, chattyStatus)
 		util.AddSCCtoUserPolicy("")
 		done <- true
 	}
 
-	util.PrintStatus("Waiting for kubeflex operator to become ready...", done, &wg)
+	util.PrintStatus("Waiting for kubeflex operator to become ready...", done, &wg, chattyStatus)
 	util.WaitForDeploymentReady(
 		*(client.GetClientSet(kubeconfig)),
 		util.GenerateOperatorDeploymentName(),

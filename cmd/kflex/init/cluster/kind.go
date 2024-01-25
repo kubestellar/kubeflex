@@ -191,11 +191,11 @@ func installAndPatchNginxIngress() error {
 	return nil
 }
 
-func CreateKindCluster() {
+func CreateKindCluster(chattyStatus bool) {
 	done := make(chan bool)
 	var wg sync.WaitGroup
 
-	util.PrintStatus("Checking if kind is installed...", done, &wg)
+	util.PrintStatus("Checking if kind is installed...", done, &wg, chattyStatus)
 	ok, err := checkIfKindInstalled()
 	if err != nil {
 		log.Fatalf("Error checking if kind is installed: %v\n", err)
@@ -203,7 +203,7 @@ func CreateKindCluster() {
 	done <- true
 
 	if !ok {
-		util.PrintStatus("Installing kind...", done, &wg)
+		util.PrintStatus("Installing kind...", done, &wg, chattyStatus)
 		err = installKind()
 		if err != nil {
 			log.Fatalf("Error installing kind: %v\n", err)
@@ -211,7 +211,7 @@ func CreateKindCluster() {
 		done <- true
 	}
 
-	util.PrintStatus("Checking if a kubeflex kind instance already exists...", done, &wg)
+	util.PrintStatus("Checking if a kubeflex kind instance already exists...", done, &wg, chattyStatus)
 	ok, err = checkKindInstanceExists()
 	if err != nil {
 		log.Fatalf("Error checking if kind instance already exists: %v\n", err)
@@ -219,7 +219,7 @@ func CreateKindCluster() {
 	done <- true
 
 	if !ok {
-		util.PrintStatus("Creating kind cluster...", done, &wg)
+		util.PrintStatus("Creating kind cluster...", done, &wg, chattyStatus)
 		done <- true
 
 		err = createKindInstance(clusterName)
@@ -228,7 +228,7 @@ func CreateKindCluster() {
 		}
 	}
 
-	util.PrintStatus("Installing and patching nginx ingress...", done, &wg)
+	util.PrintStatus("Installing and patching nginx ingress...", done, &wg, chattyStatus)
 	err = installAndPatchNginxIngress()
 	if err != nil {
 		log.Fatalf("Error installing and patching nginx ingress: %v\n", err)

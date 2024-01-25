@@ -261,6 +261,8 @@ At this time KubFlex supports the following control plane types:
 - ocm: this is the [Open Cluster Management Multicluster Control Plane](https://github.com/open-cluster-management-io/multicluster-controlplane), which provides a basic set of capabilities such as 
 clusters registration and support for the [`ManifestWork` API](https://open-cluster-management.io/concepts/manifestwork/).
 - vcluster: this is based on the [vcluster project](https://www.vcluster.com) and provides the ability to create pods in the hosting namespace of the hosting cluster.
+- host: this control plane type exposes the underlying hosting cluster with the same control plane abstraction
+used by the other control plane types.
 
 ## Control Plane Backends
 
@@ -287,6 +289,12 @@ To create a control plane of type `ocm` run the command:
 
 ```shell
 kflex create cp3 --type ocm
+```
+
+To create a control plane of type `host` run the command:
+
+```shell
+kflex create cp4 --type host
 ```
 
 ## Working with an OCM control plane
@@ -437,7 +445,7 @@ NAME               READY   UP-TO-DATE   AVAILABLE   AGE
 nginx-deployment   3/3     3            3           20s
 ```
 
-## Working with an vcluster control plane
+## Working with a vcluster control plane
 
 Let's create a vcluster control plane:
 
