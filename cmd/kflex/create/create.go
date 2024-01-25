@@ -38,17 +38,17 @@ type CPCreate struct {
 }
 
 // Create a ne control plane
-func (c *CPCreate) Create(controlPlaneType, backendType, hook string) {
+func (c *CPCreate) Create(controlPlaneType, backendType, hook string, chattyStatus bool) {
 	done := make(chan bool)
 	var wg sync.WaitGroup
 	cx := cont.CPCtx{}
-	cx.Context()
+	cx.Context(chattyStatus)
 
 	cl := *(kfclient.GetClient(c.Kubeconfig))
 
 	cp := c.generateControlPlane(controlPlaneType, backendType, hook)
 
-	util.PrintStatus(fmt.Sprintf("Creating new control plane %s of type %s ...", c.Name, controlPlaneType), done, &wg)
+	util.PrintStatus(fmt.Sprintf("Creating new control plane %s of type %s ...", c.Name, controlPlaneType), done, &wg, chattyStatus)
 	if err := cl.Create(context.TODO(), cp, &client.CreateOptions{}); err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating instance: %v\n", err)
 		os.Exit(1)
@@ -57,7 +57,7 @@ func (c *CPCreate) Create(controlPlaneType, backendType, hook string) {
 
 	clientset := *(kfclient.GetClientSet(c.Kubeconfig))
 
-	util.PrintStatus("Waiting for API server to become ready...", done, &wg)
+	util.PrintStatus("Waiting for API server to become ready...", done, &wg, chattyStatus)
 	kubeconfig.WatchForSecretCreation(clientset, c.Name, util.GetKubeconfSecretNameByControlPlaneType(controlPlaneType))
 
 	switch controlPlaneType {

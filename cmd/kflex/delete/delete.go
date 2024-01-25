@@ -37,12 +37,12 @@ type CPDelete struct {
 	common.CP
 }
 
-func (c *CPDelete) Delete() {
+func (c *CPDelete) Delete(chattyStatus bool) {
 	done := make(chan bool)
 	cp := c.generateControlPlane()
 	var wg sync.WaitGroup
 
-	util.PrintStatus(fmt.Sprintf("Deleting control plane %s...", c.Name), done, &wg)
+	util.PrintStatus(fmt.Sprintf("Deleting control plane %s...", c.Name), done, &wg, chattyStatus)
 	kconf, err := kubeconfig.LoadKubeconfig(c.Ctx)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error loading kubeconfig: %s\n", err)
@@ -70,7 +70,7 @@ func (c *CPDelete) Delete() {
 	done <- true
 
 	clientset := *(kfclient.GetClientSet(c.Kubeconfig))
-	util.PrintStatus(fmt.Sprintf("Waiting for control plane %s to be deleted...", c.Name), done, &wg)
+	util.PrintStatus(fmt.Sprintf("Waiting for control plane %s to be deleted...", c.Name), done, &wg, chattyStatus)
 	util.WaitForNamespaceDeletion(clientset, util.GenerateNamespaceFromControlPlaneName(c.Name))
 
 	done <- true

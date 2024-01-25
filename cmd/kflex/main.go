@@ -45,6 +45,7 @@ var BkType string
 var Hook string
 var domain string
 var externalPort int
+var chattyStatus bool
 
 // defaults
 const BKTypeDefault = string(tenancyv1alpha1.BackendDBTypeShared)
@@ -80,9 +81,9 @@ var initCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := createContext()
 		if createkind {
-			cluster.CreateKindCluster()
+			cluster.CreateKindCluster(chattyStatus)
 		}
-		in.Init(ctx, kubeconfig, Version, BuildDate, domain, fmt.Sprint(externalPort))
+		in.Init(ctx, kubeconfig, Version, BuildDate, domain, fmt.Sprint(externalPort), chattyStatus)
 	},
 }
 
@@ -107,7 +108,7 @@ var createCmd = &cobra.Command{
 			BkType = BKTypeDefault
 		}
 		// create passing the control plane type and backend type
-		cp.Create(CType, BkType, Hook)
+		cp.Create(CType, BkType, Hook, chattyStatus)
 	},
 }
 
@@ -125,7 +126,7 @@ var deleteCmd = &cobra.Command{
 				Kubeconfig: kubeconfig,
 			},
 		}
-		cp.Delete()
+		cp.Delete(chattyStatus)
 	},
 }
 
@@ -148,30 +149,35 @@ var ctxCmd = &cobra.Command{
 				Kubeconfig: kubeconfig,
 			},
 		}
-		cp.Context()
+		cp.Context(chattyStatus)
 	},
 }
 
 func init() {
 	versionCmd.Flags().StringVarP(&kubeconfig, "kubeconfig", "k", "", "path to kubeconfig file")
+	versionCmd.Flags().BoolVarP(&chattyStatus, "chatty-status", "s", true, "chatty status indicator")
 
 	initCmd.Flags().StringVarP(&kubeconfig, "kubeconfig", "k", "", "path to kubeconfig file")
 	initCmd.Flags().IntVarP(&verbosity, "verbosity", "v", 0, "log level") // TODO - figure out how to inject verbosity
 	initCmd.Flags().BoolVarP(&createkind, "create-kind", "c", false, "Create and configure a kind cluster for installing Kubeflex")
 	initCmd.Flags().StringVarP(&domain, "domain", "d", "localtest.me", "domain for FQDN")
 	initCmd.Flags().IntVarP(&externalPort, "externalPort", "p", 9443, "external port used by ingress")
+	initCmd.Flags().BoolVarP(&chattyStatus, "chatty-status", "s", true, "chatty status indicator")
 
 	createCmd.Flags().StringVarP(&kubeconfig, "kubeconfig", "k", "", "path to kubeconfig file")
 	createCmd.Flags().IntVarP(&verbosity, "verbosity", "v", 0, "log level") // TODO - figure out how to inject verbosity
 	createCmd.Flags().StringVarP(&CType, "type", "t", "", "type of control plane: k8s|ocm|vcluster")
 	createCmd.Flags().StringVarP(&BkType, "backend-type", "b", "", "backend DB sharing: shared|dedicated")
 	createCmd.Flags().StringVarP(&Hook, "postcreate-hook", "p", "", "name of post create hook to run")
+	createCmd.Flags().BoolVarP(&chattyStatus, "chatty-status", "s", true, "chatty status indicator")
 
 	deleteCmd.Flags().StringVarP(&kubeconfig, "kubeconfig", "k", "", "path to kubeconfig file")
 	deleteCmd.Flags().IntVarP(&verbosity, "verbosity", "v", 0, "log level") // TODO - figure out how to inject verbosity
+	deleteCmd.Flags().BoolVarP(&chattyStatus, "chatty-status", "s", true, "chatty status indicator")
 
 	ctxCmd.Flags().StringVarP(&kubeconfig, "kubeconfig", "k", "", "path to kubeconfig file")
 	ctxCmd.Flags().IntVarP(&verbosity, "verbosity", "v", 0, "log level") // TODO - figure out how to inject verbosity
+	ctxCmd.Flags().BoolVarP(&chattyStatus, "chatty-status", "s", true, "chatty status indicator")
 
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(initCmd)
