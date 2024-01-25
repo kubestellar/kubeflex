@@ -61,6 +61,13 @@ func Init(ctx context.Context, kubeconfig, version, buildDate string, domain, ex
 		done <- true
 	}
 
+	util.PrintStatus("Waiting for shared backend DB to become ready...", done, &wg)
+	util.WaitForStatefulSetReady(
+		*(client.GetClientSet(kubeconfig)),
+		util.GeneratePSReplicaSetName(util.ReplicaSetName),
+		util.SystemNamespace)
+	done <- true
+
 	util.PrintStatus("Waiting for kubeflex operator to become ready...", done, &wg)
 	util.WaitForDeploymentReady(
 		*(client.GetClientSet(kubeconfig)),

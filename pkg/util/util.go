@@ -34,6 +34,7 @@ const (
 	CMDeploymentName                     = "kube-controller-manager"
 	ProjectName                          = "kubeflex"
 	DBReleaseName                        = "postgres"
+	ReplicaSetName                       = "kubeflex-operator"
 	SystemNamespace                      = "kubeflex-system"
 	SystemConfigMap                      = "kubeflex-config"
 	AdminConfSecret                      = "admin-kubeconfig"
