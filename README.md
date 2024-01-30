@@ -102,4 +102,4 @@ and how to create and interact with different types of control planes, such as
 
 ## Architecture
 
-![image info](./docs/images/kubeflex-arch.png)
+![image info](./docs/images/kubeflex-high-level-arch.png)
