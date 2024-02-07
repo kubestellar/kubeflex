@@ -33,9 +33,16 @@ import (
 	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
-func Init(ctx context.Context, kubeconfig, version, buildDate string, domain, externalPort string, chattyStatus bool) {
+func Init(ctx context.Context, kubeconfig, version, buildDate string, domain, externalPort string, chattyStatus, isOCP bool) {
 	done := make(chan bool)
 	var wg sync.WaitGroup
+
+	clientsetp, err := client.GetClientSet(kubeconfig)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error getting clientset: %v\n", err)
+		os.Exit(1)
+	}
+	clientset := *clientsetp
 
 	util.PrintStatus(fmt.Sprintf("Kubeflex %s %s", version, buildDate), done, &wg, chattyStatus)
 	done <- true
@@ -43,20 +50,14 @@ func Init(ctx context.Context, kubeconfig, version, buildDate string, domain, ex
 	util.PrintStatus("Ensuring kubeflex-system namespace...", done, &wg, chattyStatus)
 	ensureSystemNamespace(kubeconfig, util.SystemNamespace)
 	done <- true
-	util.PrintStatus("Checking if OpenShift cluster...", done, &wg, chattyStatus)
-	isOCP := util.IsOpenShift(*(client.GetClientSet(kubeconfig)))
-	if isOCP {
-		done <- true
-		util.PrintStatus("OpenShift cluster detected", done, &wg, chattyStatus)
-	}
-	done <- true
+
 	util.PrintStatus("Installing shared backend DB...", done, &wg, chattyStatus)
 	ensureSystemDB(ctx, isOCP)
 	done <- true
 
 	util.PrintStatus("Waiting for shared backend DB to become ready...", done, &wg, chattyStatus)
 	util.WaitForStatefulSetReady(
-		*(client.GetClientSet(kubeconfig)),
+		clientset,
 		util.GeneratePSReplicaSetName(util.DBReleaseName),
 		util.SystemNamespace)
 	done <- true
@@ -73,7 +74,7 @@ func Init(ctx context.Context, kubeconfig, version, buildDate string, domain, ex
 
 	util.PrintStatus("Waiting for kubeflex operator to become ready...", done, &wg, chattyStatus)
 	util.WaitForDeploymentReady(
-		*(client.GetClientSet(kubeconfig)),
+		clientset,
 		util.GenerateOperatorDeploymentName(),
 		util.SystemNamespace)
 	done <- true
@@ -153,9 +154,14 @@ func ensureKFlexOperator(ctx context.Context, fullVersion, domain, externalPort 
 }
 
 func ensureSystemNamespace(kubeconfig, namespace string) {
-	client := client.GetClientSet(kubeconfig)
+	clientsetp, err := client.GetClientSet(kubeconfig)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error getting clientset: %v\n", err)
+		os.Exit(1)
+	}
+	clientset := *clientsetp
 
-	_, err := client.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
+	_, err = clientset.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			ns := &corev1.Namespace{
@@ -163,7 +169,7 @@ func ensureSystemNamespace(kubeconfig, namespace string) {
 					Name: namespace,
 				},
 			}
-			_, err = client.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
+			_, err = clientset.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error creating system namespace: %v\n", err)
 				os.Exit(1)

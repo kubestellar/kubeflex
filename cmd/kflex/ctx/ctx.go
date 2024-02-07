@@ -90,7 +90,13 @@ func (c *CPCtx) Context(chattyStatus bool) {
 }
 
 func (c *CPCtx) loadAndMergeFromServer(kconfig *api.Config) error {
-	kfcClient := *(kfclient.GetClient(c.Kubeconfig))
+	kfcClientp, err := kfclient.GetClient(c.Kubeconfig)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error getting kf client: %s\n", err)
+		os.Exit(1)
+	}
+	kfcClient := *kfcClientp
+
 	cp := &tenancyv1alpha1.ControlPlane{
 		ObjectMeta: v1.ObjectMeta{
 			Name: c.CP.Name,
@@ -100,7 +106,13 @@ func (c *CPCtx) loadAndMergeFromServer(kconfig *api.Config) error {
 		return fmt.Errorf("control plane not found on server: %s", err)
 	}
 
-	clientset := *(kfclient.GetClientSet(c.Kubeconfig))
+	clientsetp, err := kfclient.GetClientSet(c.Kubeconfig)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error getting clientset: %s\n", err)
+		os.Exit(1)
+	}
+	clientset := *clientsetp
+
 	if err := kubeconfig.LoadAndMergeNoWrite(c.Ctx, clientset, c.Name, string(cp.Spec.Type), kconfig); err != nil {
 		fmt.Fprintf(os.Stderr, "Error loading and merging kubeconfig: %v\n", err)
 		os.Exit(1)

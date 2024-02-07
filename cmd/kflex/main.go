@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
+	"sync"
 
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
@@ -30,6 +32,7 @@ import (
 	del "github.com/kubestellar/kubeflex/cmd/kflex/delete"
 	in "github.com/kubestellar/kubeflex/cmd/kflex/init"
 	cluster "github.com/kubestellar/kubeflex/cmd/kflex/init/cluster"
+	"github.com/kubestellar/kubeflex/pkg/client"
 	"github.com/kubestellar/kubeflex/pkg/util"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -79,11 +82,32 @@ var initCmd = &cobra.Command{
 	Long:  `Installs the default shared storage backend and the kubeflex operator`,
 	Args:  cobra.ExactArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
+		done := make(chan bool)
+		var wg sync.WaitGroup
+		var isOCP bool
+
+		util.PrintStatus("Checking if OpenShift cluster...", done, &wg, chattyStatus)
+		clientsetp, err := client.GetClientSet(kubeconfig)
+		if err == nil {
+			isOCP = util.IsOpenShift(*clientsetp)
+			if isOCP {
+				done <- true
+				util.PrintStatus("OpenShift cluster detected", done, &wg, chattyStatus)
+			}
+		}
+		done <- true
+
 		ctx := createContext()
 		if createkind {
+			if isOCP {
+				fmt.Fprintf(os.Stderr, "OpenShift cluster detected on existing context\n")
+				fmt.Fprintf(os.Stdout, "Switch to a non-OpenShift context with `kubectl config use-context <context-name>` and retry.\n")
+				os.Exit(1)
+			}
 			cluster.CreateKindCluster(chattyStatus)
 		}
-		in.Init(ctx, kubeconfig, Version, BuildDate, domain, fmt.Sprint(externalPort), chattyStatus)
+		in.Init(ctx, kubeconfig, Version, BuildDate, domain, strconv.Itoa(externalPort), chattyStatus, isOCP)
+		wg.Wait()
 	},
 }
 
