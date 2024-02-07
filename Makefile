@@ -172,11 +172,7 @@ undeploy: ## Undeploy manager from the K8s cluster specified in ~/.kube/config. 
 chart: manifests kustomize
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(shell echo ${IMG} | sed 's/\(:.*\)v/\1/')
 	$(KUSTOMIZE) build config/default > chart/templates/operator.yaml
-	@cat config/samples/postcreate-hooks/ocm.yaml > /tmp/hooks.yaml
-	@echo "---" >> /tmp/hooks.yaml
-	@cat config/samples/postcreate-hooks/kubestellar.yaml >> /tmp/hooks.yaml
-	@echo "---" >> /tmp/hooks.yaml 
-	@cat config/samples/postcreate-hooks/openshift-crds.yaml >> /tmp/hooks.yaml
+	@cat config/samples/postcreate-hooks/openshift-crds.yaml > /tmp/hooks.yaml
 	@kubectl create secret generic postcreate-hooks --from-file=/tmp/hooks.yaml --dry-run=client --output=yaml > chart/templates/builtin-hooks.yaml
 
 
