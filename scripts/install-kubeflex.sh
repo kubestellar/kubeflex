@@ -138,7 +138,7 @@ if [ $verbose == "true" ]; then
 fi
 
 if [ $strip_bin == "true" ]; then
-    tar -C $folder -zxf kubeflex.tar.gz --wildcards --strip-components=1 bin/*
+    tar -C $folder -zxf kubeflex.tar.gz --strip-components=1 bin/kflex
     bin_folder=$(get_full_path "$folder")
 else
     tar -C $folder -zxf kubeflex.tar.gz
