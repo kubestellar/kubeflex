@@ -76,7 +76,11 @@ func ParseVersionNumber(versionString string) string {
 }
 
 func GetKubernetesClusterVersionInfo(kubeconfig string) (string, error) {
-	clientSet := client.GetClientSet(kubeconfig)
+	clientSet, err := client.GetClientSet(kubeconfig)
+	if err != nil {
+		return "", err
+	}
+
 	serverVersion, err := clientSet.Discovery().ServerVersion()
 	if err != nil {
 		return "", err

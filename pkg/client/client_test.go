@@ -55,7 +55,10 @@ func TestMain(m *testing.M) {
 }
 
 func TestGetClientSet(t *testing.T) {
-	cs := GetClientSet(kubeconfig)
+	cs, err := GetClientSet(kubeconfig)
+	if err != nil {
+		t.Error("Expected error to be nil")
+	}
 	if cs == nil {
 		t.Error("Expected clientset to not be nil")
 	}
