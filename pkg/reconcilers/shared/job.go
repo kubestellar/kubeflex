@@ -19,7 +19,6 @@ package shared
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/kubestellar/kubeflex/pkg/util"
 	batchv1 "k8s.io/api/batch/v1"
@@ -36,7 +35,7 @@ import (
 
 const (
 	jobName   = "update-cluster-info"
-	baseImage = "quay.io/pdettori/cmupdate"
+	baseImage = "ghcr.io/kubestellar/kubeflex/cmupdate"
 )
 
 func (r *BaseReconciler) ReconcileUpdateClusterInfoJob(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane, externalURL, version string) error {
@@ -124,8 +123,7 @@ func generateClusterInfoJob(name, namespace, externalURL, kubeconfigSecret, kube
 func buildImageRef(version string) string {
 	tag := "latest"
 	if version != "" {
-		tagWithPrefix := util.ParseVersionNumber(version)
-		tag = strings.TrimPrefix(tagWithPrefix, "v")
+		tag = util.ParseVersionNumber(version)
 	}
 	return fmt.Sprintf("%s:%s", baseImage, tag)
 }

@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	URL         = "oci://quay.io/pdettori/multicluster-controlplane-chart:0.1.0"
+	URL         = "oci://quay.io/kubestellar/multicluster-controlplane-chart:v0.2.0-kf-alpha.1"
 	RepoName    = "multicluster-controlplane"
 	ChartName   = "multicluster-controlplane-chart"
 	ReleaseName = "multicluster-controlplane"
@@ -36,7 +36,7 @@ const (
 
 var (
 	configs = []string{
-		"image=quay.io/pdettori/multicluster-controlplane:latest",
+		"image=quay.io/kubestellar/multicluster-controlplane:v0.2.0-kf-alpha.1",
 		"route.enabled=false",
 		"apiserver.internalHostname=kubeflex-control-plane",
 		"nodeport.enabled=false",
