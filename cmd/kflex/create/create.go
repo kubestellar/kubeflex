@@ -44,7 +44,12 @@ func (c *CPCreate) Create(controlPlaneType, backendType, hook string, chattyStat
 	cx := cont.CPCtx{}
 	cx.Context(chattyStatus)
 
-	cl := *(kfclient.GetClient(c.Kubeconfig))
+	clp, err := kfclient.GetClient(c.Kubeconfig)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error getting client: %v\n", err)
+		os.Exit(1)
+	}
+	cl := *clp
 
 	cp := c.generateControlPlane(controlPlaneType, backendType, hook)
 
@@ -55,7 +60,12 @@ func (c *CPCreate) Create(controlPlaneType, backendType, hook string, chattyStat
 	}
 	done <- true
 
-	clientset := *(kfclient.GetClientSet(c.Kubeconfig))
+	clientsetp, err := kfclient.GetClientSet(c.Kubeconfig)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error getting clientset: %v\n", err)
+		os.Exit(1)
+	}
+	clientset := *clientsetp
 
 	util.PrintStatus("Waiting for API server to become ready...", done, &wg, chattyStatus)
 	kubeconfig.WatchForSecretCreation(clientset, c.Name, util.GetKubeconfSecretNameByControlPlaneType(controlPlaneType))

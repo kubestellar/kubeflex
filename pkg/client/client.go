@@ -34,48 +34,53 @@ import (
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 )
 
-func GetClientSet(kubeconfig string) *kubernetes.Clientset {
-	config := getConfig(kubeconfig)
+func GetClientSet(kubeconfig string) (*kubernetes.Clientset, error) {
+	config, err := getConfig(kubeconfig)
+	if err != nil {
+		return nil, err
+	}
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating clientset: %v\n", err)
-		os.Exit(1)
+		return nil, fmt.Errorf("error creating clientset: %s", err)
 	}
-	return clientset
+	return clientset, nil
 }
 
-func GetClient(kubeconfig string) *client.Client {
-	config := getConfig(kubeconfig)
+func GetClient(kubeconfig string) (*client.Client, error) {
+	config, err := getConfig(kubeconfig)
+	if err != nil {
+		return nil, err
+	}
+
 	scheme := runtime.NewScheme()
 
 	httpClient, err := rest.HTTPClientFor(config)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating HTTPClient: %v\n", err)
-		os.Exit(1)
+		return nil, fmt.Errorf("error creating HTTPClient: %s", err)
 	}
 	mapper, err := apiutil.NewDiscoveryRESTMapper(config, httpClient)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating NewDiscoveryRESTMapper: %v\n", err)
-		os.Exit(1)
+		return nil, fmt.Errorf("error creating NewDiscoveryRESTMapper: %s", err)
 	}
 	if err := tenancyv1alpha1.AddToScheme(scheme); err != nil {
-		fmt.Fprintf(os.Stderr, "Error adding to schema: %v\n", err)
-		os.Exit(1)
+		return nil, fmt.Errorf("error adding to schema: %s", err)
 	}
 	c, err := client.New(config, client.Options{Scheme: scheme, Mapper: mapper})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating client: %v\n", err)
-		os.Exit(1)
+		return nil, fmt.Errorf("error creating client: %s", err)
 	}
-	return &c
+	return &c, nil
 }
 
 func GetOpendShiftSecClient(kubeconfig string) (*versioned.Clientset, error) {
-	config := getConfig(kubeconfig)
+	config, err := getConfig(kubeconfig)
+	if err != nil {
+		return nil, err
+	}
 	return versioned.NewForConfig(config)
 }
 
-func getConfig(kubeconfig string) *rest.Config {
+func getConfig(kubeconfig string) (*rest.Config, error) {
 	if kubeconfig == "" {
 		kubeconfig = os.Getenv("KUBECONFIG")
 		if kubeconfig == "" {
@@ -90,8 +95,7 @@ func getConfig(kubeconfig string) *rest.Config {
 
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error building kubeconfig: %v\n", err)
-		os.Exit(1)
+		return nil, fmt.Errorf("error building kubeconfig: %s", err)
 	}
-	return config
+	return config, nil
 }
