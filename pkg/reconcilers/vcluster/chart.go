@@ -59,7 +59,7 @@ func (r *VClusterReconciler) ReconcileChart(ctx context.Context, hcp *tenancyv1a
 			"securityContext.capabilities.drop={ALL}",
 			"securityContext.runAsUser=null",
 			"securityContext.runAsGroup=null",
-			"securityContext.seccompProfil.type=RuntimeDefault",
+			"securityContext.seccompProfile.type=RuntimeDefault",
 		}
 		configs = append(configs, ocpConfigs...)
 	}
