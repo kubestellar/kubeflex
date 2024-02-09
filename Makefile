@@ -12,6 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# container registry
+CONTAINER_REGISTRY ?= ghcr.io/kubestellar/kubeflex
+
+# latest tag
+LATEST_TAG ?= $(shell git describe --tags $(git rev-list --tags --max-count=1))
+
 # Image URL to use all building/pushing image targets
 IMG ?= ghcr.io/kubestellar/kubeflex/manager:latest
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
@@ -127,6 +133,18 @@ docker-build: test ## Build docker image with the manager.
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
 	docker push ${IMG}
+
+.PHONY: ko-build-local-cmupdate
+ko-build-local-cmupdate: test 
+	ko build --local --push=false -B ./cmd/cmupdate -t ${LATEST_TAG} --platform linux/${ARCH}
+
+.PHONY: kind-load-cmupdate-image
+kind-load-cmupdate-image:
+	kind load docker-image ko.local/cmupdate:${LATEST_TAG} --name kubeflex
+
+.PHONY: ko-build-push-cmupdate
+ko-build-push-cmupdate: test ## Build and push container image with ko
+	KO_DOCKER_REPO=${CONTAINER_REGISTRY} ko build -B ./cmd/cmupdate -t ${LATEST_TAG},latest --platform linux/amd64,linux/arm64	
 
 # PLATFORMS defines the target platforms for  the manager image be build to provide support to multiple
 # architectures. (i.e. make docker-buildx IMG=myregistry/mypoperator:0.0.1). To use this option you need to:
