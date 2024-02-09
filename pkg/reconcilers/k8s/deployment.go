@@ -126,7 +126,7 @@ func (r *K8sReconciler) generateAPIServerDeployment(namespace, dbName string, is
 					Containers: []v1.Container{
 						{
 							Name:    "kine",
-							Image:   "rancher/kine:v0.9.9-amd64",
+							Image:   "rancher/kine:v0.11.4",
 							Command: []string{"kine", "--endpoint", util.GeneratePGConnectionString(dbPassword, dbName)},
 							Ports: []v1.ContainerPort{{
 								ContainerPort: 2379,

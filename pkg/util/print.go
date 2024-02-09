@@ -48,7 +48,7 @@ func printWithIcon(message string, colorAttr color.Attribute, done chan bool, wg
 	printer := color.New(colorAttr)
 
 	// Loop until the done channel receives a value
-    firstTime := true
+	firstTime := true
 	for {
 		select {
 		case <-done:
@@ -63,8 +63,8 @@ func printWithIcon(message string, colorAttr color.Attribute, done chan bool, wg
 			for _, icon := range waitingIcons {
 				if firstTime || chattyStatus {
 					printer.Printf("\r%s %s", icon, message)
-                    firstTime = false
-                }
+					firstTime = false
+				}
 				time.Sleep(100 * time.Millisecond)
 			}
 		}
