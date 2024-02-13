@@ -1,0 +1,175 @@
+{{- if eq (toString .Values.installPostgreSQL) "true" }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: helm-install-role
+rules:
+  - apiGroups:
+    - apps
+    resources:
+    - statefulsets
+    verbs:
+    - get
+    - create
+    - delete
+  - apiGroups:
+    - ""
+    resources:
+    - secrets
+    - services
+    - serviceaccounts
+    - configmaps
+    verbs:
+    - get
+    - create
+    - list
+    - update
+    - delete
+  - apiGroups:
+    - networking.k8s.io
+    resources:
+    - networkpolicies
+    verbs:
+    - get
+    - create
+    - list
+    - update
+    - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: helm-install-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: helm-install-role
+subjects:
+- kind: ServiceAccount
+  name: helm-install-sa
+  namespace: kubeflex-system
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: helm-install-sa
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ .Release.Name }}-install-postgresql"
+  labels:
+    app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+    app.kubernetes.io/instance: {{ .Release.Name | quote }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
+    helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+  annotations:
+    # This is what defines this resource as a hook. Without this line, the
+    # job is considered part of the release.
+    "helm.sh/hook": post-install # post ==> SA must exist first
+    # "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation, hook-succeeded
+spec:
+  template:
+    metadata:
+      name: "{{ .Release.Name }}"
+      labels:
+        app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+        app.kubernetes.io/instance: {{ .Release.Name | quote }}
+        helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    spec:
+      restartPolicy: Never # OnFailure
+      securityContext:
+        runAsNonRoot: true
+      serviceAccountName: helm-install-sa
+      containers:
+      - name: install-postgresql
+        image: quay.io/kubestellar/helm:3.14.0
+        args:
+          - upgrade
+          - --install
+          - postgres
+          - oci://registry-1.docker.io/bitnamicharts/postgresql
+          - --version
+          - 13.1.5
+          - --namespace
+          - kubeflex-system
+          - --set
+          - primary.extendedConfiguration=max_connections=1000
+          - --set
+          - primary.priorityClassName=system-node-critical
+          {{- if eq (toString .Values.isOpenShift) "true" }} # OpenShift
+          - --set
+          - primary.podSecurityContext.fsGroup=null
+          - --set
+          - primary.podSecurityContext.seccompProfile.type=RuntimeDefault
+          - --set
+          - primary.containerSecurityContext.runAsUser=null
+          - --set
+          - primary.containerSecurityContext.allowPrivilegeEscalation=false
+          - --set
+          - primary.containerSecurityContext.runAsNonRoot=true
+          - --set
+          - primary.containerSecurityContext.seccompProfile.type=RuntimeDefault
+          - --set
+          - primary.containerSecurityContext.capabilities.drop={ALL}
+          - --set
+          - volumePermissions.enabled=false
+          - --set
+          - shmVolume.enabled=false
+          {{- end }}
+        env:
+        - name: HELM_CACHE_HOME
+          value: "/tmp"
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ .Release.Name }}-uninstall-postgresql"
+  labels:
+    app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+    app.kubernetes.io/instance: {{ .Release.Name | quote }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
+    helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+  annotations:
+    # This is what defines this resource as a hook. Without this line, the
+    # job is considered part of the release.
+    "helm.sh/hook": pre-delete # pre ==> need the SA to exists
+    # "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation, hook-succeeded
+spec:
+  template:
+    metadata:
+      name: "{{ .Release.Name }}"
+      labels:
+        app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+        app.kubernetes.io/instance: {{ .Release.Name | quote }}
+        helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    spec:
+      restartPolicy: Never # OnFailure
+      securityContext:
+        runAsNonRoot: true
+      serviceAccountName: helm-install-sa
+      containers:
+      - name: uninstall-postgresql
+        image: quay.io/kubestellar/helm:3.14.0
+        args:
+          - uninstall
+          - postgres
+          - --namespace
+          - kubeflex-system
+        env:
+        - name: HELM_CACHE_HOME
+          value: "/tmp"
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+{{- end }}
