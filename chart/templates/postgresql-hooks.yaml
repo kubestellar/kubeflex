@@ -120,6 +120,8 @@ spec:
           - shmVolume.enabled=false
           {{- end }}
         env:
+        - name: HELM_CONFIG_HOME
+          value: "/tmp"
         - name: HELM_CACHE_HOME
           value: "/tmp"
         securityContext:
@@ -165,6 +167,8 @@ spec:
           - --namespace
           - kubeflex-system
         env:
+        - name: HELM_CONFIG_HOME
+          value: "/tmp"
         - name: HELM_CACHE_HOME
           value: "/tmp"
         securityContext:
