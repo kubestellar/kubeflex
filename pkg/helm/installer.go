@@ -46,6 +46,10 @@ import (
 	clog "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+const (
+	repoFile = "helm.repo"
+)
+
 type HelmHandler struct {
 	URL         string
 	RepoName    string
@@ -66,7 +70,8 @@ func Init(ctx context.Context, handler *HelmHandler) error {
 	handler.log = clog.FromContext(ctx)
 	handler.settings = cli.New()
 	handler.settings.SetNamespace(handler.Namespace)
-	handler.settings.RegistryConfig = "/tmp"
+	handler.settings.RegistryConfig = os.TempDir()
+	handler.settings.RepositoryConfig = filepath.Join(os.TempDir(), repoFile)
 	return nil
 }
 
