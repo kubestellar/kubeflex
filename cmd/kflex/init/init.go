@@ -129,6 +129,7 @@ func ensureKFlexOperator(ctx context.Context, fullVersion, domain, externalPort 
 		fmt.Sprintf("domain=%s", domain),
 		fmt.Sprintf("externalPort=%s", externalPort),
 		fmt.Sprintf("isOpenShift=%s", strconv.FormatBool(isOCP)),
+		"installPostgreSQL=false",
 	}
 	h := &helm.HelmHandler{
 		URL:         fmt.Sprintf("%s:%s", KflexOperatorURL, version),

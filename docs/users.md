@@ -18,7 +18,7 @@ tar xzvf $(basename $LATEST_RELEASE_URL)
 sudo install -o root -g root -m 0755 bin/kflex /usr/local/bin/kflex
 ```
 
-Alternatively use the the single command below which will automatically detect the host OS type and architecture:
+Alternatively use the the single command below that will automatically detect the host OS type and architecture:
 
 ```shell
 sudo su <<EOF
@@ -75,22 +75,10 @@ kflex init
 
 To install KubeFlex on a cluster that already has nginx ingress with SSL passthru enabled,
 you can use helm instead of the KubeFlex CLI. First, create the `kubeflex-system` namespace
-and install the shared database with the following commands:
+and install KubeFlex with the following commands:
 
 ```shell
 kubectl create ns kubeflex-system
-helm upgrade --install postgres oci://registry-1.docker.io/bitnamicharts/postgresql \
---namespace kubeflex-system \
---version 13.1.5 \
---set primary.extendedConfiguration=max_connections=1000 \
---set primary.priorityClassName=system-node-critical
-```
-
-Note that at this time we have tested only with version 13.1.5 of the chart.
-Then, check what is the [latest release version tag](https://github.com/kubestellar/kubeflex/releases)
-and install the KubeFlex operator with the command:
-
-```shell
 helm upgrade --install kubeflex-operator oci://ghcr.io/kubestellar/kubeflex/chart/kubeflex-operator \
 --version <latest-release-version-tag> \
 --namespace kubeflex-system \
@@ -107,28 +95,11 @@ If you are installing on OpenShift with the `kflex` CLI, the CLI auto-detects Op
 configure the installation of the shared DB and the operator, but if you are using directly helm to install
 you will need to add additional parameters:
 
-To install the shared DB on OpenShift run:
+To install KubeFlex on OpenShift using helm, create the `kubeflex-system` namespace
+and install KubeFlex with the following commands:
 
 ```shell
-helm upgrade --install postgres oci://registry-1.docker.io/bitnamicharts/postgresql \
---namespace kubeflex-system \
---version 13.1.5 \
---set primary.extendedConfiguration=max_connections=1000 \
---set primary.priorityClassName=system-node-critical \
---set primary.podSecurityContext.fsGroup=null \
---set primary.podSecurityContext.seccompProfile.type=RuntimeDefault \
---set primary.containerSecurityContext.runAsUser=null \
---set primary.containerSecurityContext.allowPrivilegeEscalation=false \
---set primary.containerSecurityContext.runAsNonRoot=true \
---set primary.containerSecurityContext.seccompProfile.type=RuntimeDefault \
---set primary.containerSecurityContext.capabilities.drop={ALL} \
---set volumePermissions.enabled=false \
---set shmVolume.enabled=false
-```
-
-To install the operator on OpenShift run:
-
-```shell
+kubectl create ns kubeflex-system
 helm upgrade --install kubeflex-operator oci://ghcr.io/kubestellar/kubeflex/chart/kubeflex-operator \
 --version <latest-release-version-tag> \
 --namespace kubeflex-system \
