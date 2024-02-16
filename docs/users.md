@@ -106,13 +106,6 @@ helm upgrade --install kubeflex-operator oci://ghcr.io/kubestellar/kubeflex/char
 --set isOpenShift=true
 ```
 
-Finally, add the the OpenShift anyuid SCC to the KubeFlex service account (note that this is done
-automatically by `kflex init` if you are using the kflex CLI installer):
-
-```shell
-oc adm policy add-scc-to-user anyuid -z kubeflex-controller-manager -n kubeflex-system
-```
-
 ## Upgrading Kubeflex
 
 The KubeFlex CLI can be upgraded with `brew upgrade kubeflex` (for brew installs). For linux
