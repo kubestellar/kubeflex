@@ -66,12 +66,6 @@ func Init(ctx context.Context, kubeconfig, version, buildDate string, domain, ex
 	ensureKFlexOperator(ctx, version, domain, externalPort, isOCP)
 	done <- true
 
-	if isOCP {
-		util.PrintStatus("Adding OpenShift anyuid SCC to kubeflex SA...", done, &wg, chattyStatus)
-		util.AddSCCtoUserPolicy("")
-		done <- true
-	}
-
 	util.PrintStatus("Waiting for kubeflex operator to become ready...", done, &wg, chattyStatus)
 	util.WaitForDeploymentReady(
 		clientset,
