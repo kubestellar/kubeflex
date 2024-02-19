@@ -66,12 +66,6 @@ func Init(ctx context.Context, kubeconfig, version, buildDate string, domain, ex
 	ensureKFlexOperator(ctx, version, domain, externalPort, isOCP)
 	done <- true
 
-	if isOCP {
-		util.PrintStatus("Adding OpenShift anyuid SCC to kubeflex SA...", done, &wg, chattyStatus)
-		util.AddSCCtoUserPolicy("")
-		done <- true
-	}
-
 	util.PrintStatus("Waiting for kubeflex operator to become ready...", done, &wg, chattyStatus)
 	util.WaitForDeploymentReady(
 		clientset,
@@ -129,6 +123,7 @@ func ensureKFlexOperator(ctx context.Context, fullVersion, domain, externalPort 
 		fmt.Sprintf("domain=%s", domain),
 		fmt.Sprintf("externalPort=%s", externalPort),
 		fmt.Sprintf("isOpenShift=%s", strconv.FormatBool(isOCP)),
+		"installPostgreSQL=false",
 	}
 	h := &helm.HelmHandler{
 		URL:         fmt.Sprintf("%s:%s", KflexOperatorURL, version),
