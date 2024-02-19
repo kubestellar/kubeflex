@@ -67,11 +67,11 @@ func Init(ctx context.Context, handler *HelmHandler) error {
 	if handler == nil {
 		return fmt.Errorf("handler is nil")
 	}
+	tmpDir := os.TempDir()
 	handler.log = clog.FromContext(ctx)
 	handler.settings = cli.New()
 	handler.settings.SetNamespace(handler.Namespace)
-	handler.settings.RegistryConfig = os.TempDir()
-	handler.settings.RepositoryConfig = filepath.Join(os.TempDir(), repoFile)
+	handler.settings.RepositoryConfig = filepath.Join(tmpDir, repoFile)
 	return nil
 }
 
