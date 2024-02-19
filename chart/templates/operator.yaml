@@ -877,6 +877,11 @@ spec:
         - --health-probe-bind-address=:8081
         - --metrics-bind-address=127.0.0.1:8080
         - --leader-elect
+        env:
+        - name: HELM_CONFIG_HOME
+          value: /tmp
+        - name: HELM_CACHE_HOME
+          value: /tmp
         image: ghcr.io/kubestellar/kubeflex/manager:latest
         imagePullPolicy: IfNotPresent
         livenessProbe:
