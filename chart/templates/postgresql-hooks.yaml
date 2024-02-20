@@ -48,7 +48,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: helm-install-sa
-  namespace: kubeflex-system
+  namespace: {{ .Release.Namespace }}
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -94,7 +94,7 @@ spec:
           - --version
           - 13.1.5
           - --namespace
-          - kubeflex-system
+          - {{ .Release.Namespace }}
           - --set
           - primary.extendedConfiguration=max_connections=1000
           - --set
@@ -165,7 +165,7 @@ spec:
           - uninstall
           - postgres
           - --namespace
-          - kubeflex-system
+          - {{ .Release.Namespace }}
         env:
         - name: HELM_CONFIG_HOME
           value: "/tmp"
