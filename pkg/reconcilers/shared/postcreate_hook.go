@@ -54,10 +54,16 @@ func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp 
 		return nil
 	}
 
-	vars := Vars{
-		Namespace:        namespace,
-		ControlPlaneName: hcp.Name,
-		HookName:         *hcp.Spec.PostCreateHook,
+	// built-in vars
+	vars := map[string]interface{}{
+		"Namespace":        namespace,
+		"ControlPlaneName": hcp.Name,
+		"HookName":         *hcp.Spec.PostCreateHook,
+	}
+
+	// user-defined vars
+	for key, val := range hcp.Spec.PostCreateHookVars {
+		vars[key] = val
 	}
 
 	logger.Info("Running ReconcileUpdatePostCreateHook", "post-create-hook", *hcp.Spec.PostCreateHook)
@@ -93,8 +99,9 @@ func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp 
 	return nil
 }
 
-func applyPostCreateHook(ctx context.Context, clientSet *kubernetes.Clientset, dynamicClient *dynamic.DynamicClient, hook *v1alpha1.PostCreateHook, vars Vars, hcp *v1alpha1.ControlPlane) error {
+func applyPostCreateHook(ctx context.Context, clientSet *kubernetes.Clientset, dynamicClient *dynamic.DynamicClient, hook *v1alpha1.PostCreateHook, vars map[string]interface{}, hcp *v1alpha1.ControlPlane) error {
 	logger := clog.FromContext(ctx)
+	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
 	apiResourceLists, err := clientSet.DiscoveryClient.ServerPreferredResources()
 	if err != nil {
 		return err
@@ -132,7 +139,7 @@ func applyPostCreateHook(ctx context.Context, clientSet *kubernetes.Clientset, d
 			setTrackingLabelsAndAnnotations(obj, hcp.Name)
 			_, err = dynamicClient.Resource(gvr).Apply(context.TODO(), obj.GetName(), obj, metav1.ApplyOptions{FieldManager: FieldManager})
 		} else {
-			_, err = dynamicClient.Resource(gvr).Namespace(vars.Namespace).Apply(context.TODO(), obj.GetName(), obj, metav1.ApplyOptions{FieldManager: FieldManager})
+			_, err = dynamicClient.Resource(gvr).Namespace(namespace).Apply(context.TODO(), obj.GetName(), obj, metav1.ApplyOptions{FieldManager: FieldManager})
 		}
 		if err != nil {
 			return err

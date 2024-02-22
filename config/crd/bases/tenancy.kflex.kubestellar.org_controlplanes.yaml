@@ -58,6 +58,10 @@ spec:
                 type: string
               postCreateHook:
                 type: string
+              postCreateHookVars:
+                additionalProperties:
+                  type: string
+                type: object
               type:
                 enum:
                 - k8s
