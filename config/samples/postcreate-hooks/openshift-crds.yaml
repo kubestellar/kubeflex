@@ -15,7 +15,7 @@ spec:
         spec:
           containers:
           - name: "{{.HookName}}"
-            image: quay.io/pdettori/helm:v3.13.2
+            image: quay.io/kubestellar/helm:3.14.0
             args:
               - upgrade
               - --install
@@ -25,11 +25,11 @@ spec:
               - "0.1.0"
             env:
             - name: KUBECONFIG
-              value: "/etc/kube/kubeconfig-incluster"    
+              value: "/etc/kube/kubeconfig-incluster"
             volumeMounts:
             - name: kubeconfig
               mountPath: "/etc/kube"
-              readOnly: true  
+              readOnly: true
           volumes:
           - name: kubeconfig
             secret:
