@@ -26,7 +26,7 @@ spec:
       - create
       - list
       - update
-  - apiVersion: rbac.authorization.k8s.io/v1  
+  - apiVersion: rbac.authorization.k8s.io/v1
     kind: RoleBinding
     metadata:
       name: "{{.HookName}}"
@@ -37,7 +37,7 @@ spec:
     subjects:
     - kind: ServiceAccount
       name: default
-      namespace: "{{.Namespace}}"   
+      namespace: "{{.Namespace}}"
   - apiVersion: batch/v1
     kind: Job
     metadata:
@@ -47,7 +47,7 @@ spec:
         spec:
           containers:
           - name: "{{.HookName}}"
-            image: quay.io/pdettori/helm:v3.13.2
+            image: quay.io/kubestellar/helm:3.14.0
             args:
               - upgrade
               - --install
