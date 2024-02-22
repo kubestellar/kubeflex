@@ -49,6 +49,7 @@ var Hook string
 var domain string
 var externalPort int
 var chattyStatus bool
+var hookVars []string
 
 // defaults
 const BKTypeDefault = string(tenancyv1alpha1.BackendDBTypeShared)
@@ -132,7 +133,7 @@ var createCmd = &cobra.Command{
 			BkType = BKTypeDefault
 		}
 		// create passing the control plane type and backend type
-		cp.Create(CType, BkType, Hook, chattyStatus)
+		cp.Create(CType, BkType, Hook, hookVars, chattyStatus)
 	},
 }
 
@@ -194,6 +195,7 @@ func init() {
 	createCmd.Flags().StringVarP(&BkType, "backend-type", "b", "", "backend DB sharing: shared|dedicated")
 	createCmd.Flags().StringVarP(&Hook, "postcreate-hook", "p", "", "name of post create hook to run")
 	createCmd.Flags().BoolVarP(&chattyStatus, "chatty-status", "s", true, "chatty status indicator")
+	createCmd.Flags().StringArrayVarP(&hookVars, "set", "e", []string{}, "set post create hook variables, in the form name=value ")
 
 	deleteCmd.Flags().StringVarP(&kubeconfig, "kubeconfig", "k", "", "path to kubeconfig file")
 	deleteCmd.Flags().IntVarP(&verbosity, "verbosity", "v", 0, "log level") // TODO - figure out how to inject verbosity

@@ -22,9 +22,10 @@ import (
 
 // ControlPlaneSpec defines the desired state of ControlPlane
 type ControlPlaneSpec struct {
-	Type           ControlPlaneType `json:"type,omitempty"`
-	Backend        BackendDBType    `json:"backend,omitempty"`
-	PostCreateHook *string          `json:"postCreateHook,omitempty"`
+	Type               ControlPlaneType  `json:"type,omitempty"`
+	Backend            BackendDBType     `json:"backend,omitempty"`
+	PostCreateHook     *string           `json:"postCreateHook,omitempty"`
+	PostCreateHookVars map[string]string `json:"postCreateHookVars,omitempty"`
 }
 
 // ControlPlaneStatus defines the observed state of ControlPlane
