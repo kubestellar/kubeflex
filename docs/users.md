@@ -550,22 +550,6 @@ A complete example for installing OpenShift CRDs on a control plane is available
 [here](../config/samples/postcreate-hooks/openshift-crds.yaml). More examples
 are available [here](../config/samples/postcreate-hooks).
 
-### Built-in objects
-
-You can specify built-in objects in the templates that will be replaced at run-time.
-Variables are specified using helm-like syntax:
-
-```yaml
-"{{.<Object Name>}}"
-```
-
-Note that the double quotes are required for a valid yaml.
-
-Currently avilable built-in objects are:
-
-- "{{.Namespace}}" - the namespace hosting the control plane
-- "{{.ControlPlaneName}}" - the name of the control plane
-- "{{.HookName}}" - the name of the hook.
 
 ### Labels propagation
 
@@ -609,6 +593,64 @@ spec:
   postCreateHook: hello
   type: k8s
 EOF
+```
+
+### Built-in objects
+
+You can specify built-in objects in the templates that will be replaced at run-time.
+Variables are specified using helm-like syntax:
+
+```yaml
+"{{.<Object Name>}}"
+```
+
+Note that the double quotes are required for a valid yaml.
+
+Currently avilable built-in objects are:
+
+- "{{.Namespace}}" - the namespace hosting the control plane
+- "{{.ControlPlaneName}}" - the name of the control plane
+- "{{.HookName}}" - the name of the hook.
+
+### User-Provided objects
+
+In addition to the built-in objects, you can specify your own objects
+to inject arbitrary values in the template. These objects are specified using 
+helm-like syntax as well:
+
+```yaml
+"{{.<Your Object Name>}}"
+```
+
+You can then specify the value to assign to these objects in a `ControlPlane`
+yaml using key/value pairs under `postCreateHookVars`. For example:
+
+```yaml
+apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
+kind: ControlPlane
+metadata:
+  name: cp1
+spec:
+  backend: shared
+  postCreateHook: hello
+  postCreateHookVars:
+    version: "0.1.0"
+  type: k8s
+EOF
+```
+
+You can also specify these values with the `kflex` CLI with the `--set name=value`
+flag. For example:
+
+```shell
+kflex create cp1 -p hello --set version=0.1.0
+```
+
+You can specify multiple key/value pairs using a `--set` flag for each pair, for
+example:
+
+```shell
+kflex create cp1 -p hello --set version=0.1.0 --set message=hello
 ```
 
 ## Initial Context
