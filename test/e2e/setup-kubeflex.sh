@@ -14,13 +14,17 @@
 # limitations under the License.
 
 set -x # echo so that users can understand what is happening
+set -e # exit on error
 
 :
 : -------------------------------------------------------------------------
-: "Cleaning up from previous run of an e2e test"
+: Compile binaries
 :
+make build
 
-kubectl config use-context kind-kubeflex
-kubectl config delete-context cp1 &> /dev/null
-kubectl config delete-context cp2 &> /dev/null
-kind delete cluster --name kubeflex
+:
+: -------------------------------------------------------------------------
+: Create the hosting kind cluster with ingress controller and install
+: the kubeflex operator
+:
+./bin/kflex init --create-kind --chatty-status=false

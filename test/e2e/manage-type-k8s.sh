@@ -18,34 +18,21 @@ set -e # exit on error
 
 :
 : -------------------------------------------------------------------------
-: Compile binaries
-:
-make build
-
-:
-: -------------------------------------------------------------------------
-: Create the hosting kind cluster with ingress controller and install
-: the kubeflex operator
-:
-./bin/kflex init --create-kind --chatty-status=false
-
-:
-: -------------------------------------------------------------------------
-: Create a ControlPlane of type 'k8s'
+: Create a ControlPlane of type k8s
 :
 ./bin/kflex create cp1 --type k8s --chatty-status=false
 
 :
 : -------------------------------------------------------------------------
-: Wait for the running components of ControlPlane 'cp1' to be ready, with
+: Wait for the running components of ControlPlane cp1 to be ready, with
 : default timeout which is 30 seconds
 :
-kubectl --context kind-kubeflex -n cp1-system wait deployment/kube-apiserver --for=condition=Available
-kubectl --context kind-kubeflex -n cp1-system wait deployment/kube-controller-manager --for=condition=Available
+kubectl --context kind-kubeflex -n cp1-system wait --for=condition=Available deployment/kube-apiserver
+kubectl --context kind-kubeflex -n cp1-system wait --for=condition=Available deployment/kube-controller-manager
 
 :
 : -------------------------------------------------------------------------
-: Create a namespace in ControlPlane 'cp1', then wait for the namespace to
+: Create a namespace in ControlPlane cp1, then wait for the namespace to
 : become active, with default timeout which is 30 seconds
 :
 kubectl --context cp1 create ns e2e
@@ -53,11 +40,11 @@ kubectl --context cp1 wait --for=jsonpath='{.status.phase}'=Active ns/e2e
 
 :
 : -------------------------------------------------------------------------
-: Delete ControlPlane 'cp1'
+: Delete ControlPlane cp1
 :
 ./bin/kflex delete cp1 --chatty-status=false
 
 :
 : -------------------------------------------------------------------------
-: SUCCESS
+: SUCCESS: manage a ControlPlane of type k8s
 :
