@@ -19,7 +19,6 @@ set -x # echo so that users can understand what is happening
 : -------------------------------------------------------------------------
 : "Cleaning up from previous run of an e2e test"
 :
-
 kubectl config use-context kind-kubeflex
 kubectl config delete-context cp1 &> /dev/null
 kubectl config delete-context cp2 &> /dev/null
