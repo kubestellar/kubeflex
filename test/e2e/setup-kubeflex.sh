@@ -28,3 +28,54 @@ make build
 : the kubeflex operator
 :
 ./bin/kflex init --create-kind --chatty-status=false
+
+:
+: -------------------------------------------------------------------------
+: Create a PostCreateHook
+:
+kubectl --context kind-kubeflex apply -f - <<EOF
+apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
+kind: PostCreateHook
+metadata:
+  name: synthetic-crd
+spec:
+  templates:
+  - apiVersion: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    metadata:
+      name: cr1s.synthetic-crd.com
+    spec:
+      group: synthetic-crd.com
+      names:
+        kind: CR1
+        listKind: CR1List
+        plural: cr1s
+        singular: cr1
+      scope: Namespaced
+      versions:
+      - name: v1alpha1
+        served: true
+        storage: true
+        schema:
+          openAPIV3Schema:
+            type: object
+            properties:
+              spec:
+                type: object
+                properties:
+                  tier:
+                    type: string
+                    enum:
+                    - Dedicated
+                    - Shared
+                    default: Shared
+              status:
+                type: object
+                properties:
+                  phase:
+                    type: string
+            required:
+            - spec
+        subresources:
+          status: {}
+EOF

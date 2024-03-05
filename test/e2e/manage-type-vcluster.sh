@@ -24,14 +24,14 @@ set -e # exit on error
 
 :
 : -------------------------------------------------------------------------
-: Wait for the running component of ControlPlane cp2 to be ready
+: Wait for the running component of ControlPlane cp2 to be ready/completed
 :
 kubectl --context kind-kubeflex -n cp2-system wait --for=jsonpath='{.status.availableReplicas}'=1 statefulset/vcluster
 kubectl --context kind-kubeflex -n cp2-system wait --for=condition=Complete job/update-cluster-info --timeout=60s
 
 :
 : -------------------------------------------------------------------------
-: Create a deployment in ControlPlane cp2, then wait for the deployment
+: Create a Deployment in ControlPlane cp2, then wait for the Deployment
 : to become available, with default timeout which is 30 seconds
 :
 kubectl --context cp2 create deployment my-nginx --image nginx

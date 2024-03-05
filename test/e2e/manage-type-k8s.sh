@@ -32,6 +32,15 @@ kubectl --context kind-kubeflex -n cp1-system wait --for=condition=Available dep
 
 :
 : -------------------------------------------------------------------------
+: Specify a PostCreateHook for cp1, then wait for the PostCreateHook to
+: take effect, with default timeout which is 30 seconds
+:
+kubectl --context kind-kubeflex patch cp/cp1 --type=merge --patch '{"spec":{"postCreateHook":"synthetic-crd"}}'
+wait-for-cmd 'kubectl --context kind-kubeflex get crd cr1s.synthetic-crd.com'
+kubectl --context kind-kubeflex wait --for=condition=Established crd cr1s.synthetic-crd.com
+
+:
+: -------------------------------------------------------------------------
 : Create a namespace in ControlPlane cp1, then wait for the namespace to
 : become active, with default timeout which is 30 seconds
 :
