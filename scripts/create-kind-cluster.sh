@@ -33,9 +33,9 @@ nodes:
     protocol: TCP
 EOF
 
-echo Patching nginx ingress with SSL passthrough...
+echo Creating an nginx ingress with SSL passthrough...
 
-kubectl create -f https://raw.githubusercontent.com/kubestellar/kubestellar/main/example/kind-nginx-ingress-with-SSL-passthrough.yaml
+kubectl create -f https://raw.githubusercontent.com/kubestellar/kubestellar/v0.14.0/example/kind-nginx-ingress-with-SSL-passthrough.yaml
 
 echo Waiting for patching to complete...
 
