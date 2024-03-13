@@ -44,7 +44,7 @@ kflex init --create-kind
 
 ## Install KubeFlex on an existing cluster
 
-You can install KubeFlex on an existing cluster with nginx ingress configured for SSL passthru,
+You can install KubeFlex on an existing cluster with nginx ingress configured for SSL passthru and port 9443,
 or on a OpenShift cluster. At this time, we have only tested this option with Kind and OpenShift.
 
 ### Installing on kind
@@ -56,8 +56,15 @@ Once you have your ingress running, you will need to configure nginx ingress for
 kubectl edit deployment ingress-nginx-controller -n ingress-nginx
 ```
 
-and add `--enable-ssl-passthrough` to the list of args for the container named `controller`. Then you can
-run the command to install KubeFlex:
+and add `--enable-ssl-passthrough` to the list of args for the container named `controller`.
+
+Alternatively, you can create a kind cluster suitable for KubeFlex using the following script:
+
+```shell
+curl -sL https://raw.githubusercontent.com/kubestellar/kubeflex/main/scripts/create-kind-cluster.sh | bash
+```
+
+Then you can run the command to install KubeFlex:
 
 ```shell
 kflex init
@@ -104,6 +111,68 @@ helm upgrade --install kubeflex-operator oci://ghcr.io/kubestellar/kubeflex/char
 --version <latest-release-version-tag> \
 --namespace kubeflex-system \
 --set isOpenShift=true
+```
+
+## Creating Control Planes during helm installation
+
+KubeFlex helm chart allows a user to automatically create multiple Control Planes during installation. This can be achieved by providing a custom `values.yaml` file or by using additional `--set` arguments on the command line shown in the previous sections.
+
+The syntax for creating a Custom Control plane is:
+
+```yaml
+cp:
+  <cp name>:
+    type: <cp type> # [host|k8s|vcluster|ocm]
+    pch: <cp postcreatehook> # [kubestellar|ocm|ocm-with-status]
+```
+
+Additinal examples of Control Planes are shown as comments inside the [`values.yaml`](#../chart/values.yaml).
+
+It should also be noted that, if optional Post Create Hooks (PCH) are used by the Control Plane (CP), they should also be defined in the `pch` section, as shown in the following example, where one must specify the desired version of the hook:
+
+```yaml
+pch:
+  kubestellar:
+    version: "0.20.0-alpha.1"
+  ocm:
+    version: "0.7.2"
+  statusaddon:
+    version: "v0.2.0-rc2"
+```
+
+When creating Control Planes with the helm chart, their kubeconfigs can be obtained from secrets as follows.
+
+For Control Planes of type `k8s` and name `my-cp1`:
+
+```shell
+export CP_NAME="my-cp1"
+echo -n Waiting for secret...
+while ! kubectl get secret admin-kubeconfig -n $CP_NAME-system &> /dev/null ; do
+    echo -n .
+done
+echo ""
+kubectl get secret admin-kubeconfig -n $CP_NAME-system -o jsonpath='{.data.kubeconfig}' | base64 -d > $CP_NAME-kubeconfig
+```
+
+For Control Planes of type `vcluster` and name `my-cp2`:
+
+```shell
+export CP_NAME="my-cp2"
+echo -n Waiting for secret...
+while ! kubectl get secret vc-vcluster -n $CP_NAME-system &> /dev/null; do
+    echo -n .
+done
+echo ""
+kubectl get secret vc-vcluster -n $CP_NAME-system -o jsonpath='{.data.config}' | base64 -d > $CP_NAME-kubeconfig
+sed -i "s/my-vcluster/$CP_NAME/g" $CP_NAME-kubeconfig
+```
+
+Furthermore, kubeconfigs corresponding to multiple Control Planes could be merged into a single kubeconfig as different contexts following the example below for `my-cp1` and `my-cp2`:
+
+```shell
+cp ~/.kube/config ~/.kube/config.bak
+KUBECONFIG=~/.kube/config:my-cp1-kubeconfig:my-cp1-kubeconfig kubect config view --flatten > /tmp/config
+cp /tmp/config ~/.kube/config
 ```
 
 ## Upgrading Kubeflex
@@ -562,6 +631,8 @@ To propagate labels, simply set the labels on the PostCreateHook as shown in the
 *hello* hook. The labels are then automatically propagated to any newly created control plane
 where the hook is applied.
 
+If the hook is being delivered using a helm chart, then the hook variables should be escaped, such as `{{"{{.HookName}}"}}`, to prevent helm template expansion.
+
 ### Using the hooks
 
 Once you define a new hook, you can just apply it in the KubeFlex hosting cluster:
@@ -615,7 +686,7 @@ Currently avilable built-in objects are:
 ### User-Provided objects
 
 In addition to the built-in objects, you can specify your own objects
-to inject arbitrary values in the template. These objects are specified using 
+to inject arbitrary values in the template. These objects are specified using
 helm-like syntax as well:
 
 ```yaml
@@ -652,6 +723,8 @@ example:
 ```shell
 kflex create cp1 -p hello --set version=0.1.0 --set message=hello
 ```
+
+If a custom hook variable, `my-var`, is used in a Post Create Hook as `{{.my-var}}` but it is not set in either the Control Plain custom resource definition or by `kflex --set` command, then its value will be set to `<no value>`.
 
 ## Initial Context
 

@@ -1,0 +1,91 @@
+{{- if and .Values.pch .Values.pch.statusaddon }}
+---
+apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
+kind: PostCreateHook
+metadata:
+  name: ocm-with-statusaddon
+  labels:
+    kflex.kubestellar.io/cptype: imbs
+spec:
+  templates:
+  - apiVersion: batch/v1
+    kind: Job
+    metadata:
+      name: "{{"{{.HookName}}"}}"
+    spec:
+      template:
+        spec:
+          containers:
+          - name: "{{"{{.HookName}}"}}"
+            image: quay.io/kubestellar/clusteradm:{{.Values.pch.ocm.version}}
+            args:
+            - init
+            env:
+            - name: KUBECONFIG
+              value: "/etc/kube/config-incluster"
+            volumeMounts:
+            - name: kubeconfig
+              mountPath: "/etc/kube"
+              readOnly: true
+          volumes:
+          - name: kubeconfig
+            secret:
+              secretName: vc-vcluster
+          restartPolicy: Never
+      backoffLimit: 1
+  - apiVersion: batch/v1
+    kind: Job
+    metadata:
+      name: "{{"{{.HookName}}"}}-statusaddon"
+    spec:
+      template:
+        spec:
+          initContainers:
+          - name: "{{"{{.HookName}}"}}-init"
+            image: quay.io/kubestellar/kubectl:1.27.8
+            command: ['sh', '-c']
+            args:
+            - |
+              echo -n "Waiting for managedclusteraddons resource"
+              while [ "$(kubectl api-resources | grep managedclusteraddons 2> /dev/null)" == "" ] ; do
+                echo -n "."
+                sleep 1
+              done
+              echo -e "\033[0;32m\xE2\x9C\x94\033[0m"
+            env:
+            - name: KUBECONFIG
+              value: "/etc/kube/config-incluster"
+            volumeMounts:
+            - name: kubeconfig
+              mountPath: "/etc/kube"
+              readOnly: true
+          containers:
+          - name: "{{"{{.HookName}}"}}-statusaddon"
+            image: quay.io/kubestellar/helm:3.14.0
+            args:
+              - upgrade
+              - --install
+              - status-addon
+              - oci://ghcr.io/kubestellar/ocm-status-addon-chart
+              - --version
+              - {{.Values.pch.statusaddon.version}}
+              - --namespace
+              - open-cluster-management
+            env:
+            - name: HELM_CONFIG_HOME
+              value: "/tmp"
+            - name: HELM_CACHE_HOME
+              value: "/tmp"
+            - name: KUBECONFIG
+              value: "/etc/kube/config-incluster"
+            volumeMounts:
+            - name: kubeconfig
+              mountPath: "/etc/kube"
+              readOnly: true
+          volumes:
+          - name: kubeconfig
+            secret:
+              secretName: vc-vcluster
+          restartPolicy: Never
+      backoffLimit: 1
+{{- end }}

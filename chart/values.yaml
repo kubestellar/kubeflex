@@ -5,4 +5,27 @@
 domain: localtest.me
 externalPort: "9443"
 isOpenShift: "false"
+
+# Enable/disable the automatic installation of the PostgreSQL dependency
 installPostgreSQL: true
+
+# List the Post Create Hooks to be installed
+# Note: hooks must be installed before they can be used by the Control Planes
+# pch:
+#   kubestellar:
+#     version: "0.20.0-alpha.1"
+#   ocm:
+#     version: "0.7.2"
+#   statusaddon:
+#     version: "v0.2.0-rc2"
+
+# List the Control Planes to be created
+# Note: hooks must be installed before they can be used by the Control Planes
+# cp:
+#   # Create a KubeStellar IMBS1 control plane
+#   imbs1:
+#     type: vcluster
+#     pch: ocm-with-statusaddon
+#   # Create a KubeStellar WDS1 control plane
+#   wds1:
+#     pch: kubestellar
