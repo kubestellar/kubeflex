@@ -51,11 +51,6 @@ func New(cl client.Client, scheme *runtime.Scheme, version string, clientSet *ku
 func (r *HostReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
 	_ = clog.FromContext(ctx)
 
-	// only one CP of type "host" can exist
-	if err := r.checkOnlyOneCPOfTypeHostExists(ctx, hcp); err != nil {
-		return r.UpdateStatusForSyncingError(hcp, err)
-	}
-
 	if err := r.BaseReconciler.ReconcileNamespace(ctx, hcp); err != nil {
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
