@@ -4,6 +4,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: helm-install-role
+  namespace: kubeflex-system
 rules:
   - apiGroups:
     - apps
@@ -48,17 +49,19 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: helm-install-sa
-  namespace: {{ .Release.Namespace }}
+  namespace: kubeflex-system
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: helm-install-sa
+  namespace: kubeflex-system
 ---
 apiVersion: batch/v1
 kind: Job
 metadata:
   name: "{{ .Release.Name }}-install-postgresql"
+  namespace: kubeflex-system
   labels:
     app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
     app.kubernetes.io/instance: {{ .Release.Name | quote }}
@@ -94,7 +97,7 @@ spec:
           - --version
           - 13.1.5
           - --namespace
-          - {{ .Release.Namespace }}
+          - kubeflex-system
           - --set
           - primary.extendedConfiguration=max_connections=1000
           - --set
@@ -134,6 +137,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: "{{ .Release.Name }}-uninstall-postgresql"
+  namespace: kubeflex-system
   labels:
     app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
     app.kubernetes.io/instance: {{ .Release.Name | quote }}
@@ -165,7 +169,7 @@ spec:
           - uninstall
           - postgres
           - --namespace
-          - {{ .Release.Namespace }}
+          - kubeflex-system
         env:
         - name: HELM_CONFIG_HOME
           value: "/tmp"
