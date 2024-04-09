@@ -135,7 +135,7 @@ docker-push: ## Push docker image with the manager.
 	docker push ${IMG}
 
 .PHONY: ko-build-local-cmupdate
-ko-build-local-cmupdate: test 
+ko-build-local-cmupdate: test
 	ko build --local --push=false -B ./cmd/cmupdate -t ${LATEST_TAG} --platform linux/${ARCH}
 
 .PHONY: kind-load-cmupdate-image
@@ -144,7 +144,7 @@ kind-load-cmupdate-image:
 
 .PHONY: ko-build-push-cmupdate
 ko-build-push-cmupdate: test ## Build and push container image with ko
-	KO_DOCKER_REPO=${CONTAINER_REGISTRY} ko build -B ./cmd/cmupdate -t ${LATEST_TAG},latest --platform linux/amd64,linux/arm64	
+	KO_DOCKER_REPO=${CONTAINER_REGISTRY} ko build -B ./cmd/cmupdate -t ${LATEST_TAG},latest --platform linux/amd64,linux/arm64
 
 # PLATFORMS defines the target platforms for  the manager image be build to provide support to multiple
 # architectures. (i.e. make docker-buildx IMG=myregistry/mypoperator:0.0.1). To use this option you need to:
@@ -192,7 +192,8 @@ chart: manifests kustomize
 	$(KUSTOMIZE) build config/default > chart/templates/operator.yaml
 	@cat config/samples/postcreate-hooks/openshift-crds.yaml > /tmp/hooks.yaml
 	@kubectl create secret generic postcreate-hooks --from-file=/tmp/hooks.yaml --dry-run=client --output=yaml > chart/templates/builtin-hooks.yaml
-
+	@mkdir -p chart/crds
+	$(KUSTOMIZE) build config/crd > chart/crds/crds.yaml
 
 ##@ Build Dependencies
 
