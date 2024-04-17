@@ -269,6 +269,7 @@ func (r *K8sReconciler) generateAPIServerDeployment(namespace, dbName string, is
 	if isOCP {
 		deployment.Spec.Template.Spec.SecurityContext = &v1.PodSecurityContext{
 			RunAsNonRoot: pointer.Bool(true),
+			RunAsUser:    pointer.Int64(65534),
 			SeccompProfile: &v1.SeccompProfile{
 				Type: v1.SeccompProfileTypeRuntimeDefault,
 			},
