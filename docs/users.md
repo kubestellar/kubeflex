@@ -579,6 +579,10 @@ With kflex CLI (you can use --postcreate-hook or -p):
 kflex create cp1 --postcreate-hook <my-hook-name> # e.g. kflex create cp1 -p hello
 ```
 
+While `kflex create` waits for the control plane to be available, it does not guarantee 
+the hook's completion. Use `kubectl` commands to verify the status of resources created 
+by the hook.
+
 If you are using directly a ControlPlane CRD with kubectl, you can create a control plane
 with the post-create hook as in the following example:
 
