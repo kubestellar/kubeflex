@@ -19,7 +19,6 @@ package kubeconfig
 import (
 	"context"
 	"fmt"
-	"os"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -52,7 +51,10 @@ func LoadAndMerge(ctx context.Context, client kubernetes.Clientset, name, contro
 			return err
 		}
 	} else {
-		copyHostContextAndSetItToDefault(konfig, name)
+		err = copyHostContextAndSetItToDefault(konfig, name)
+		if err != nil {
+			return err
+		}
 	}
 
 	return WriteKubeconfig(ctx, konfig)
@@ -177,10 +179,9 @@ func renameKey(m interface{}, oldKey string, newKey string) interface{} {
 	return m
 }
 
-func copyHostContextAndSetItToDefault(config *clientcmdapi.Config, name string) {
+func copyHostContextAndSetItToDefault(config *clientcmdapi.Config, name string) error {
 	if _, ok := config.Contexts[name]; ok {
-		fmt.Fprintf(os.Stderr, "there is already a context with name %s\n", name)
-		return
+		return fmt.Errorf("there is already a context with name %s", name)
 	}
 
 	// current context must be pointing at the hosting cluster
@@ -188,8 +189,7 @@ func copyHostContextAndSetItToDefault(config *clientcmdapi.Config, name string) 
 
 	hostContext, ok := config.Contexts[cContext]
 	if !ok {
-		fmt.Fprintf(os.Stderr, "current context with name %s not found\n", cContext)
-		return
+		return fmt.Errorf("current context with name %s not found", cContext)
 	}
 
 	config.Contexts[name] = &clientcmdapi.Context{
@@ -198,4 +198,5 @@ func copyHostContextAndSetItToDefault(config *clientcmdapi.Config, name string) 
 	}
 
 	config.CurrentContext = name
+	return nil
 }

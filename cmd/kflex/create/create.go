@@ -98,7 +98,7 @@ func (c *CPCreate) Create(controlPlaneType, backendType, hook string, hookVars [
 	done <- true
 
 	if err := kubeconfig.LoadAndMerge(c.Ctx, clientset, c.Name, controlPlaneType); err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading and merging kubeconfig: %s\n", controlPlaneType)
+		fmt.Fprintf(os.Stderr, "Error loading and merging kubeconfig: %s\n", err)
 		os.Exit(1)
 	}
 
