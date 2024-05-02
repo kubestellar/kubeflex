@@ -109,7 +109,7 @@ func (r *VClusterReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
-	if err := r.ReconcileUpdateClusterInfoJob(ctx, hcp, cfg.ExternalURL, r.Version); err != nil {
+	if err := r.ReconcileUpdateClusterInfoJob(ctx, hcp, cfg, r.Version); err != nil {
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 

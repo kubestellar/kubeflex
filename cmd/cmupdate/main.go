@@ -40,13 +40,13 @@ import (
 )
 
 const (
-	configMapName           = "cluster-info"
-	keyToUpdate             = "kubeconfig"
-	kubePublicNamespace     = "kube-public"
-	clusterName             = ""
-	baseURL                 = "https://kubeflex-control-plane"
-	BootstrapConfigMap      = "cluster-info"
-	GeneratedCLusterInfoKey = "kubestellar.io/generated"
+	configMapName            = "cluster-info"
+	keyToUpdate              = "kubeconfig"
+	kubePublicNamespace      = "kube-public"
+	clusterName              = ""
+	defaultHostContainerName = "kubeflex-control-plane"
+	BootstrapConfigMap       = "cluster-info"
+	GeneratedCLusterInfoKey  = "kubestellar.io/generated"
 )
 
 // The CM update updates the cluster-info config map in a OCM control plane
@@ -59,6 +59,13 @@ func main() {
 	} else {
 		log.Printf("Current Namespace: %s", namespace)
 	}
+	hostContainer := os.Getenv("HOST_CONTAINER")
+	if hostContainer == "" {
+		hostContainer = defaultHostContainerName
+	}
+	log.Printf("Using hostContainer: %s", hostContainer)
+	baseURL := fmt.Sprintf("https://%s", hostContainer)
+
 	externalURL := os.Getenv("EXTERNAL_URL")
 	if externalURL != "" {
 		log.Printf("Using external URL: %s", externalURL)

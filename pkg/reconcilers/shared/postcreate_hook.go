@@ -170,7 +170,7 @@ func setTrackingLabelsAndAnnotations(obj *unstructured.Unstructured, cpName stri
 
 func propagateLabels(hook *v1alpha1.PostCreateHook, hcp *v1alpha1.ControlPlane, c client.Client) error {
 	hookLabels := hook.GetLabels()
-	if hookLabels == nil || hookLabels != nil && len(hookLabels) == 0 {
+	if len(hookLabels) == 0 {
 		return nil
 	}
 

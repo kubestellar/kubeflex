@@ -50,6 +50,7 @@ var domain string
 var externalPort int
 var chattyStatus bool
 var hookVars []string
+var hostContainer string
 
 // defaults
 const BKTypeDefault = string(tenancyv1alpha1.BackendDBTypeShared)
@@ -186,6 +187,7 @@ func init() {
 	initCmd.Flags().IntVarP(&verbosity, "verbosity", "v", 0, "log level") // TODO - figure out how to inject verbosity
 	initCmd.Flags().BoolVarP(&createkind, "create-kind", "c", false, "Create and configure a kind cluster for installing Kubeflex")
 	initCmd.Flags().StringVarP(&domain, "domain", "d", "localtest.me", "domain for FQDN")
+	initCmd.Flags().StringVarP(&hostContainer, "hostContainerName", "n", "kubeflex-control-plane", "Name of the hosting cluster container (kind or k3d only)")
 	initCmd.Flags().IntVarP(&externalPort, "externalPort", "p", 9443, "external port used by ingress")
 	initCmd.Flags().BoolVarP(&chattyStatus, "chatty-status", "s", true, "chatty status indicator")
 
