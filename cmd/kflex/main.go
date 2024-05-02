@@ -108,7 +108,7 @@ var initCmd = &cobra.Command{
 			}
 			cluster.CreateKindCluster(chattyStatus)
 		}
-		in.Init(ctx, kubeconfig, Version, BuildDate, domain, strconv.Itoa(externalPort), chattyStatus, isOCP)
+		in.Init(ctx, kubeconfig, Version, BuildDate, domain, strconv.Itoa(externalPort), hostContainer, chattyStatus, isOCP)
 		wg.Wait()
 	},
 }

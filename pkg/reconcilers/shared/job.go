@@ -34,9 +34,8 @@ import (
 )
 
 const (
-	jobName = "update-cluster-info"
-	//baseImage = "ghcr.io/kubestellar/kubeflex/cmupdate"
-	baseImage = "ko.local/cmupdate"
+	jobName   = "update-cluster-info"
+	baseImage = "ghcr.io/kubestellar/kubeflex/cmupdate"
 )
 
 func (r *BaseReconciler) ReconcileUpdateClusterInfoJob(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane, cfg *SharedConfig, version string) error {
@@ -126,8 +125,7 @@ func generateClusterInfoJob(name, namespace, kubeconfigSecret, kubeconfigSecretK
 }
 
 func buildImageRef(version string) string {
-	//tag := "latest"
-	tag := "v0.5.1-12-g4542b38"
+	tag := "latest"
 	if version != "" {
 		tag = util.ParseVersionNumber(version)
 	}
