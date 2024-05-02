@@ -38,7 +38,7 @@ const (
 	baseImage = "ghcr.io/kubestellar/kubeflex/cmupdate"
 )
 
-func (r *BaseReconciler) ReconcileUpdateClusterInfoJob(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane, externalURL, version string) error {
+func (r *BaseReconciler) ReconcileUpdateClusterInfoJob(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane, cfg *SharedConfig, version string) error {
 	_ = clog.FromContext(ctx)
 	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
 
@@ -56,7 +56,7 @@ func (r *BaseReconciler) ReconcileUpdateClusterInfoJob(ctx context.Context, hcp 
 	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(job), job, &client.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			job := generateClusterInfoJob(jobName, namespace, externalURL, kubeconfigSecret, kubeconfigSecretKey, r.Version)
+			job := generateClusterInfoJob(jobName, namespace, kubeconfigSecret, kubeconfigSecretKey, r.Version, cfg)
 			if err := controllerutil.SetControllerReference(hcp, job, r.Scheme); err != nil {
 				return nil
 			}
@@ -70,7 +70,7 @@ func (r *BaseReconciler) ReconcileUpdateClusterInfoJob(ctx context.Context, hcp 
 	return nil
 }
 
-func generateClusterInfoJob(name, namespace, externalURL, kubeconfigSecret, kubeconfigSecretKey, version string) *batchv1.Job {
+func generateClusterInfoJob(name, namespace, kubeconfigSecret, kubeconfigSecretKey, version string, cfg *SharedConfig) *batchv1.Job {
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -102,6 +102,10 @@ func generateClusterInfoJob(name, namespace, externalURL, kubeconfigSecret, kube
 									Name:  "KUBECONFIG_SECRET_KEY",
 									Value: kubeconfigSecretKey,
 								},
+								{
+									Name:  "HOST_CONTAINER",
+									Value: cfg.HostContainer,
+								},
 							},
 						},
 					},
@@ -110,10 +114,10 @@ func generateClusterInfoJob(name, namespace, externalURL, kubeconfigSecret, kube
 			},
 		},
 	}
-	if externalURL != "" {
+	if cfg.ExternalURL != "" {
 		env := corev1.EnvVar{
 			Name:  "EXTERNAL_URL",
-			Value: externalURL,
+			Value: cfg.ExternalURL,
 		}
 		job.Spec.Template.Spec.Containers[0].Env = append(job.Spec.Template.Spec.Containers[0].Env, env)
 	}

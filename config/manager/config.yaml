@@ -7,3 +7,4 @@ data:
   domain: "{{ .Values.domain }}"
   externalPort: "{{ .Values.externalPort }}"
   isOpenShift: "{{ .Values.isOpenShift }}"
+  hostContainer: "{{ .Values.hostContainer }}"
