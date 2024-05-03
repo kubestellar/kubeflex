@@ -646,6 +646,18 @@ spec:
           capabilities:
             drop:
             - ALL
+      initContainers:
+      - args:
+        - |
+          while [[ $(kubectl get pods postgres-postgresql-0 -n kubeflex-system -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]; do
+            echo "waiting for postgresql pod"
+            sleep 5
+          done
+        command:
+        - sh
+        - -c
+        image: quay.io/kubestellar/kubectl:1.29.3
+        name: wait-postgresql
       securityContext:
         runAsNonRoot: true
       serviceAccountName: kubeflex-controller-manager
