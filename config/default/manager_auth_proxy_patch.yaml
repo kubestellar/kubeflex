@@ -24,6 +24,16 @@ spec:
                   operator: In
                   values:
                     - linux
+      initContainers:
+      - name: wait-postgresql
+        image: quay.io/kubestellar/kubectl:1.29.3
+        command: ['sh', '-c']
+        args:
+        - |
+          while [[ $(kubectl get pods postgres-postgresql-0 -n kubeflex-system -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]; do
+            echo "waiting for postgresql pod"
+            sleep 5
+          done
       containers:
       - name: kube-rbac-proxy
         securityContext:
