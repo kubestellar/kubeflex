@@ -30,12 +30,11 @@ import (
 )
 
 const (
-	URL                = "https://charts.loft.sh"
-	Version            = "0.16.4"
-	RepoName           = "loft"
-	ChartName          = "vcluster"
-	ReleaseName        = "vcluster"
-	internalKindAdress = "kubeflex-control-plane"
+	URL         = "https://charts.loft.sh"
+	Version     = "0.16.4"
+	RepoName    = "loft"
+	ChartName   = "vcluster"
+	ReleaseName = "vcluster"
 )
 
 var (
@@ -65,7 +64,7 @@ func (r *VClusterReconciler) ReconcileChart(ctx context.Context, hcp *tenancyv1a
 	}
 	configs = append(configs, fmt.Sprintf("syncer.extraArgs[0]=--tls-san=%s", dnsName))
 	configs = append(configs, fmt.Sprintf("syncer.extraArgs[1]=--out-kube-config-server=https://%s:%d", dnsName, port))
-	configs = append(configs, fmt.Sprintf("syncer.extraArgs[2]=--tls-san=%s", internalKindAdress))
+	configs = append(configs, fmt.Sprintf("syncer.extraArgs[2]=--tls-san=%s", cfg.HostContainer))
 	h := &helm.HelmHandler{
 		URL:         URL,
 		RepoName:    RepoName,
