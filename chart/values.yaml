@@ -7,3 +7,4 @@ externalPort: "9443"
 isOpenShift: "false"
 installPostgreSQL: true
 hostContainer: kubeflex-control-plane
+verbosity: 0
