@@ -46,7 +46,7 @@ spec:
         - "--secure-listen-address=0.0.0.0:8443"
         - "--upstream=http://127.0.0.1:8080/"
         - "--logtostderr=true"
-        - "--v={{.Values.verbosity}}"
+        - "--v=0"
         ports:
         - containerPort: 8443
           protocol: TCP
@@ -63,6 +63,7 @@ spec:
         - "--health-probe-bind-address=:8081"
         - "--metrics-bind-address=127.0.0.1:8080"
         - "--leader-elect"
+        - "--zap-log-level={{max (.Values.verbosity | default 2 | int) 1}}"
         env:
         - name: HELM_CONFIG_HOME
           value: /tmp
