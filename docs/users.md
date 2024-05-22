@@ -177,12 +177,17 @@ to switch the context back to the hosting cluster context, you may use the `ctx`
 kflex ctx
 ```
 
+That command requires your kubeconfig file to hold an extension that `kflex init` created to hold the name of the hosting cluster context. See [below](#hosting-context) for more information.
+
 To switch back to a control plane context, use the
 `ctx <control plane name>` command, e.g:
 
 ```shell
 kflex ctx cp1
 ```
+
+If there is not currently a kubeconfig context named for that control plane then that command requires your kubeconfig file to hold an extension that `kflex init` created to hold the name of the hosting cluster context. See [below](#hosting-context) for more information.
+
 
 The same result can be accomplished with kubectl by using the `ControlPlane`` CR, for example:
 
@@ -680,12 +685,12 @@ example:
 kflex create cp1 -p hello --set version=0.1.0 --set message=hello
 ```
 
-## Initial Context
+## Hosting Context
 
 The KubeFlex CLI (kflex) relies on the extensions field in the kubeconfig
-file to store the initial context of the hosting cluster. This context is
+file to store the name of the context that `kflex init` created for accessing the hosting cluster. This context is
 needed for kflex to switch back to the hosting cluster when performing
-lifecycle operations.
+lifecycle operations and, in some cases, to lookup information about a given control plane.
 
 If the extensions field is deleted or overwritten by other apps, you
 need to restore it manually in the kubeconfig file. Otherwise, kflex
