@@ -49,6 +49,7 @@ var Hook string
 var domain string
 var externalPort int
 var chattyStatus bool
+var isMicroShift bool
 var hookVars []string
 var hostContainer string
 
@@ -108,7 +109,7 @@ var initCmd = &cobra.Command{
 			}
 			cluster.CreateKindCluster(chattyStatus)
 		}
-		in.Init(ctx, kubeconfig, Version, BuildDate, domain, strconv.Itoa(externalPort), hostContainer, chattyStatus, isOCP)
+		in.Init(ctx, kubeconfig, Version, BuildDate, domain, strconv.Itoa(externalPort), hostContainer, chattyStatus, isOCP, isMicroShift)
 		wg.Wait()
 	},
 }
@@ -116,7 +117,7 @@ var initCmd = &cobra.Command{
 var createCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a control plane instance",
-	Long: `Create a control plane instance and switches the Kubeconfig context to 
+	Long: `Create a control plane instance and switches the Kubeconfig context to
 	        the current instance`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -141,7 +142,7 @@ var createCmd = &cobra.Command{
 var deleteCmd = &cobra.Command{
 	Use:   "delete",
 	Short: "Delete a control plane instance",
-	Long: `Delete a control plane instance and switches the context back to 
+	Long: `Delete a control plane instance and switches the context back to
 	        the hosting cluster context`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -190,6 +191,7 @@ func init() {
 	initCmd.Flags().StringVarP(&hostContainer, "hostContainerName", "n", "kubeflex-control-plane", "Name of the hosting cluster container (kind or k3d only)")
 	initCmd.Flags().IntVarP(&externalPort, "externalPort", "p", 9443, "external port used by ingress")
 	initCmd.Flags().BoolVarP(&chattyStatus, "chatty-status", "s", true, "chatty status indicator")
+	initCmd.Flags().BoolVarP(&isMicroShift, "isMicroShift", "", false, "set it to true for MicroShift clusters")
 
 	createCmd.Flags().StringVarP(&kubeconfig, "kubeconfig", "k", "", "path to kubeconfig file")
 	createCmd.Flags().IntVarP(&verbosity, "verbosity", "v", 0, "log level") // TODO - figure out how to inject verbosity

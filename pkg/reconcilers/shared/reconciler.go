@@ -53,6 +53,7 @@ type SharedConfig struct {
 	Domain        string
 	HostContainer string
 	IsOpenShift   bool
+	IsMicroShift  bool
 	ExternalURL   string
 }
 
@@ -94,11 +95,16 @@ func (r *BaseReconciler) GetConfig(ctx context.Context) (*SharedConfig, error) {
 	if err != nil {
 		return nil, err
 	}
+	isMicroShift, err := strconv.ParseBool(cmap.Data["isMicroShift"])
+	if err != nil {
+		return nil, err
+	}
 	return &SharedConfig{
 		Domain:        cmap.Data["domain"],
 		HostContainer: cmap.Data["hostContainer"],
 		ExternalPort:  port,
 		IsOpenShift:   isOpenShift,
+		IsMicroShift:  isMicroShift,
 	}, nil
 }
 

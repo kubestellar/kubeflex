@@ -36,7 +36,7 @@ import (
 	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
-func (r *K8sReconciler) ReconcileAPIServerDeployment(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane, isOCP bool) error {
+func (r *K8sReconciler) ReconcileAPIServerDeployment(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane, isOCP bool, isMicroShift bool) error {
 	_ = clog.FromContext(ctx)
 	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
 	deployment := &appsv1.Deployment{
@@ -50,7 +50,7 @@ func (r *K8sReconciler) ReconcileAPIServerDeployment(ctx context.Context, hcp *t
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			dbName := util.ReplaceNotAllowedCharsInDBName(hcp.Name)
-			deployment, err = r.generateAPIServerDeployment(namespace, dbName, isOCP)
+			deployment, err = r.generateAPIServerDeployment(namespace, dbName, isOCP, isMicroShift)
 			if err != nil {
 				return err
 			}
@@ -95,7 +95,7 @@ func (r *K8sReconciler) ReconcileCMDeployment(ctx context.Context, hcp *tenancyv
 	return nil
 }
 
-func (r *K8sReconciler) generateAPIServerDeployment(namespace, dbName string, isOCP bool) (*appsv1.Deployment, error) {
+func (r *K8sReconciler) generateAPIServerDeployment(namespace, dbName string, isOCP bool, isMicroShift bool) (*appsv1.Deployment, error) {
 	dbPassword, err := util.GetPGDBPassword(r.Client)
 	if err != nil {
 		return nil, err
@@ -266,7 +266,16 @@ func (r *K8sReconciler) generateAPIServerDeployment(namespace, dbName string, is
 			},
 		},
 	}
-	if isOCP {
+	if isMicroShift {
+		deployment.Spec.Template.Spec.SecurityContext = &v1.PodSecurityContext{
+			RunAsNonRoot: pointer.Bool(true),
+			RunAsUser:    pointer.Int64(10001),
+			SeccompProfile: &v1.SeccompProfile{
+				Type: v1.SeccompProfileTypeRuntimeDefault,
+			},
+		}
+
+	} else if isOCP {
 		deployment.Spec.Template.Spec.SecurityContext = &v1.PodSecurityContext{
 			RunAsNonRoot: pointer.Bool(true),
 			SeccompProfile: &v1.SeccompProfile{

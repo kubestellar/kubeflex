@@ -108,7 +108,7 @@ func (r *K8sReconciler) Reconcile(ctx context.Context, hcp *v1alpha1.ControlPlan
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
-	if err = r.ReconcileAPIServerDeployment(ctx, hcp, cfg.IsOpenShift); err != nil {
+	if err = r.ReconcileAPIServerDeployment(ctx, hcp, cfg.IsOpenShift, cfg.IsMicroShift); err != nil {
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 

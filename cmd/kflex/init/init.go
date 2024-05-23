@@ -33,7 +33,7 @@ import (
 	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
-func Init(ctx context.Context, kubeconfig, version, buildDate string, domain, externalPort, hostContainer string, chattyStatus, isOCP bool) {
+func Init(ctx context.Context, kubeconfig, version, buildDate string, domain, externalPort, hostContainer string, chattyStatus, isOCP bool, isMicroShift bool) {
 	done := make(chan bool)
 	var wg sync.WaitGroup
 
@@ -63,7 +63,7 @@ func Init(ctx context.Context, kubeconfig, version, buildDate string, domain, ex
 	done <- true
 
 	util.PrintStatus("Installing kubeflex operator...", done, &wg, chattyStatus)
-	ensureKFlexOperator(ctx, version, domain, externalPort, hostContainer, isOCP)
+	ensureKFlexOperator(ctx, version, domain, externalPort, hostContainer, isOCP, isMicroShift)
 	done <- true
 
 	util.PrintStatus("Waiting for kubeflex operator to become ready...", done, &wg, chattyStatus)
@@ -116,7 +116,7 @@ func ensureSystemDB(ctx context.Context, isOCP bool) {
 	}
 }
 
-func ensureKFlexOperator(ctx context.Context, fullVersion, domain, externalPort, hostContainer string, isOCP bool) {
+func ensureKFlexOperator(ctx context.Context, fullVersion, domain, externalPort, hostContainer string, isOCP bool, isMicroShift bool) {
 	version := util.ParseVersionNumber(fullVersion)
 	vars := []string{
 		fmt.Sprintf("version=%s", version),
@@ -124,6 +124,7 @@ func ensureKFlexOperator(ctx context.Context, fullVersion, domain, externalPort,
 		fmt.Sprintf("externalPort=%s", externalPort),
 		fmt.Sprintf("hostContainer=%s", hostContainer),
 		fmt.Sprintf("isOpenShift=%s", strconv.FormatBool(isOCP)),
+		fmt.Sprintf("isMicroShift=%s", strconv.FormatBool(isMicroShift)),
 		"installPostgreSQL=false",
 	}
 	h := &helm.HelmHandler{

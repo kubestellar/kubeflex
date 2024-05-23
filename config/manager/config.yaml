@@ -7,4 +7,5 @@ data:
   domain: "{{ .Values.domain }}"
   externalPort: "{{ .Values.externalPort }}"
   isOpenShift: "{{ .Values.isOpenShift }}"
+  isMicroShift: "{{ .Values.isMicroShift }}"
   hostContainer: "{{ .Values.hostContainer }}"

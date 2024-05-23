@@ -5,6 +5,7 @@
 domain: localtest.me
 externalPort: "9443"
 isOpenShift: "false"
+isMicroShift: "false"
 installPostgreSQL: true
 hostContainer: kubeflex-control-plane
 verbosity: 2 # must be > 0
