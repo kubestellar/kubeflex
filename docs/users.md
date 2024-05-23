@@ -150,7 +150,18 @@ Note that this option is ignored if you are installing on OpenShift.
 
 ## Creating a new control plane
 
-You can create a new control plane using the KubeFlex CLI or using any Kubernetes client or `kubectl`.
+You can create a new control plane using the KubeFlex CLI (`kflex`) or using any Kubernetes client or `kubectl`.
+
+**NOTE**: A pre-condition of using `kflex` to create a new control
+plane is that either (a) your kubeconfig current-context is the one
+used to access the hosting cluster or (b) the name of that context has
+been stored in an extension in your kubeconfig file (see
+[below](#hosting-context)). When this precondition is not met, the
+failure will look like the following.
+
+    $ kflex create cp1
+    ✔ Checking for saved initial context...
+    ◐ Creating new control plane cp1 of type k8s ...Error creating instance: no matches for kind "ControlPlane" in version "tenancy.kflex.kubestellar.org/v1alpha1"
 
 To create a new control plane with name `cp1` using the KubeFlex CLI:
 
