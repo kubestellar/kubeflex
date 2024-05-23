@@ -42,6 +42,11 @@ the KubeFlex operator:
 kflex init --create-kind
 ```
 
+**NOTE**: After (a) doing `kflex init`, with or without
+  `--create-kind`, or (b) installing KubeFlex with a Helm chart, you
+  **MUST NOT** change your kubeconfig current context by any other
+  means before using `kflex create`.
+
 ## Install KubeFlex on an existing cluster
 
 You can install KubeFlex on an existing cluster with nginx ingress configured for SSL passthru,
@@ -687,15 +692,39 @@ kflex create cp1 -p hello --set version=0.1.0 --set message=hello
 
 ## Hosting Context
 
-The KubeFlex CLI (kflex) relies on the extensions field in the kubeconfig
-file to store the name of the context that `kflex init` created for accessing the hosting cluster. This context is
-needed for kflex to switch back to the hosting cluster when performing
-lifecycle operations and, in some cases, to lookup information about a given control plane.
+The KubeFlex CLI (kflex) uses an extension in the user's kubeconfig
+file to store the name of the context used for accessing the hosting
+cluster. This context name is _not_ stored during the operation of
+`kflex init` or instantiation of a KubeFlex Helm chart; the name is
+stored later when `kflex create` or `kflex ctx $cpnaem` switches to a
+different context. This is why the user **MUST NOT** change the
+kubeconfig current context by other means in the interim.
 
-If the extensions field is deleted or overwritten by other apps, you
-need to restore it manually in the kubeconfig file. Otherwise, kflex
-context switching may not work properly. Here is an example of an
-extension for a hosting cluster with the default context name `kind-kubeflex`:
+The KubeFlex CLI needs to know the hosting cluster context name in
+order to do `kflex ctx`, or to do `kflex ctx $cpname` when the user's
+kubeconfig does not already hold a context named `$cpname` and the
+current context is not the hosting cluster context.
+
+If the relevant extension is deleted or overwritten by other apps, you
+need to take steps to restore it. Otherwise, kflex context switching
+may not work.
+
+You can do this in either of the two following ways.
+
+### Restore Hosting Context Preference by kflex ctx cpname
+
+If the relevant extension is missing then you can restore it by using
+`kubectl config use-context` to set the current context to the hosting
+cluster context and then using `kflex ctx $cpname` to switch to
+another context. In the course of doing that, `kflex` will restore the
+needed kubeconfig extension.
+
+### Restore Hosting Context Preference by editing kubeconfig file
+
+The other way is manually editing the kubeconfig file. Following is an
+excerpt from an example kubeconfig file when the extension is present
+and saying that the name of the context used to access the hosting
+cluster is `kind-kubeflex`.
 
 ```yaml
 preferences:
