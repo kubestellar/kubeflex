@@ -17,6 +17,7 @@ limitations under the License.
 package kubeconfig
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -46,8 +47,8 @@ func merge(existing, new *clientcmdapi.Config) error {
 		existing.Contexts[k] = v
 	}
 
-	if !IsInitialConfigSet(existing) {
-		saveInitialContextName(existing)
+	if !IsHostingClusterContextPreferenceSet(existing) {
+		SaveHostingClusterContextPreference(existing)
 	}
 
 	// set the current context to the nex context
@@ -83,9 +84,9 @@ func DeleteContext(config *clientcmdapi.Config, cpName string) error {
 	return nil
 }
 
-func SwitchToInitialContext(config *clientcmdapi.Config, removeExtension bool) error {
-	if !IsInitialConfigSet(config) {
-		return nil
+func SwitchToHostingClusterContext(config *clientcmdapi.Config, removeExtension bool) error {
+	if !IsHostingClusterContextPreferenceSet(config) {
+		return fmt.Errorf("hosting cluster preference context not set")
 	}
 	// found that the only way to unmarshal the runtime.Object into a ConfigMap
 	// was to use the unMarshallCM() function based on json marshal/unmarshal
@@ -96,7 +97,7 @@ func SwitchToInitialContext(config *clientcmdapi.Config, removeExtension bool) e
 
 	contextData, ok := cm.Data[InitialContextName]
 	if !ok {
-		return fmt.Errorf("initial context data not set")
+		return fmt.Errorf("hosting cluster preference context data not set")
 	}
 	config.CurrentContext = contextData
 
@@ -107,7 +108,7 @@ func SwitchToInitialContext(config *clientcmdapi.Config, removeExtension bool) e
 	return nil
 }
 
-func saveInitialContextName(config *clientcmdapi.Config) {
+func SaveHostingClusterContextPreference(config *clientcmdapi.Config) {
 	runtimeObjects := make(map[string]runtime.Object)
 	runtimeObjects[ConfigExtensionName] = &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -123,7 +124,7 @@ func saveInitialContextName(config *clientcmdapi.Config) {
 	}
 }
 
-func IsInitialConfigSet(config *clientcmdapi.Config) bool {
+func IsHostingClusterContextPreferenceSet(config *clientcmdapi.Config) bool {
 	if config.Preferences.Extensions != nil {
 		_, ok := config.Preferences.Extensions[ConfigExtensionName]
 		if ok {
@@ -131,6 +132,15 @@ func IsInitialConfigSet(config *clientcmdapi.Config) bool {
 		}
 	}
 	return false
+}
+
+func SetHostingClusterContextPreference(ctx context.Context) error {
+	kconfig, err := LoadKubeconfig(ctx)
+	if err != nil {
+		return fmt.Errorf("setHostingClusterContextPreference: error loading kubeconfig %s", err)
+	}
+	SaveHostingClusterContextPreference(kconfig)
+	return WriteKubeconfig(ctx, kconfig)
 }
 
 func unMarshallCM(obj runtime.Object) (*corev1.ConfigMap, error) {

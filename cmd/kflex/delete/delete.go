@@ -49,7 +49,7 @@ func (c *CPDelete) Delete(chattyStatus bool) {
 		os.Exit(1)
 	}
 
-	if err = kubeconfig.SwitchToInitialContext(kconf, false); err != nil {
+	if err = kubeconfig.SwitchToHostingClusterContext(kconf, false); err != nil {
 		fmt.Fprintf(os.Stderr, "no initial kubeconfig context was found: %s\n", err)
 	}
 
