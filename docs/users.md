@@ -74,17 +74,9 @@ These steps have only been tested with k3d v5.6.0. Create a k3d cluster with `tr
 
 ```shell
 k3d cluster create -p "9443:443@loadbalancer" --k3s-arg "--disable=traefik@server:*" kubeflex
-helm install ingress-nginx ingress-nginx --repo https://kubernetes.github.io/ingress-nginx --version 4.6.1 --namespace ingress-nginx --create-namespace
+helm install ingress-nginx ingress-nginx --set "controller.extraArgs.enable-ssl-passthrough=true" --repo https://kubernetes.github.io/ingress-nginx --version 4.6.1 --namespace ingress-nginx --create-namespace
 ```
 
-Edit the nginx ingress deployment to enable SSL passthru:
-
-```shell
-kubectl edit deployment ingress-nginx-controller -n ingress-nginx
-```
-
-and add `--enable-ssl-passthrough` to the list of args for the container named `controller`. Then you can
-run the command to install KubeFlex specifying the name of the k3d container hosting kubeflex.
 
 ```shell
 kflex init --hostContainerName k3d-kubeflex-server-0
