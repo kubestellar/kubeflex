@@ -43,7 +43,7 @@ func (c *CPCreate) Create(controlPlaneType, backendType, hook string, hookVars [
 	done := make(chan bool)
 	var wg sync.WaitGroup
 	cx := cont.CPCtx{}
-	cx.Context(chattyStatus)
+	cx.Context(chattyStatus, false)
 
 	clp, err := kfclient.GetClient(c.Kubeconfig)
 	if err != nil {

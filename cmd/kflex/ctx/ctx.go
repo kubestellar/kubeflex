@@ -39,7 +39,7 @@ type CPCtx struct {
 }
 
 // Context switch context in Kubeconfig
-func (c *CPCtx) Context(chattyStatus bool) {
+func (c *CPCtx) Context(chattyStatus, failIfNone bool) {
 	done := make(chan bool)
 	var wg sync.WaitGroup
 	kconf, err := kubeconfig.LoadKubeconfig(c.Ctx)
@@ -60,6 +60,11 @@ func (c *CPCtx) Context(chattyStatus bool) {
 				os.Exit(1)
 			}
 			done <- true
+		} else if failIfNone {
+			fmt.Fprintln(os.Stderr, "The initial (hosting) context is not known!\n"+
+				"You can make it known to kflex by doing `kubectl config use-context $name_of_hosting_context` "+
+				"and then either `kflex create ...` or `kflex ctx $some_control_plane_name")
+			os.Exit(1)
 		}
 	default:
 		ctxName := certs.GenerateContextName(c.Name)

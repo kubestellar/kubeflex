@@ -116,7 +116,7 @@ var initCmd = &cobra.Command{
 var createCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a control plane instance",
-	Long: `Create a control plane instance and switches the Kubeconfig context to 
+	Long: `Create a control plane instance and switches the Kubeconfig context to
 	        the current instance`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -141,7 +141,7 @@ var createCmd = &cobra.Command{
 var deleteCmd = &cobra.Command{
 	Use:   "delete",
 	Short: "Delete a control plane instance",
-	Long: `Delete a control plane instance and switches the context back to 
+	Long: `Delete a control plane instance and switches the context back to
 	        the hosting cluster context`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -175,7 +175,7 @@ var ctxCmd = &cobra.Command{
 				Kubeconfig: kubeconfig,
 			},
 		}
-		cp.Context(chattyStatus)
+		cp.Context(chattyStatus, true)
 	},
 }
 
