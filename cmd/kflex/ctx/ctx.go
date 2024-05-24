@@ -116,6 +116,17 @@ func (c *CPCtx) loadAndMergeFromServer(kconfig *api.Config) error {
 		return fmt.Errorf("control plane not found on server: %s", err)
 	}
 
+	// for control plane of type host just create context alias and return
+	if cp.Spec.Type == tenancyv1alpha1.ControlPlaneTypeHost {
+		err = kubeconfig.CopyHostContextAndSetItToDefault(kconfig, c.Name)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error copying hosting cluster context and setting it as default: %s\n", err)
+			os.Exit(1)
+		}
+		return nil
+	}
+
+	// for all other control planes need to get secret with off-cluster kubeconfig
 	clientsetp, err := kfclient.GetClientSet(c.Kubeconfig)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error getting clientset: %s\n", err)

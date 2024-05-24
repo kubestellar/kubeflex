@@ -53,7 +53,7 @@ func LoadAndMerge(ctx context.Context, client kubernetes.Clientset, name, contro
 			return err
 		}
 	} else {
-		err = copyHostContextAndSetItToDefault(konfig, name)
+		err = CopyHostContextAndSetItToDefault(konfig, name)
 		if err != nil {
 			return err
 		}
@@ -189,7 +189,7 @@ func renameKey(m interface{}, oldKey string, newKey string) interface{} {
 	return m
 }
 
-func copyHostContextAndSetItToDefault(config *clientcmdapi.Config, name string) error {
+func CopyHostContextAndSetItToDefault(config *clientcmdapi.Config, name string) error {
 	if _, ok := config.Contexts[name]; ok {
 		return fmt.Errorf("there is already a context with name %s", name)
 	}
