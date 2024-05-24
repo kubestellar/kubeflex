@@ -19,10 +19,12 @@ package kubeconfig
 import (
 	"context"
 	"fmt"
+	"time"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
@@ -79,11 +81,19 @@ func LoadAndMergeNoWrite(ctx context.Context, client kubernetes.Clientset, name,
 func loadControlPlaneKubeconfig(ctx context.Context, client kubernetes.Clientset, name, controlPlaneType string) (*clientcmdapi.Config, error) {
 	namespace := util.GenerateNamespaceFromControlPlaneName(name)
 
-	ks, err := client.CoreV1().Secrets(namespace).Get(ctx,
-		util.GetKubeconfSecretNameByControlPlaneType(controlPlaneType),
-		metav1.GetOptions{})
+	var ks *v1.Secret
+	err := wait.PollUntilContextTimeout(ctx, 1*time.Second, 5*time.Minute, false, func(ctx context.Context) (bool, error) {
+		var err error
+		ks, err = client.CoreV1().Secrets(namespace).Get(ctx,
+			util.GetKubeconfSecretNameByControlPlaneType(controlPlaneType),
+			metav1.GetOptions{})
+		if err != nil {
+			return false, nil
+		}
+		return true, nil
+	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error waiting for control plane kubeconfig secret: %s", err)
 	}
 
 	key := util.GetKubeconfSecretKeyNameByControlPlaneType(controlPlaneType)
