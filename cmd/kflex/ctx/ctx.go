@@ -36,6 +36,7 @@ import (
 
 type CPCtx struct {
 	common.CP
+	Type tenancyv1alpha1.ControlPlaneType
 }
 
 // Context switch context in Kubeconfig
@@ -84,8 +85,14 @@ func (c *CPCtx) Context(chattyStatus, failIfNone bool) {
 				fmt.Fprintf(os.Stderr, "Error loading kubeconfig context from server: %s\n", err)
 				os.Exit(1)
 			}
-			if err = kubeconfig.SwitchContext(kconf, c.Name); err != nil {
-				fmt.Fprintf(os.Stderr, "Error switching kubeconfig context after loading from server: %s\n", err)
+			// context exists only for CPs that are not of type host
+			if c.Type != tenancyv1alpha1.ControlPlaneTypeHost {
+				if err = kubeconfig.SwitchContext(kconf, c.Name); err != nil {
+					fmt.Fprintf(os.Stderr, "Error switching kubeconfig context after loading from server: %s\n", err)
+					os.Exit(1)
+				}
+			} else {
+				fmt.Fprintf(os.Stderr, "control plane %s is of type 'host', cannot switch context\n", c.Name)
 				os.Exit(1)
 			}
 		}
@@ -115,15 +122,11 @@ func (c *CPCtx) loadAndMergeFromServer(kconfig *api.Config) error {
 	if err := kfcClient.Get(context.TODO(), client.ObjectKeyFromObject(cp), cp, &client.GetOptions{}); err != nil {
 		return fmt.Errorf("control plane not found on server: %s", err)
 	}
+	c.Type = cp.Spec.Type
 
-	// for control plane of type host just create context alias and return
+	// for control plane of type host just switch to initial context
 	if cp.Spec.Type == tenancyv1alpha1.ControlPlaneTypeHost {
-		err = kubeconfig.CopyHostContextAndSetItToDefault(kconfig, c.Name)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "error copying hosting cluster context and setting it as default: %s\n", err)
-			os.Exit(1)
-		}
-		return nil
+		return kubeconfig.SwitchToInitialContext(kconfig, false)
 	}
 
 	// for all other control planes need to get secret with off-cluster kubeconfig
