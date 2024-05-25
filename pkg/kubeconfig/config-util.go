@@ -48,7 +48,7 @@ func merge(existing, new *clientcmdapi.Config) error {
 	}
 
 	if !IsHostingClusterContextPreferenceSet(existing) {
-		SaveHostingClusterContextPreference(existing)
+		SetHostingClusterContextPreference(existing)
 	}
 
 	// set the current context to the nex context
@@ -108,7 +108,7 @@ func SwitchToHostingClusterContext(config *clientcmdapi.Config, removeExtension 
 	return nil
 }
 
-func SaveHostingClusterContextPreference(config *clientcmdapi.Config) {
+func SetHostingClusterContextPreference(config *clientcmdapi.Config) {
 	runtimeObjects := make(map[string]runtime.Object)
 	runtimeObjects[ConfigExtensionName] = &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -134,12 +134,12 @@ func IsHostingClusterContextPreferenceSet(config *clientcmdapi.Config) bool {
 	return false
 }
 
-func SetHostingClusterContextPreference(ctx context.Context) error {
+func SaveHostingClusterContextPreference(ctx context.Context) error {
 	kconfig, err := LoadKubeconfig(ctx)
 	if err != nil {
 		return fmt.Errorf("setHostingClusterContextPreference: error loading kubeconfig %s", err)
 	}
-	SaveHostingClusterContextPreference(kconfig)
+	SetHostingClusterContextPreference(kconfig)
 	return WriteKubeconfig(ctx, kconfig)
 }
 

@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/restmapper"
 )
@@ -123,4 +124,27 @@ func IsClusterScoped(gvk schema.GroupVersionKind, apiResourceLists []*metav1.API
 		}
 	}
 	return false, fmt.Errorf("resource %s in group %s with version %s was not found", gvk.Kind, gvk.Group, gvk.Version)
+}
+
+func CheckResourceExists(clientset kubernetes.Clientset, group, version, name string) bool {
+	discoveryClient := clientset.Discovery()
+
+	exists, _ := findResource(discoveryClient, group, version, name)
+
+	return exists
+}
+
+func findResource(discoveryClient discovery.DiscoveryInterface, group, version, name string) (bool, error) {
+	resourceList, err := discoveryClient.ServerResourcesForGroupVersion(group + "/" + version)
+	if err != nil {
+		return false, err
+	}
+
+	for _, resource := range resourceList.APIResources {
+		if resource.Name == name {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }

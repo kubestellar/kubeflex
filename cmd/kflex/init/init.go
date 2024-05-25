@@ -49,7 +49,7 @@ func Init(ctx context.Context, kubeconfig, version, buildDate string, domain, ex
 	done <- true
 
 	util.PrintStatus("Setting hosting cluster preferences in kubeconfig", done, &wg, chattyStatus)
-	err = kcfg.SetHostingClusterContextPreference(ctx)
+	err = kcfg.SaveHostingClusterContextPreference(ctx)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error setting hosting cluster context preference: %v\n", err)
 		os.Exit(1)

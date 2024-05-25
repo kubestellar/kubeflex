@@ -61,10 +61,15 @@ func (c *CPCtx) Context(chattyStatus, failIfNone bool) {
 			}
 			done <- true
 		} else if failIfNone {
-			fmt.Fprintln(os.Stderr, "The hosting cluster context is not known!\n"+
-				"You can make it known to kflex by doing `kubectl config use-context $name_of_hosting_context` "+
-				"and then either `kflex create ...` or `kflex ctx $some_control_plane_name")
-			os.Exit(1)
+			if !c.isCurrentContextHostingClusterContext() {
+				fmt.Fprintln(os.Stderr, "The hosting cluster context is not known!\n"+
+					"You can make it known to kflex by doing `kubectl config use-context $name_of_hosting_context` "+
+					"and then either `kflex ctx` or `kflex create ...`")
+				os.Exit(1)
+			}
+			util.PrintStatus("Hosting cluster context not set, setting it to current context", done, &wg, chattyStatus)
+			kubeconfig.SetHostingClusterContextPreference(kconf)
+			done <- true
 		}
 	default:
 		ctxName := certs.GenerateContextName(c.Name)
@@ -135,4 +140,14 @@ func (c *CPCtx) switchToHostingClusterContextAndWrite(kconf *api.Config) error {
 		}
 	}
 	return nil
+}
+
+func (c *CPCtx) isCurrentContextHostingClusterContext() bool {
+	clientsetp, err := kfclient.GetClientSet(c.Kubeconfig)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error getting clientset: %s\n", err)
+		os.Exit(1)
+	}
+	clientset := *clientsetp
+	return util.CheckResourceExists(clientset, "tenancy.kflex.kubestellar.org", "v1alpha1", "controlplanes")
 }
