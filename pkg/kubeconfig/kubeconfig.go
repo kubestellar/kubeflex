@@ -53,7 +53,7 @@ func LoadAndMerge(ctx context.Context, client kubernetes.Clientset, name, contro
 			return err
 		}
 	} else {
-		err = copyHostContextAndSetItToDefault(konfig, name)
+		err = SwitchToHostingClusterContext(konfig, false)
 		if err != nil {
 			return err
 		}
@@ -187,26 +187,4 @@ func renameKey(m interface{}, oldKey string, newKey string) interface{} {
 		// no action
 	}
 	return m
-}
-
-func copyHostContextAndSetItToDefault(config *clientcmdapi.Config, name string) error {
-	if _, ok := config.Contexts[name]; ok {
-		return fmt.Errorf("there is already a context with name %s", name)
-	}
-
-	// current context must be pointing at the hosting cluster
-	cContext := config.CurrentContext
-
-	hostContext, ok := config.Contexts[cContext]
-	if !ok {
-		return fmt.Errorf("current context with name %s not found", cContext)
-	}
-
-	config.Contexts[name] = &clientcmdapi.Context{
-		Cluster:  hostContext.Cluster,
-		AuthInfo: hostContext.AuthInfo,
-	}
-
-	config.CurrentContext = name
-	return nil
 }
