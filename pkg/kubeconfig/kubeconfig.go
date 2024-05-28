@@ -82,18 +82,18 @@ func loadControlPlaneKubeconfig(ctx context.Context, client kubernetes.Clientset
 	namespace := util.GenerateNamespaceFromControlPlaneName(name)
 
 	var ks *v1.Secret
+	var errGet error
 	err := wait.PollUntilContextTimeout(ctx, 1*time.Second, 5*time.Minute, false, func(ctx context.Context) (bool, error) {
-		var err error
-		ks, err = client.CoreV1().Secrets(namespace).Get(ctx,
+		ks, errGet = client.CoreV1().Secrets(namespace).Get(ctx,
 			util.GetKubeconfSecretNameByControlPlaneType(controlPlaneType),
 			metav1.GetOptions{})
-		if err != nil {
+		if errGet != nil {
 			return false, nil
 		}
 		return true, nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("error waiting for control plane kubeconfig secret: %s", err)
+		return nil, fmt.Errorf("error waiting for control plane kubeconfig secret: %s, %s", err, errGet)
 	}
 
 	key := util.GetKubeconfSecretKeyNameByControlPlaneType(controlPlaneType)

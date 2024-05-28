@@ -30,6 +30,7 @@ import (
 
 	"github.com/kubestellar/kubeflex/pkg/client"
 	"github.com/kubestellar/kubeflex/pkg/helm"
+	kcfg "github.com/kubestellar/kubeflex/pkg/kubeconfig"
 	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
@@ -45,6 +46,14 @@ func Init(ctx context.Context, kubeconfig, version, buildDate string, domain, ex
 	clientset := *clientsetp
 
 	util.PrintStatus(fmt.Sprintf("Kubeflex %s %s", version, buildDate), done, &wg, chattyStatus)
+	done <- true
+
+	util.PrintStatus("Setting hosting cluster preference in kubeconfig", done, &wg, chattyStatus)
+	err = kcfg.SaveHostingClusterContextPreference(ctx)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error setting hosting cluster context preference: %v\n", err)
+		os.Exit(1)
+	}
 	done <- true
 
 	util.PrintStatus("Ensuring kubeflex-system namespace...", done, &wg, chattyStatus)

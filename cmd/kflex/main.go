@@ -159,7 +159,7 @@ var deleteCmd = &cobra.Command{
 var ctxCmd = &cobra.Command{
 	Use:   "ctx",
 	Short: "Switch kubeconfig context to a control plane instance",
-	Long: `Running without an argument switches the context back to the initial context,
+	Long: `Running without an argument switches the context back to the hosting cluster context,
 			        while providing the control plane name as argument switches the context to
 					that control plane`,
 	Args: cobra.MaximumNArgs(1),

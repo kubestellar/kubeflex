@@ -50,29 +50,34 @@ func (c *CPCtx) Context(chattyStatus, failIfNone bool) {
 
 	switch c.CP.Name {
 	case "":
-		util.PrintStatus("Checking for saved initial context...", done, &wg, chattyStatus)
+		util.PrintStatus("Checking for saved hosting cluster context...", done, &wg, chattyStatus)
 		time.Sleep(1 * time.Second)
 		done <- true
-		if kubeconfig.IsInitialConfigSet(kconf) {
-			util.PrintStatus("Switching to initial context...", done, &wg, chattyStatus)
-			if err = kubeconfig.SwitchToInitialContext(kconf, false); err != nil {
-				fmt.Fprintf(os.Stderr, "Error switching kubeconfig to initial context: %s\n", err)
+		if kubeconfig.IsHostingClusterContextPreferenceSet(kconf) {
+			util.PrintStatus("Switching to hosting cluster context...", done, &wg, chattyStatus)
+			if err = kubeconfig.SwitchToHostingClusterContext(kconf, false); err != nil {
+				fmt.Fprintf(os.Stderr, "Error switching kubeconfig to hosting cluster context: %s\n", err)
 				os.Exit(1)
 			}
 			done <- true
 		} else if failIfNone {
-			fmt.Fprintln(os.Stderr, "The initial (hosting) context is not known!\n"+
-				"You can make it known to kflex by doing `kubectl config use-context $name_of_hosting_context` "+
-				"and then either `kflex create ...` or `kflex ctx $some_control_plane_name")
-			os.Exit(1)
+			if !c.isCurrentContextHostingClusterContext() {
+				fmt.Fprintln(os.Stderr, "The hosting cluster context is not known!\n"+
+					"You can make it known to kflex by doing `kubectl config use-context $name_of_hosting_context` "+
+					"and then either `kflex ctx` or `kflex create ...`")
+				os.Exit(1)
+			}
+			util.PrintStatus("Hosting cluster context not set, setting it to current context", done, &wg, chattyStatus)
+			kubeconfig.SetHostingClusterContextPreference(kconf)
+			done <- true
 		}
 	default:
 		ctxName := certs.GenerateContextName(c.Name)
 		util.PrintStatus(fmt.Sprintf("Switching to context %s...", ctxName), done, &wg, chattyStatus)
 		if err = kubeconfig.SwitchContext(kconf, c.Name); err != nil {
 			fmt.Fprintf(os.Stderr, "kubeconfig context %s not found, trying to load from server...\n", err)
-			if err := c.switchToInitialContextAndWrite(kconf); err != nil {
-				fmt.Fprintf(os.Stderr, "Error switching back to initial context: %s\n", err)
+			if err := c.switchToHostingClusterContextAndWrite(kconf); err != nil {
+				fmt.Fprintf(os.Stderr, "Error switching back to hosting cluster context: %s\n", err)
 				os.Exit(1)
 			}
 			if err = c.loadAndMergeFromServer(kconf); err != nil {
@@ -125,9 +130,9 @@ func (c *CPCtx) loadAndMergeFromServer(kconfig *api.Config) error {
 	return nil
 }
 
-func (c *CPCtx) switchToInitialContextAndWrite(kconf *api.Config) error {
-	if kubeconfig.IsInitialConfigSet(kconf) {
-		if err := kubeconfig.SwitchToInitialContext(kconf, false); err != nil {
+func (c *CPCtx) switchToHostingClusterContextAndWrite(kconf *api.Config) error {
+	if kubeconfig.IsHostingClusterContextPreferenceSet(kconf) {
+		if err := kubeconfig.SwitchToHostingClusterContext(kconf, false); err != nil {
 			return err
 		}
 		if err := kubeconfig.WriteKubeconfig(c.Ctx, kconf); err != nil {
@@ -135,4 +140,14 @@ func (c *CPCtx) switchToInitialContextAndWrite(kconf *api.Config) error {
 		}
 	}
 	return nil
+}
+
+func (c *CPCtx) isCurrentContextHostingClusterContext() bool {
+	clientsetp, err := kfclient.GetClientSet(c.Kubeconfig)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error getting clientset: %s\n", err)
+		os.Exit(1)
+	}
+	clientset := *clientsetp
+	return util.CheckResourceExists(clientset, "tenancy.kflex.kubestellar.org", "v1alpha1", "controlplanes")
 }
