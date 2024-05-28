@@ -92,8 +92,8 @@ func (c *CPCtx) Context(chattyStatus, failIfNone bool) {
 					os.Exit(1)
 				}
 			} else {
-				fmt.Fprintf(os.Stderr, "control plane %s is of type 'host', cannot switch context\n", c.Name)
-				os.Exit(1)
+				fmt.Fprintf(os.Stderr, "control plane %s is of type 'host', using hosting cluster context\n", c.Name)
+				os.Exit(0)
 			}
 		}
 		done <- true
