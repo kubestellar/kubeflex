@@ -76,7 +76,7 @@ func (c *CPCtx) Context(chattyStatus, failIfNone bool) {
 		ctxName := certs.GenerateContextName(c.Name)
 		util.PrintStatus(fmt.Sprintf("Switching to context %s...", ctxName), done, &wg, chattyStatus)
 		if err = kubeconfig.SwitchContext(kconf, c.Name); err != nil {
-			fmt.Fprintf(os.Stderr, "kubeconfig context %s not found, trying to load from server...\n", c.Name)
+			fmt.Fprintf(os.Stderr, "kubeconfig context %s not found (%s), trying to load from server...\n", c.Name, err)
 			if err := c.switchToHostingClusterContextAndWrite(kconf); err != nil {
 				fmt.Fprintf(os.Stderr, "Error switching back to hosting cluster context: %s\n", err)
 				os.Exit(1)
@@ -92,7 +92,7 @@ func (c *CPCtx) Context(chattyStatus, failIfNone bool) {
 					os.Exit(1)
 				}
 			} else {
-				fmt.Fprintf(os.Stderr, "control plane %s is of type 'host', using hosting cluster context\n", c.Name)
+				fmt.Fprintf(os.Stderr, "control plane %s is of type 'host', using hosting cluster context (%s)\n", c.Name, kconf.CurrentContext)
 				os.Exit(0)
 			}
 		}
