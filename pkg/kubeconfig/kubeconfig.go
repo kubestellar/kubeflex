@@ -53,7 +53,7 @@ func LoadAndMerge(ctx context.Context, client kubernetes.Clientset, name, contro
 			return err
 		}
 	} else {
-		err = SwitchToInitialContext(konfig, false)
+		err = SwitchToHostingClusterContext(konfig, false)
 		if err != nil {
 			return err
 		}

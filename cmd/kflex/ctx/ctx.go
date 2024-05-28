@@ -76,7 +76,7 @@ func (c *CPCtx) Context(chattyStatus, failIfNone bool) {
 		ctxName := certs.GenerateContextName(c.Name)
 		util.PrintStatus(fmt.Sprintf("Switching to context %s...", ctxName), done, &wg, chattyStatus)
 		if err = kubeconfig.SwitchContext(kconf, c.Name); err != nil {
-			fmt.Fprintf(os.Stderr, "kubeconfig context %s not found, trying to load from server...\n", err)
+			fmt.Fprintf(os.Stderr, "kubeconfig context %s not found, trying to load from server...\n", c.Name)
 			if err := c.switchToHostingClusterContextAndWrite(kconf); err != nil {
 				fmt.Fprintf(os.Stderr, "Error switching back to hosting cluster context: %s\n", err)
 				os.Exit(1)
@@ -126,7 +126,7 @@ func (c *CPCtx) loadAndMergeFromServer(kconfig *api.Config) error {
 
 	// for control plane of type host just switch to initial context
 	if cp.Spec.Type == tenancyv1alpha1.ControlPlaneTypeHost {
-		return kubeconfig.SwitchToInitialContext(kconfig, false)
+		return kubeconfig.SwitchToHostingClusterContext(kconfig, false)
 	}
 
 	// for all other control planes need to get secret with off-cluster kubeconfig
