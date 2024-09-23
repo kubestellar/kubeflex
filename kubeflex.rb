@@ -5,20 +5,20 @@
 class Kubeflex < Formula
   desc ""
   homepage "https://github.com/kubestellar/kubeflex"
-  version "0.6.2"
+  version "0.6.3"
 
   on_macos do
     on_intel do
-      url "https://github.com/kubestellar/kubeflex/releases/download/v0.6.2/kubeflex_0.6.2_darwin_amd64.tar.gz"
-      sha256 "a7d5b294282a8bbf13663077a172b8d98ba8777645332fd1f34eefb2a7cdf147"
+      url "https://github.com/kubestellar/kubeflex/releases/download/v0.6.3/kubeflex_0.6.3_darwin_amd64.tar.gz"
+      sha256 "c2d1eeaabe1d590061a3c76b2e231170325715ec0381a95afc7c3b18f1834d91"
 
       def install
         bin.install "bin/kflex"
       end
     end
     on_arm do
-      url "https://github.com/kubestellar/kubeflex/releases/download/v0.6.2/kubeflex_0.6.2_darwin_arm64.tar.gz"
-      sha256 "f3b87b8e88e51669571f02d8fd3f38da86a74c1e4a90fc5d9c4bbad51772d849"
+      url "https://github.com/kubestellar/kubeflex/releases/download/v0.6.3/kubeflex_0.6.3_darwin_arm64.tar.gz"
+      sha256 "2ca3765e3fcd1daa76238d825f23694179a2a19d18217755036be3ff9ffd66a2"
 
       def install
         bin.install "bin/kflex"
@@ -29,8 +29,8 @@ class Kubeflex < Formula
   on_linux do
     on_intel do
       if Hardware::CPU.is_64_bit?
-        url "https://github.com/kubestellar/kubeflex/releases/download/v0.6.2/kubeflex_0.6.2_linux_amd64.tar.gz"
-        sha256 "3876c6392e8beedc3ac2af4761104c69b295717ffbafdd24562f397d83096b8a"
+        url "https://github.com/kubestellar/kubeflex/releases/download/v0.6.3/kubeflex_0.6.3_linux_amd64.tar.gz"
+        sha256 "613d41fe4f0c239021dddab7b4a239e6dd01e9f8b8243f816b43ef0359e3d656"
 
         def install
           bin.install "bin/kflex"
@@ -39,8 +39,8 @@ class Kubeflex < Formula
     end
     on_arm do
       if Hardware::CPU.is_64_bit?
-        url "https://github.com/kubestellar/kubeflex/releases/download/v0.6.2/kubeflex_0.6.2_linux_arm64.tar.gz"
-        sha256 "77c807373f80398d97ff8765032d530ec7d0a6bbf9d4a36d7a1680cfd46b56ee"
+        url "https://github.com/kubestellar/kubeflex/releases/download/v0.6.3/kubeflex_0.6.3_linux_arm64.tar.gz"
+        sha256 "0351c390cc6bc0e7ea713f06b11e03783072154e30359152a411061de46ba08f"
 
         def install
           bin.install "bin/kflex"
