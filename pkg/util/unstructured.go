@@ -111,7 +111,11 @@ func GenerateObjectInfoString(obj unstructured.Unstructured) string {
 
 func IsClusterScoped(gvk schema.GroupVersionKind, apiResourceLists []*metav1.APIResourceList) (bool, error) {
 	for _, resourceList := range apiResourceLists {
-		if resourceList.GroupVersion == gvk.Group+"/"+gvk.Version {
+		groupVersion := gvk.Group + "/" + gvk.Version
+		if gvk.Group == "" {
+			groupVersion = gvk.Version
+		}
+		if resourceList.GroupVersion == groupVersion {
 			for _, apiResource := range resourceList.APIResources {
 				if apiResource.Kind == gvk.Kind {
 					if apiResource.Namespaced {
