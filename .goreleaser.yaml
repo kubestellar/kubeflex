@@ -58,7 +58,7 @@ release:
 brews:
   - name: kubeflex
     homepage: "https://github.com/kubestellar/kubeflex"
-    tap:
+    repository:
       owner: kubestellar
       name: kubeflex
       branch: brew
