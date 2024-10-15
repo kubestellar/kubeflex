@@ -36,6 +36,8 @@ import (
 	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
+const KubeVersion = "v1.29.9"
+
 func (r *K8sReconciler) ReconcileAPIServerDeployment(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane, isOCP bool) error {
 	_ = clog.FromContext(ctx)
 	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
@@ -144,7 +146,7 @@ func (r *K8sReconciler) generateAPIServerDeployment(namespace, dbName string, is
 						},
 						{
 							Name:            "kube-apiserver",
-							Image:           "registry.k8s.io/kube-apiserver:v1.27.1",
+							Image:           fmt.Sprintf("registry.k8s.io/kube-apiserver:%s", KubeVersion),
 							ImagePullPolicy: v1.PullIfNotPresent,
 							Command: []string{
 								"kube-apiserver",
@@ -304,7 +306,7 @@ func (r *K8sReconciler) generateCMDeployment(cpName, namespace string) (*appsv1.
 					Containers: []v1.Container{
 						{
 							Name:            "kube-controller-manager",
-							Image:           "registry.k8s.io/kube-controller-manager:v1.27.1",
+							Image:           fmt.Sprintf("registry.k8s.io/kube-controller-manager:%s", KubeVersion),
 							ImagePullPolicy: v1.PullIfNotPresent,
 							Command: []string{
 								"kube-controller-manager",
