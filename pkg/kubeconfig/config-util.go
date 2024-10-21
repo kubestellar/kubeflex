@@ -48,7 +48,7 @@ func merge(existing, new *clientcmdapi.Config) error {
 	}
 
 	if !IsHostingClusterContextPreferenceSet(existing) {
-		SetHostingClusterContextPreference(existing)
+		SetHostingClusterContextPreference(existing, nil)
 	}
 
 	// set the current context to the nex context
@@ -88,6 +88,7 @@ func SwitchToHostingClusterContext(config *clientcmdapi.Config, removeExtension 
 	if !IsHostingClusterContextPreferenceSet(config) {
 		return fmt.Errorf("hosting cluster preference context not set")
 	}
+
 	// found that the only way to unmarshal the runtime.Object into a ConfigMap
 	// was to use the unMarshallCM() function based on json marshal/unmarshal
 	cm, err := unMarshallCM(config.Preferences.Extensions[ConfigExtensionName])
@@ -99,6 +100,13 @@ func SwitchToHostingClusterContext(config *clientcmdapi.Config, removeExtension 
 	if !ok {
 		return fmt.Errorf("hosting cluster preference context data not set")
 	}
+
+	// make sure that context set in extension is a valid context
+	_, ok = config.Contexts[contextData]
+	if !ok {
+		return fmt.Errorf("hosting cluster preference context data is set to a non-existing context")
+	}
+
 	config.CurrentContext = contextData
 
 	// remove the extensions
@@ -108,14 +116,19 @@ func SwitchToHostingClusterContext(config *clientcmdapi.Config, removeExtension 
 	return nil
 }
 
-func SetHostingClusterContextPreference(config *clientcmdapi.Config) {
+// sets hosting cluster context to current context if userSuppliedContext is nil, otherwise set to userSuppliedContext
+func SetHostingClusterContextPreference(config *clientcmdapi.Config, userSuppliedContext *string) {
+	hostingContext := config.CurrentContext
+	if userSuppliedContext != nil {
+		hostingContext = *userSuppliedContext
+	}
 	runtimeObjects := make(map[string]runtime.Object)
 	runtimeObjects[ConfigExtensionName] = &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: ConfigExtensionName,
 		},
 		Data: map[string]string{
-			InitialContextName: config.CurrentContext,
+			InitialContextName: hostingContext,
 		},
 	}
 
@@ -139,7 +152,7 @@ func SaveHostingClusterContextPreference(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("setHostingClusterContextPreference: error loading kubeconfig %s", err)
 	}
-	SetHostingClusterContextPreference(kconfig)
+	SetHostingClusterContextPreference(kconfig, nil)
 	return WriteKubeconfig(ctx, kconfig)
 }
 

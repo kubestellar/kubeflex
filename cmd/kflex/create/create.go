@@ -38,12 +38,12 @@ type CPCreate struct {
 	common.CP
 }
 
-// Create a ne control plane
+// Create a new control plane
 func (c *CPCreate) Create(controlPlaneType, backendType, hook string, hookVars []string, chattyStatus bool) {
 	done := make(chan bool)
 	var wg sync.WaitGroup
 	cx := cont.CPCtx{}
-	cx.Context(chattyStatus, false)
+	cx.Context(chattyStatus, false, false, false)
 
 	clp, err := kfclient.GetClient(c.Kubeconfig)
 	if err != nil {
