@@ -187,6 +187,15 @@ kflex ctx
 
 That command requires your kubeconfig file to hold an extension that `kflex init` created to hold the name of the hosting cluster context. See [below](#hosting-context) for more information.
 
+To update or refresh outdated or corrupted context information for a control plane stored in 
+the kubeconfig file, you can forcefully reload and overwrite the existing context data from 
+the KubeFlex hosting cluster. This can be accomplished by using the `--overwrite-existing-context` 
+flag. Here is an example:
+
+```shell
+kflex ctx cp1 --overwrite-existing-context
+```
+
 To switch back to a control plane context, use the
 `ctx <control plane name>` command, e.g:
 
@@ -718,9 +727,8 @@ You can do this in either of the two following ways.
 
 If the relevant extension is missing then you can restore it by using
 `kubectl config use-context` to set the current context to the hosting
-cluster context and then using `kflex ctx $cpname` to switch to
-another context. In the course of doing that, `kflex` will restore the
-needed kubeconfig extension.
+cluster context and then using `kflex ctx --set-current-for-hosting` 
+to restore the needed kubeconfig extension.
 
 ### Restore Hosting Context Preference by editing kubeconfig file
 
