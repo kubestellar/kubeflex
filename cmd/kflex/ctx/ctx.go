@@ -40,7 +40,7 @@ type CPCtx struct {
 }
 
 // Context switch context in Kubeconfig
-func (c *CPCtx) Context(chattyStatus, failIfNone bool) {
+func (c *CPCtx) Context(chattyStatus, failIfNone, overwriteExistingCtx, setCurrentCtxAsHosting bool) {
 	done := make(chan bool)
 	var wg sync.WaitGroup
 	kconf, err := kubeconfig.LoadKubeconfig(c.Ctx)
@@ -51,6 +51,9 @@ func (c *CPCtx) Context(chattyStatus, failIfNone bool) {
 
 	switch c.CP.Name {
 	case "":
+		if setCurrentCtxAsHosting { // set hosting cluster context unconditionally to the current context
+			kubeconfig.SetHostingClusterContextPreference(kconf, nil)
+		}
 		util.PrintStatus("Checking for saved hosting cluster context...", done, &wg, chattyStatus)
 		time.Sleep(1 * time.Second)
 		done <- true
@@ -64,19 +67,32 @@ func (c *CPCtx) Context(chattyStatus, failIfNone bool) {
 		} else if failIfNone {
 			if !c.isCurrentContextHostingClusterContext() {
 				fmt.Fprintln(os.Stderr, "The hosting cluster context is not known!\n"+
-					"You can make it known to kflex by doing `kubectl config use-context $name_of_hosting_context` "+
-					"and then either `kflex ctx` or `kflex create ...`")
+					"You can make it known to kflex by doing `kubectl config use-context` \n"+
+					"to set the current context to the hosting cluster context and then using \n"+
+					"`kflex ctx --set-current-for-hosting` to restore the needed kubeconfig extension.")
 				os.Exit(1)
 			}
 			util.PrintStatus("Hosting cluster context not set, setting it to current context", done, &wg, chattyStatus)
-			kubeconfig.SetHostingClusterContextPreference(kconf)
+			kubeconfig.SetHostingClusterContextPreference(kconf, nil)
 			done <- true
 		}
 	default:
 		ctxName := certs.GenerateContextName(c.Name)
+		if overwriteExistingCtx {
+			util.PrintStatus("Overwriting existing context for control plane", done, &wg, chattyStatus)
+			if err = kubeconfig.DeleteContext(kconf, c.Name); err != nil {
+				fmt.Fprintf(os.Stderr, "no kubeconfig context for %s was found: %s\n", c.Name, err)
+			}
+			done <- true
+		}
+
 		util.PrintStatus(fmt.Sprintf("Switching to context %s...", ctxName), done, &wg, chattyStatus)
 		if err = kubeconfig.SwitchContext(kconf, c.Name); err != nil {
-			fmt.Fprintf(os.Stderr, "kubeconfig context %s not found (%s), trying to load from server...\n", c.Name, err)
+			if overwriteExistingCtx {
+				fmt.Fprintf(os.Stderr, "trying to load new context %s from server...\n", c.Name)
+			} else {
+				fmt.Fprintf(os.Stderr, "kubeconfig context %s not found (%s), trying to load from server...\n", c.Name, err)
+			}
 			if err := c.switchToHostingClusterContextAndWrite(kconf); err != nil {
 				fmt.Fprintf(os.Stderr, "Error switching back to hosting cluster context: %s\n", err)
 				os.Exit(1)
@@ -97,6 +113,7 @@ func (c *CPCtx) Context(chattyStatus, failIfNone bool) {
 			}
 		}
 		done <- true
+
 	}
 
 	if err = kubeconfig.WriteKubeconfig(c.Ctx, kconf); err != nil {
