@@ -67,8 +67,9 @@ func (c *CPCtx) Context(chattyStatus, failIfNone, overwriteExistingCtx, setCurre
 		} else if failIfNone {
 			if !c.isCurrentContextHostingClusterContext() {
 				fmt.Fprintln(os.Stderr, "The hosting cluster context is not known!\n"+
-					"You can make it known to kflex by doing `kubectl ctx --force-replace-for-hosting $name_of_hosting_context` "+
-					"or  `kubectl ctx --set-current-for-hosting` ...`")
+					"You can make it known to kflex by doing `kubectl config use-context` \n"+
+					"to set the current context to the hosting cluster context and then using \n"+
+					"`kflex ctx --set-current-for-hosting` to restore the needed kubeconfig extension.")
 				os.Exit(1)
 			}
 			util.PrintStatus("Hosting cluster context not set, setting it to current context", done, &wg, chattyStatus)
