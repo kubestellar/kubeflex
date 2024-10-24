@@ -83,7 +83,7 @@ func loadControlPlaneKubeconfig(ctx context.Context, client kubernetes.Clientset
 
 	var ks *v1.Secret
 	var errGet error
-	err := wait.PollUntilContextTimeout(ctx, 1*time.Second, 5*time.Minute, false, func(ctx context.Context) (bool, error) {
+	err := wait.PollUntilContextTimeout(ctx, 1*time.Second, 15*time.Minute, false, func(ctx context.Context) (bool, error) {
 		ks, errGet = client.CoreV1().Secrets(namespace).Get(ctx,
 			util.GetKubeconfSecretNameByControlPlaneType(controlPlaneType),
 			metav1.GetOptions{})
