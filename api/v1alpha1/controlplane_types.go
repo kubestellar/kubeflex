@@ -79,6 +79,7 @@ const (
 	ControlPlaneTypeOCM      ControlPlaneType = "ocm"
 	ControlPlaneTypeVCluster ControlPlaneType = "vcluster"
 	ControlPlaneTypeHost     ControlPlaneType = "host"
+	ControlPlaneTypeExternal ControlPlaneType = "external"
 )
 
 // We do not use ObjectReference as its use is discouraged in favor of a locally defined type.
