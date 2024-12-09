@@ -99,5 +99,5 @@ func generateCondition(ctype ConditionType, reason ConditionReason, message stri
 }
 
 func addTime(t time.Duration) metav1.Time {
-	return metav1.NewTime(time.Now().Add(2 * time.Hour))
+	return metav1.NewTime(time.Now().Add(t))
 }
