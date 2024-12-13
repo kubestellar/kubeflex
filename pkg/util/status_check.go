@@ -137,7 +137,8 @@ func IsAPIServerDeploymentReady(log logr.Logger, c client.Client, hcp tenancyv1a
 	switch hcp.Spec.Type {
 
 	case tenancyv1alpha1.ControlPlaneTypeHost:
-		// host is always available
+	case tenancyv1alpha1.ControlPlaneTypeExternal:
+		// host or external is always available
 		return true, nil
 	case tenancyv1alpha1.ControlPlaneTypeVCluster:
 		s := &v1.StatefulSet{
@@ -176,7 +177,7 @@ func IsAPIServerDeploymentReady(log logr.Logger, c client.Client, hcp tenancyv1a
 			return true, nil
 		}
 	default:
-		log.Info("control plane type not supported", "type", hcp.Spec.Type)
+		log.Error(fmt.Errorf("control plane type not supported"), "type", hcp.Spec.Type)
 		return false, nil
 	}
 

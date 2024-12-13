@@ -54,21 +54,10 @@ func (r *ExternalReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
-	// if err := r.ReconcileServiceAccount(ctx, hcp); err != nil {
-	// 	return r.UpdateStatusForSyncingError(hcp, err)
-	// }
-
-	// if err := r.ReconcileServiceAccountSecret(ctx, hcp); err != nil {
-	// 	return r.UpdateStatusForSyncingError(hcp, err)
-	// }
-
-	// if err := r.ReconcileKubeconfigSecret(ctx, hcp); err != nil {
-	// 	return r.UpdateStatusForSyncingError(hcp, err)
-	// }
-
-	// if err := r.ReconcileClusterRoleBinding(ctx, hcp); err != nil {
-	// 	return r.UpdateStatusForSyncingError(hcp, err)
-	// }
+	err := r.ReconcileKubeconfigFromBoostrapSecret(ctx, hcp)
+	if err != nil {
+		return r.UpdateStatusForSyncingError(hcp, err)
+	}
 
 	r.UpdateStatusWithSecretRef(hcp, util.AdminConfSecret, util.KubeconfigSecretKeyDefault, util.KubeconfigSecretKeyInCluster)
 

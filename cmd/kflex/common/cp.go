@@ -23,6 +23,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
+	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
 type CP struct {
@@ -44,6 +45,13 @@ func GenerateControlPlane(name, controlPlaneType, backendType, hook string, hook
 	if hook != "" {
 		cp.Spec.PostCreateHook = &hook
 		cp.Spec.PostCreateHookVars = convertToMap(hookVars)
+	}
+	if controlPlaneType == string(tenancyv1alpha1.ControlPlaneTypeExternal) {
+		cp.Spec.BootstrapSecretRef = &tenancyv1alpha1.SecretReference{
+			Name:         util.GenerateBoostrapSecretName(name),
+			Namespace:    util.SystemNamespace,
+			InClusterKey: util.KubeconfigSecretKeyInCluster,
+		}
 	}
 	return cp
 }

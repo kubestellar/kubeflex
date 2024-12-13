@@ -120,7 +120,7 @@ func (r *HostReconciler) getServiceAccountToken(ctx context.Context, hcp *tenanc
 		},
 	}
 
-	if err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(saSecret), saSecret, &client.GetOptions{}); err != nil {
+	if err := r.Client.Get(ctx, client.ObjectKeyFromObject(saSecret), saSecret, &client.GetOptions{}); err != nil {
 		return nil, nil, err
 	}
 

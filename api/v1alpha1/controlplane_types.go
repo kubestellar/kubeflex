@@ -22,10 +22,17 @@ import (
 
 // ControlPlaneSpec defines the desired state of ControlPlane
 type ControlPlaneSpec struct {
-	Type               ControlPlaneType  `json:"type,omitempty"`
-	Backend            BackendDBType     `json:"backend,omitempty"`
-	PostCreateHook     *string           `json:"postCreateHook,omitempty"`
-	PostCreateHookVars map[string]string `json:"postCreateHookVars,omitempty"`
+	Type    ControlPlaneType `json:"type,omitempty"`
+	Backend BackendDBType    `json:"backend,omitempty"`
+	// BootstrapSecretRef contains a reference to the kubeconfig used to bootstrap adoption of
+	// an external cluster
+	// +optional
+	BootstrapSecretRef *SecretReference `json:"bootstrapSecretRef,omitempty"`
+	// expiration time for token of adopted cluster
+	// +optional
+	AdoptedTokenExpirationSeconds *int64            `json:"adoptedTokenExpirationSeconds,omitempty"`
+	PostCreateHook                *string           `json:"postCreateHook,omitempty"`
+	PostCreateHookVars            map[string]string `json:"postCreateHookVars,omitempty"`
 }
 
 // ControlPlaneStatus defines the observed state of ControlPlane
@@ -71,7 +78,7 @@ const (
 	BackendDBTypeDedicated BackendDBType = "dedicated"
 )
 
-// +kubebuilder:validation:Enum=k8s;ocm;vcluster;host
+// +kubebuilder:validation:Enum=k8s;ocm;vcluster;host;external
 type ControlPlaneType string
 
 const (
