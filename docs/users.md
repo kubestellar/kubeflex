@@ -280,6 +280,8 @@ clusters registration and support for the [`ManifestWork` API](https://open-clus
 - vcluster: this is based on the [vcluster project](https://www.vcluster.com) and provides the ability to create pods in the hosting namespace of the hosting cluster.
 - host: this control plane type exposes the underlying hosting cluster with the same control plane abstraction
 used by the other control plane types.
+- external: this control plane type exposes an external cluster with the same control plane abstraction
+used by the other control plane types.
 
 ## Control Plane Backends
 
@@ -312,6 +314,12 @@ To create a control plane of type `host` run the command:
 
 ```shell
 kflex create cp4 --type host
+```
+
+To create a control plane of type `external` with the required options, run the command: 
+
+```shell
+kflex adopt --adopted-context <kubeconfig-context-of-external-cluster> cp5
 ```
 
 ## Working with an OCM control plane
@@ -521,6 +529,63 @@ vcluster-0                                          2/2     Running   0         
 ```
 
 The nginx pod is the one with the name `nginx-x-default-x-vcluster`.
+
+## Working with an external control plane
+
+In this section, we will show an example of creating an external control plane to integrate
+a kind cluster named `ext1` into the same Docker network as your Kubeflex hosting cluster. This setup 
+requires that both clusters are accessible from each other within the shared Docker network.
+
+### Prerequisites
+Ensure that both your hosting and adopted clusters are on the same Docker network. For 
+clusters using the default `kind` docker network, execute the following command to 
+verify connectivity:
+
+```shell
+docker network inspect kind | jq '.[].Containers | to_entries[] | .value.Name'
+```
+
+The output will list the container names for your clusters. For example:
+
+```shell
+"ext1-control-plane" represents the external cluster you wish to adopt.
+"kubeflex-control-plane" represents the Kubeflex hosting cluster.
+```
+
+Once verified, the endpoint for the adopted cluster should be set as follows:
+
+```shell
+https://ext1-control-plane:6443
+```
+
+If you're not utilizing the default `kind` network, you'll need to identify which Docker networks are available. List all networks with this command:
+
+```shell
+docker network ls
+```
+
+Inspect any specific network to confirm its configuration using docker network inspect <network_name>.
+
+### Adopting the external cluster
+
+To set up the external cluster ext1 as a control plane named cpe, use the following command:
+
+```shell
+$ kflex adopt -c kind-ext1 -u https://ext1-control-plane:6443
+✔ Checking for saved hosting cluster context...
+✔ Switching to hosting cluster context...
+✔ Adopting control plane cpe of type external ...
+```
+
+where `kind-ext1` is the context name for the `ext1` cluster found in your current kubeconfig.
+and `https://ext1-control-plane:6443` is the endpoint you previously determined for the 
+external control plane.
+
+### External clusters on a different host
+
+If the external cluster operates on a different host and your kubeconfig context 
+contains an endpoint for that cluster which is not using a loopback interface, 
+specifying an override URL is unnecessary.
 
 ## Post-create hooks
 

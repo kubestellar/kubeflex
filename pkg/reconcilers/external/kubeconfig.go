@@ -49,6 +49,11 @@ var (
 func (r *ExternalReconciler) ReconcileKubeconfigFromBoostrapSecret(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
 	_ = clog.FromContext(ctx)
 
+	// do not reconcile if kubeconfig secret is already present
+	if r.IsKubeconfigSecretPresent(ctx, *hcp) {
+		return nil
+	}
+
 	bootstrapApiConfig, err := getKubeconfigFromBoostrapSecret(r.Client, ctx, hcp)
 	if err != nil {
 		return err
@@ -86,7 +91,7 @@ func (r *ExternalReconciler) ReconcileKubeconfigFromBoostrapSecret(ctx context.C
 		return fmt.Errorf("error creating kubeconfig secret: %v", err)
 	}
 
-	return nil
+	return deleteBoostrapSecret(r.Client, ctx, hcp)
 }
 
 func getKubeconfigFromBoostrapSecret(crClient client.Client, ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (*api.Config, error) {
@@ -266,4 +271,34 @@ func (r *ExternalReconciler) ReconcileKubeconfigSecret(ctx context.Context, cp t
 
 	// Update the existing kubeconfig secret
 	return r.Client.Update(ctx, kubeConfigSecret)
+}
+
+func deleteBoostrapSecret(crClient client.Client, ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
+	_ = clog.FromContext(ctx)
+
+	bootstrapSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      hcp.Spec.BootstrapSecretRef.Name,
+			Namespace: hcp.Spec.BootstrapSecretRef.Namespace,
+		},
+	}
+	return crClient.Delete(context.TODO(), bootstrapSecret)
+}
+
+func (r *ExternalReconciler) IsKubeconfigSecretPresent(ctx context.Context, cp tenancyv1alpha1.ControlPlane) bool {
+	namespace := util.GenerateNamespaceFromControlPlaneName(cp.Name)
+
+	kubeConfigSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      util.AdminConfSecret,
+			Namespace: namespace,
+		},
+	}
+
+	// Attempt to get the existing kubeconfig secret
+	if err := r.Client.Get(ctx, client.ObjectKeyFromObject(kubeConfigSecret), kubeConfigSecret); err == nil {
+		return true
+	}
+
+	return false
 }
