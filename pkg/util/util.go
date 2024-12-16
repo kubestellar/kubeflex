@@ -146,3 +146,14 @@ func ZeroFields(obj runtime.Object) runtime.Object {
 
 	return zeroed
 }
+
+func DefaultString(value, defaultValue string) string {
+	if value == "" {
+		return defaultValue
+	}
+	return value
+}
+
+func GenerateBoostrapSecretName(cpName string) string {
+	return fmt.Sprintf("%s-bootstrap", cpName)
+}

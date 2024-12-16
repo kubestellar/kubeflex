@@ -23,7 +23,7 @@ import (
 	"sync"
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -39,7 +39,11 @@ type CPDelete struct {
 
 func (c *CPDelete) Delete(chattyStatus bool) {
 	done := make(chan bool)
-	cp := c.generateControlPlane()
+	cp := &tenancyv1alpha1.ControlPlane{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: c.Name,
+		},
+	}
 	var wg sync.WaitGroup
 
 	util.PrintStatus(fmt.Sprintf("Deleting control plane %s...", c.Name), done, &wg, chattyStatus)
@@ -87,12 +91,4 @@ func (c *CPDelete) Delete(chattyStatus bool) {
 
 	done <- true
 	wg.Wait()
-}
-
-func (c *CPDelete) generateControlPlane() *tenancyv1alpha1.ControlPlane {
-	return &tenancyv1alpha1.ControlPlane{
-		ObjectMeta: v1.ObjectMeta{
-			Name: c.Name,
-		},
-	}
 }

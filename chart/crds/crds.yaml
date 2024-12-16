@@ -54,11 +54,42 @@ spec:
           spec:
             description: ControlPlaneSpec defines the desired state of ControlPlane
             properties:
+              adoptedTokenExpirationSeconds:
+                description: expiration time for token of adopted cluster
+                format: int64
+                type: integer
               backend:
                 enum:
                 - shared
                 - dedicated
                 type: string
+              bootstrapSecretRef:
+                description: |-
+                  BootstrapSecretRef contains a reference to the kubeconfig used to bootstrap adoption of
+                  an external cluster
+                properties:
+                  inClusterKey:
+                    description: Required
+                    type: string
+                  key:
+                    description: Required
+                    type: string
+                  name:
+                    description: |-
+                      `name` is the name of the secret.
+                      Required
+                    type: string
+                  namespace:
+                    description: |-
+                      `namespace` is the namespace of the secret.
+                      Required
+                    type: string
+                required:
+                - inClusterKey
+                - key
+                - name
+                - namespace
+                type: object
               postCreateHook:
                 type: string
               postCreateHookVars:
@@ -71,6 +102,7 @@ spec:
                 - ocm
                 - vcluster
                 - host
+                - external
                 type: string
             type: object
           status:

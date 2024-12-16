@@ -18,8 +18,11 @@ CONTAINER_REGISTRY ?= ghcr.io/kubestellar/kubeflex
 # latest tag
 LATEST_TAG ?= $(shell git describe --tags $(git rev-list --tags --max-count=1))
 
-# Image URL to use all building/pushing image targets
-IMG ?= ghcr.io/kubestellar/kubeflex/manager:latest
+KO_DOCKER_REPO ?= ko.local
+IMAGE_TAG ?= $(shell git rev-parse --short HEAD)
+CMD_NAME ?= manager
+IMG ?= ${KO_DOCKER_REPO}/${CMD_NAME}:${IMAGE_TAG}
+
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.26.1
 
@@ -194,6 +197,19 @@ chart: manifests kustomize
 	@kubectl create secret generic postcreate-hooks --from-file=/tmp/hooks.yaml --dry-run=client --output=yaml > chart/templates/builtin-hooks.yaml
 	@mkdir -p chart/crds
 	$(KUSTOMIZE) build config/crd > chart/crds/crds.yaml
+
+.PHONY: ko-local-build
+ko-local-build:
+	KO_DOCKER_REPO=${KO_DOCKER_REPO} ko build -B ./cmd/${CMD_NAME} -t ${IMAGE_TAG} --platform linux/${ARCH}
+
+# this is used for local testing
+.PHONY: kind-load-image
+kind-load-image:
+	kind load docker-image ${IMG} --name kubeflex
+
+.PHONY: install-local-chart
+install-local-chart: chart kind-load-image
+	helm upgrade --install --create-namespace -n kubeflex-system kubeflex-operator ./chart
 
 ##@ Build Dependencies
 

@@ -26,6 +26,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
+	"github.com/kubestellar/kubeflex/cmd/kflex/adopt"
 	"github.com/kubestellar/kubeflex/cmd/kflex/common"
 	cr "github.com/kubestellar/kubeflex/cmd/kflex/create"
 	cont "github.com/kubestellar/kubeflex/cmd/kflex/ctx"
@@ -53,6 +54,11 @@ var hookVars []string
 var hostContainer string
 var overwriteExistingCtx bool
 var setCurrentCtxAsHosting bool
+var adoptedKubeconfig string
+var adoptedContext string
+var adoptedURLOverride string
+var adoptedTokenExpirationSeconds int
+var skipURLOverride bool
 
 // defaults
 const BKTypeDefault = string(tenancyv1alpha1.BackendDBTypeShared)
@@ -116,7 +122,7 @@ var initCmd = &cobra.Command{
 }
 
 var createCmd = &cobra.Command{
-	Use:   "create",
+	Use:   "create <name>",
 	Short: "Create a control plane instance",
 	Long: `Create a control plane instance and switches the Kubeconfig context to
 	        the current instance`,
@@ -140,8 +146,32 @@ var createCmd = &cobra.Command{
 	},
 }
 
+var adoptCmd = &cobra.Command{
+	Use:   "adopt <name>",
+	Short: "Adopt a control plane from an external cluster",
+	Long: `Adopt a control plane from an external cluster and switches the Kubeconfig context to
+	        the current instance`,
+	Args: cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		cp := adopt.CPAdopt{
+			CP: common.CP{
+				Ctx:        createContext(),
+				Name:       args[0],
+				Kubeconfig: kubeconfig,
+			},
+			AdoptedKubeconfig:             adoptedKubeconfig,
+			AdoptedContext:                adoptedContext,
+			AdoptedURLOverride:            adoptedURLOverride,
+			AdoptedTokenExpirationSeconds: adoptedTokenExpirationSeconds,
+			SkipURLOverride:               skipURLOverride,
+		}
+		// create passing the control plane type and backend type
+		cp.Adopt(Hook, hookVars, chattyStatus)
+	},
+}
+
 var deleteCmd = &cobra.Command{
-	Use:   "delete",
+	Use:   "delete <name>",
 	Short: "Delete a control plane instance",
 	Long: `Delete a control plane instance and switches the context back to
 	        the hosting cluster context`,
@@ -201,6 +231,17 @@ func init() {
 	createCmd.Flags().BoolVarP(&chattyStatus, "chatty-status", "s", true, "chatty status indicator")
 	createCmd.Flags().StringArrayVarP(&hookVars, "set", "e", []string{}, "set post create hook variables, in the form name=value ")
 
+	adoptCmd.Flags().StringVarP(&kubeconfig, "kubeconfig", "k", "", "path to kubeconfig file")
+	adoptCmd.Flags().IntVarP(&verbosity, "verbosity", "v", 0, "log level") // TODO - figure out how to inject verbosity
+	adoptCmd.Flags().StringVarP(&Hook, "postcreate-hook", "p", "", "name of post create hook to run")
+	adoptCmd.Flags().BoolVarP(&chattyStatus, "chatty-status", "s", true, "chatty status indicator")
+	adoptCmd.Flags().BoolVarP(&skipURLOverride, "skip-url-override", "d", false, "skip URL override, used for local debugging only")
+	adoptCmd.Flags().StringArrayVarP(&hookVars, "set", "e", []string{}, "set post create hook variables, in the form name=value ")
+	adoptCmd.Flags().StringVarP(&adoptedKubeconfig, "adopted-kubeconfig", "a", "", "path to adopted cluster kubeconfig file. If unspecified, it uses the default Kubeconfig")
+	adoptCmd.Flags().StringVarP(&adoptedContext, "adopted-context", "c", "", "path to adopted cluster context in adopted kubeconfig")
+	adoptCmd.Flags().StringVarP(&adoptedURLOverride, "url-override", "u", "", "URL overrride for adopted cluster. Required when cluster address uses local host address, e.g. `https://127.0.0.1` ")
+	adoptCmd.Flags().IntVarP(&adoptedTokenExpirationSeconds, "expiration-seconds", "x", 86400*365, "adopted token expiration in seconds. Default is one year.")
+
 	deleteCmd.Flags().StringVarP(&kubeconfig, "kubeconfig", "k", "", "path to kubeconfig file")
 	deleteCmd.Flags().IntVarP(&verbosity, "verbosity", "v", 0, "log level") // TODO - figure out how to inject verbosity
 	deleteCmd.Flags().BoolVarP(&chattyStatus, "chatty-status", "s", true, "chatty status indicator")
@@ -214,6 +255,7 @@ func init() {
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(createCmd)
+	rootCmd.AddCommand(adoptCmd)
 	rootCmd.AddCommand(deleteCmd)
 	rootCmd.AddCommand(ctxCmd)
 }
