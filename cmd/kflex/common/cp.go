@@ -20,7 +20,7 @@ import (
 	"context"
 	"strings"
 
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/util"
@@ -34,7 +34,7 @@ type CP struct {
 
 func GenerateControlPlane(name, controlPlaneType, backendType, hook string, hookVars []string) *tenancyv1alpha1.ControlPlane {
 	cp := &tenancyv1alpha1.ControlPlane{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
 		Spec: tenancyv1alpha1.ControlPlaneSpec{
