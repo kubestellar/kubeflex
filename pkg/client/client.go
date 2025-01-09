@@ -46,7 +46,7 @@ func GetClientSet(kubeconfig string) (*kubernetes.Clientset, error) {
 	return clientset, nil
 }
 
-func GetClient(kubeconfig string) (*client.Client, error) {
+func GetClient(kubeconfig string) (client.Client, error) {
 	config, err := getConfig(kubeconfig)
 	if err != nil {
 		return nil, err
@@ -69,7 +69,7 @@ func GetClient(kubeconfig string) (*client.Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error creating client: %s", err)
 	}
-	return &c, nil
+	return c, nil
 }
 
 func GetOpendShiftSecClient(kubeconfig string) (*versioned.Clientset, error) {

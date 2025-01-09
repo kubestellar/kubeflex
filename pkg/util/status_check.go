@@ -135,9 +135,7 @@ func IsAPIServerDeploymentReady(log logr.Logger, c client.Client, hcp tenancyv1a
 	}
 
 	switch hcp.Spec.Type {
-
-	case tenancyv1alpha1.ControlPlaneTypeHost:
-	case tenancyv1alpha1.ControlPlaneTypeExternal:
+	case tenancyv1alpha1.ControlPlaneTypeHost, tenancyv1alpha1.ControlPlaneTypeExternal:
 		// host or external is always available
 		return true, nil
 	case tenancyv1alpha1.ControlPlaneTypeVCluster:

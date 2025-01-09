@@ -47,14 +47,13 @@ var (
 )
 
 func (r *ExternalReconciler) ReconcileKubeconfigFromBoostrapSecret(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
-	_ = clog.FromContext(ctx)
 
 	// do not reconcile if kubeconfig secret is already present
 	if r.IsKubeconfigSecretPresent(ctx, *hcp) {
 		return nil
 	}
 
-	bootstrapApiConfig, err := getKubeconfigFromBoostrapSecret(r.Client, ctx, hcp)
+	bootstrapApiConfig, err := getKubeconfigFromBootstrapSecret(r.Client, ctx, hcp)
 	if err != nil {
 		return err
 	}
@@ -69,15 +68,15 @@ func (r *ExternalReconciler) ReconcileKubeconfigFromBoostrapSecret(ctx context.C
 		return err
 	}
 
-	if err = reconcileAdoptedClusterRoleBinding(aClientset, adoptedClusterSAName, adoptedClusterSANamespace); err != nil {
+	if err = reconcileAdoptedClusterRoleBinding(ctx, aClientset, adoptedClusterSAName, adoptedClusterSANamespace); err != nil {
 		return fmt.Errorf("error creating ClusterRoleBinding on the adopted cluster: %v", err)
 	}
 
-	if err = reconcileAdoptedServiceAccount(aClientset.CoreV1().ServiceAccounts(adoptedClusterSANamespace), adoptedClusterSAName); err != nil {
+	if err = reconcileAdoptedServiceAccount(ctx, aClientset.CoreV1().ServiceAccounts(adoptedClusterSANamespace), adoptedClusterSAName); err != nil {
 		return fmt.Errorf("error creating ServiceAccount on the adopted cluster: %v", err)
 	}
 
-	bearerToken, err := requestTokenWithExpiration(aClientset.CoreV1().ServiceAccounts(adoptedClusterSANamespace), adoptedClusterSAName, hcp.Spec.AdoptedTokenExpirationSeconds)
+	bearerToken, err := requestTokenWithExpiration(ctx, aClientset.CoreV1().ServiceAccounts(adoptedClusterSANamespace), adoptedClusterSAName, hcp.Spec.AdoptedTokenExpirationSeconds)
 	if err != nil {
 		return fmt.Errorf("error requesting token from the adopted cluster: %v", err)
 	}
@@ -91,11 +90,10 @@ func (r *ExternalReconciler) ReconcileKubeconfigFromBoostrapSecret(ctx context.C
 		return fmt.Errorf("error creating kubeconfig secret: %v", err)
 	}
 
-	return deleteBoostrapSecret(r.Client, ctx, hcp)
+	return deleteBootstrapSecret(ctx, r.Client, hcp)
 }
 
-func getKubeconfigFromBoostrapSecret(crClient client.Client, ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (*api.Config, error) {
-	_ = clog.FromContext(ctx)
+func getKubeconfigFromBootstrapSecret(crClient client.Client, ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (*api.Config, error) {
 
 	if hcp.Spec.BootstrapSecretRef == nil {
 		return nil, fmt.Errorf("bootstrapSecretRef must be present in the control plane")
@@ -108,7 +106,7 @@ func getKubeconfigFromBoostrapSecret(crClient client.Client, ctx context.Context
 		},
 	}
 
-	err := crClient.Get(context.TODO(), client.ObjectKeyFromObject(bootstrapSecret), bootstrapSecret, &client.GetOptions{})
+	err := crClient.Get(ctx, client.ObjectKeyFromObject(bootstrapSecret), bootstrapSecret, &client.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -123,11 +121,11 @@ func getKubeconfigFromBoostrapSecret(crClient client.Client, ctx context.Context
 	return clientcmd.Load(kconfigBytes)
 }
 
-func reconcileAdoptedClusterRoleBinding(clientset *kubernetes.Clientset, saName, saNamespace string) error {
+func reconcileAdoptedClusterRoleBinding(ctx context.Context, clientset *kubernetes.Clientset, saName, saNamespace string) error {
 	name := saName + "-clusterrolebinding"
 
 	// Check if the ClusterRoleBinding already exists
-	_, err := clientset.RbacV1().ClusterRoleBindings().Get(context.TODO(), name, metav1.GetOptions{})
+	_, err := clientset.RbacV1().ClusterRoleBindings().Get(ctx, name, metav1.GetOptions{})
 	if err == nil {
 		return nil
 	}
@@ -155,7 +153,7 @@ func reconcileAdoptedClusterRoleBinding(clientset *kubernetes.Clientset, saName,
 	}
 
 	// Create the ClusterRoleBinding
-	_, err = clientset.RbacV1().ClusterRoleBindings().Create(context.TODO(), clusterRoleBinding, metav1.CreateOptions{})
+	_, err = clientset.RbacV1().ClusterRoleBindings().Create(ctx, clusterRoleBinding, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
@@ -163,10 +161,10 @@ func reconcileAdoptedClusterRoleBinding(clientset *kubernetes.Clientset, saName,
 	return nil
 }
 
-func reconcileAdoptedServiceAccount(saClient v1.ServiceAccountInterface, saName string) error {
+func reconcileAdoptedServiceAccount(ctx context.Context, saClient v1.ServiceAccountInterface, saName string) error {
 
 	// Check if the ServiceAccount already exists
-	_, err := saClient.Get(context.TODO(), saName, metav1.GetOptions{})
+	_, err := saClient.Get(ctx, saName, metav1.GetOptions{})
 	if err == nil {
 		return nil
 	}
@@ -182,7 +180,7 @@ func reconcileAdoptedServiceAccount(saClient v1.ServiceAccountInterface, saName 
 	}
 
 	// Create the ServiceAccount
-	_, err = saClient.Create(context.TODO(), sa, metav1.CreateOptions{})
+	_, err = saClient.Create(ctx, sa, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
@@ -190,7 +188,7 @@ func reconcileAdoptedServiceAccount(saClient v1.ServiceAccountInterface, saName 
 	return nil
 }
 
-func requestTokenWithExpiration(saClient v1.ServiceAccountInterface, saName string, expirationSeconds *int64) (string, error) {
+func requestTokenWithExpiration(ctx context.Context, saClient v1.ServiceAccountInterface, saName string, expirationSeconds *int64) (string, error) {
 	if expirationSeconds == nil {
 		expirationSeconds = &defaultAdoptedTokenExpirationSeconds
 	}
@@ -202,7 +200,7 @@ func requestTokenWithExpiration(saClient v1.ServiceAccountInterface, saName stri
 		},
 	}
 
-	tokenResponse, err := saClient.CreateToken(context.TODO(), saName, tokenRequest, metav1.CreateOptions{})
+	tokenResponse, err := saClient.CreateToken(ctx, saName, tokenRequest, metav1.CreateOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -219,18 +217,17 @@ func createNewKubeConfig(bootstrapConfig *api.Config, token string, hcp *tenancy
 
 	kubeConfig := api.NewConfig()
 
-	kubeConfig.Clusters[context.Cluster] = &api.Cluster{
-		Server:                   cluster.Server,
-		CertificateAuthorityData: cluster.CertificateAuthorityData,
-	}
+	kubeConfig.Clusters[context.Cluster] = cluster
 
 	kubeConfig.AuthInfos[hcp.Name] = &api.AuthInfo{
 		Token: token,
 	}
 
 	kubeConfig.Contexts[hcp.Name] = &api.Context{
-		Cluster:  context.Cluster,
-		AuthInfo: hcp.Name,
+		Cluster:    context.Cluster,
+		AuthInfo:   hcp.Name,
+		Namespace:  context.Namespace,
+		Extensions: context.Extensions,
 	}
 	kubeConfig.CurrentContext = hcp.Name
 
@@ -273,7 +270,7 @@ func (r *ExternalReconciler) ReconcileKubeconfigSecret(ctx context.Context, cp t
 	return r.Client.Update(ctx, kubeConfigSecret)
 }
 
-func deleteBoostrapSecret(crClient client.Client, ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
+func deleteBootstrapSecret(ctx context.Context, crClient client.Client, hcp *tenancyv1alpha1.ControlPlane) error {
 	_ = clog.FromContext(ctx)
 
 	bootstrapSecret := &corev1.Secret{
@@ -282,7 +279,7 @@ func deleteBoostrapSecret(crClient client.Client, ctx context.Context, hcp *tena
 			Namespace: hcp.Spec.BootstrapSecretRef.Namespace,
 		},
 	}
-	return crClient.Delete(context.TODO(), bootstrapSecret)
+	return crClient.Delete(ctx, bootstrapSecret)
 }
 
 func (r *ExternalReconciler) IsKubeconfigSecretPresent(ctx context.Context, cp tenancyv1alpha1.ControlPlane) bool {

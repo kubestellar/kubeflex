@@ -18,6 +18,7 @@ package common
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,7 +33,7 @@ type CP struct {
 	Name       string
 }
 
-func GenerateControlPlane(name, controlPlaneType, backendType, hook string, hookVars []string) *tenancyv1alpha1.ControlPlane {
+func GenerateControlPlane(name, controlPlaneType, backendType, hook string, hookVars []string) (*tenancyv1alpha1.ControlPlane, error) {
 	cp := &tenancyv1alpha1.ControlPlane{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
@@ -44,7 +45,11 @@ func GenerateControlPlane(name, controlPlaneType, backendType, hook string, hook
 	}
 	if hook != "" {
 		cp.Spec.PostCreateHook = &hook
-		cp.Spec.PostCreateHookVars = convertToMap(hookVars)
+		var err error
+		cp.Spec.PostCreateHookVars, err = convertToMap(hookVars)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if controlPlaneType == string(tenancyv1alpha1.ControlPlaneTypeExternal) {
 		cp.Spec.BootstrapSecretRef = &tenancyv1alpha1.SecretReference{
@@ -53,18 +58,33 @@ func GenerateControlPlane(name, controlPlaneType, backendType, hook string, hook
 			InClusterKey: util.KubeconfigSecretKeyInCluster,
 		}
 	}
-	return cp
+	return cp, nil
 }
 
-func convertToMap(pairs []string) map[string]string {
+func convertToMap(pairs []string) (map[string]string, error) {
 	params := make(map[string]string)
 
 	for _, pair := range pairs {
-		split := strings.SplitN(pair, "=", 2)
-		if len(split) == 2 {
-			params[split[0]] = split[1]
+		// Ensure the pair is not empty
+		if pair == "" {
+			continue
 		}
+
+		// Split the pair into key and value using "=" as the delimiter
+		split := strings.SplitN(pair, "=", 2)
+		if len(split) != 2 {
+			return nil, fmt.Errorf("unexpected expression %q. Must be in the form 'key=value'", pair)
+		}
+
+		key := strings.TrimSpace(split[0])
+		value := strings.TrimSpace(split[1])
+
+		if key == "" {
+			return nil, fmt.Errorf("invalid key in expression %q", pair)
+		}
+
+		params[key] = value
 	}
 
-	return params
+	return params, nil
 }

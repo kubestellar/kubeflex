@@ -72,7 +72,6 @@ spec:
                     description: Required
                     type: string
                   key:
-                    description: Required
                     type: string
                   name:
                     description: |-
@@ -86,7 +85,6 @@ spec:
                     type: string
                 required:
                 - inClusterKey
-                - key
                 - name
                 - namespace
                 type: object
@@ -151,7 +149,6 @@ spec:
                     description: Required
                     type: string
                   key:
-                    description: Required
                     type: string
                   name:
                     description: |-
@@ -165,7 +162,6 @@ spec:
                     type: string
                 required:
                 - inClusterKey
-                - key
                 - name
                 - namespace
                 type: object
@@ -285,7 +281,6 @@ spec:
                     description: Required
                     type: string
                   key:
-                    description: Required
                     type: string
                   name:
                     description: |-
@@ -299,7 +294,6 @@ spec:
                     type: string
                 required:
                 - inClusterKey
-                - key
                 - name
                 - namespace
                 type: object

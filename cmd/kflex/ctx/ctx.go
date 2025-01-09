@@ -124,12 +124,11 @@ func (c *CPCtx) Context(chattyStatus, failIfNone, overwriteExistingCtx, setCurre
 }
 
 func (c *CPCtx) loadAndMergeFromServer(kconfig *api.Config) error {
-	kfcClientp, err := kfclient.GetClient(c.Kubeconfig)
+	kfcClient, err := kfclient.GetClient(c.Kubeconfig)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error getting kf client: %s\n", err)
 		os.Exit(1)
 	}
-	kfcClient := *kfcClientp
 
 	cp := &tenancyv1alpha1.ControlPlane{
 		ObjectMeta: metav1.ObjectMeta{

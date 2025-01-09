@@ -67,12 +67,11 @@ func (c *CPDelete) Delete(chattyStatus bool) {
 		os.Exit(1)
 	}
 
-	kfcClientp, err := kfclient.GetClient(c.Kubeconfig)
+	kfcClient, err := kfclient.GetClient(c.Kubeconfig)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error getting kf client: %s\n", err)
 		os.Exit(1)
 	}
-	kfcClient := *kfcClientp
 
 	if err := kfcClient.Delete(context.TODO(), cp, &client.DeleteOptions{}); err != nil {
 		fmt.Fprintf(os.Stderr, "Error deleting instance: %s\n", err)

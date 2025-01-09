@@ -43,14 +43,17 @@ func (c *CPCreate) Create(controlPlaneType, backendType, hook string, hookVars [
 	cx := cont.CPCtx{}
 	cx.Context(chattyStatus, false, false, false)
 
-	clp, err := kfclient.GetClient(c.Kubeconfig)
+	cl, err := kfclient.GetClient(c.Kubeconfig)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error getting client: %v\n", err)
 		os.Exit(1)
 	}
-	cl := *clp
 
-	cp := common.GenerateControlPlane(c.Name, controlPlaneType, backendType, hook, hookVars)
+	cp, err := common.GenerateControlPlane(c.Name, controlPlaneType, backendType, hook, hookVars)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error generating control plane object: %v\n", err)
+		os.Exit(1)
+	}
 
 	util.PrintStatus(fmt.Sprintf("Creating new control plane %s of type %s ...", c.Name, controlPlaneType), done, &wg, chattyStatus)
 	if err := cl.Create(context.TODO(), cp, &client.CreateOptions{}); err != nil {

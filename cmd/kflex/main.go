@@ -58,7 +58,6 @@ var adoptedKubeconfig string
 var adoptedContext string
 var adoptedURLOverride string
 var adoptedTokenExpirationSeconds int
-var skipURLOverride bool
 
 // defaults
 const BKTypeDefault = string(tenancyv1alpha1.BackendDBTypeShared)
@@ -163,7 +162,6 @@ var adoptCmd = &cobra.Command{
 			AdoptedContext:                adoptedContext,
 			AdoptedURLOverride:            adoptedURLOverride,
 			AdoptedTokenExpirationSeconds: adoptedTokenExpirationSeconds,
-			SkipURLOverride:               skipURLOverride,
 		}
 		// create passing the control plane type and backend type
 		cp.Adopt(Hook, hookVars, chattyStatus)
@@ -212,10 +210,10 @@ var ctxCmd = &cobra.Command{
 }
 
 func init() {
-	versionCmd.Flags().StringVarP(&kubeconfig, "kubeconfig", "k", "", "path to kubeconfig file")
+	versionCmd.Flags().StringVarP(&kubeconfig, "kubeconfig", "k", "", "path to kubeconfig file. If not specified, the default is ${HOME}/.kube/config")
 	versionCmd.Flags().BoolVarP(&chattyStatus, "chatty-status", "s", true, "chatty status indicator")
 
-	initCmd.Flags().StringVarP(&kubeconfig, "kubeconfig", "k", "", "path to kubeconfig file")
+	initCmd.Flags().StringVarP(&kubeconfig, "kubeconfig", "k", "", "path to kubeconfig file. If not specified, the default is ${HOME}/.kube/config")
 	initCmd.Flags().IntVarP(&verbosity, "verbosity", "v", 0, "log level") // TODO - figure out how to inject verbosity
 	initCmd.Flags().BoolVarP(&createkind, "create-kind", "c", false, "Create and configure a kind cluster for installing Kubeflex")
 	initCmd.Flags().StringVarP(&domain, "domain", "d", "localtest.me", "domain for FQDN")
@@ -223,7 +221,7 @@ func init() {
 	initCmd.Flags().IntVarP(&externalPort, "externalPort", "p", 9443, "external port used by ingress")
 	initCmd.Flags().BoolVarP(&chattyStatus, "chatty-status", "s", true, "chatty status indicator")
 
-	createCmd.Flags().StringVarP(&kubeconfig, "kubeconfig", "k", "", "path to kubeconfig file")
+	createCmd.Flags().StringVarP(&kubeconfig, "kubeconfig", "k", "", "path to kubeconfig file. If not specified, the default is ${HOME}/.kube/config")
 	createCmd.Flags().IntVarP(&verbosity, "verbosity", "v", 0, "log level") // TODO - figure out how to inject verbosity
 	createCmd.Flags().StringVarP(&CType, "type", "t", "", "type of control plane: k8s|ocm|vcluster")
 	createCmd.Flags().StringVarP(&BkType, "backend-type", "b", "", "backend DB sharing: shared|dedicated")
@@ -231,22 +229,21 @@ func init() {
 	createCmd.Flags().BoolVarP(&chattyStatus, "chatty-status", "s", true, "chatty status indicator")
 	createCmd.Flags().StringArrayVarP(&hookVars, "set", "e", []string{}, "set post create hook variables, in the form name=value ")
 
-	adoptCmd.Flags().StringVarP(&kubeconfig, "kubeconfig", "k", "", "path to kubeconfig file")
+	adoptCmd.Flags().StringVarP(&kubeconfig, "kubeconfig", "k", "", "path to the kubeconfig file for the KubeFlex hosting cluster. If not specified, the default is ${HOME}/.kube/config")
 	adoptCmd.Flags().IntVarP(&verbosity, "verbosity", "v", 0, "log level") // TODO - figure out how to inject verbosity
 	adoptCmd.Flags().StringVarP(&Hook, "postcreate-hook", "p", "", "name of post create hook to run")
 	adoptCmd.Flags().BoolVarP(&chattyStatus, "chatty-status", "s", true, "chatty status indicator")
-	adoptCmd.Flags().BoolVarP(&skipURLOverride, "skip-url-override", "d", false, "skip URL override, used for local debugging only")
 	adoptCmd.Flags().StringArrayVarP(&hookVars, "set", "e", []string{}, "set post create hook variables, in the form name=value ")
-	adoptCmd.Flags().StringVarP(&adoptedKubeconfig, "adopted-kubeconfig", "a", "", "path to adopted cluster kubeconfig file. If unspecified, it uses the default Kubeconfig")
+	adoptCmd.Flags().StringVarP(&adoptedKubeconfig, "adopted-kubeconfig", "a", "", "path to the kubeconfig file for the adopted cluster. If unspecified, it uses the default Kubeconfig")
 	adoptCmd.Flags().StringVarP(&adoptedContext, "adopted-context", "c", "", "path to adopted cluster context in adopted kubeconfig")
 	adoptCmd.Flags().StringVarP(&adoptedURLOverride, "url-override", "u", "", "URL overrride for adopted cluster. Required when cluster address uses local host address, e.g. `https://127.0.0.1` ")
 	adoptCmd.Flags().IntVarP(&adoptedTokenExpirationSeconds, "expiration-seconds", "x", 86400*365, "adopted token expiration in seconds. Default is one year.")
 
-	deleteCmd.Flags().StringVarP(&kubeconfig, "kubeconfig", "k", "", "path to kubeconfig file")
+	deleteCmd.Flags().StringVarP(&kubeconfig, "kubeconfig", "k", "", "path to kubeconfig file. If not specified, the default is ${HOME}/.kube/config")
 	deleteCmd.Flags().IntVarP(&verbosity, "verbosity", "v", 0, "log level") // TODO - figure out how to inject verbosity
 	deleteCmd.Flags().BoolVarP(&chattyStatus, "chatty-status", "s", true, "chatty status indicator")
 
-	ctxCmd.Flags().StringVarP(&kubeconfig, "kubeconfig", "k", "", "path to kubeconfig file")
+	ctxCmd.Flags().StringVarP(&kubeconfig, "kubeconfig", "k", "", "path to kubeconfig file. If not specified, the default is ${HOME}/.kube/config")
 	ctxCmd.Flags().IntVarP(&verbosity, "verbosity", "v", 0, "log level") // TODO - figure out how to inject verbosity
 	ctxCmd.Flags().BoolVarP(&chattyStatus, "chatty-status", "s", true, "chatty status indicator")
 	ctxCmd.Flags().BoolVarP(&overwriteExistingCtx, "overwrite-existing-context", "o", false, "Overwrite of hosting cluster context with new control plane context")

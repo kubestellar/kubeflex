@@ -18,9 +18,10 @@ package adopt
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/url"
 	"os"
-	"strings"
 	"sync"
 
 	"path/filepath"
@@ -47,7 +48,6 @@ type CPAdopt struct {
 	AdoptedContext                string
 	AdoptedURLOverride            string
 	AdoptedTokenExpirationSeconds int
-	SkipURLOverride               bool
 }
 
 // Adopt a control plane from another cluster
@@ -60,14 +60,13 @@ func (c *CPAdopt) Adopt(hook string, hookVars []string, chattyStatus bool) {
 	controlPlaneType := tenancyv1alpha1.ControlPlaneTypeExternal
 	util.PrintStatus(fmt.Sprintf("Adopting control plane %s of type %s ...", c.Name, controlPlaneType), done, &wg, chattyStatus)
 
-	adoptedKubeconfig := getAdoptedKubeconfig(c)
+	bootstrapKubeconfig := getBootstrapKubeconfig(c)
 
-	clp, err := kfclient.GetClient(c.Kubeconfig)
+	cl, err := kfclient.GetClient(c.Kubeconfig)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error getting kubeflex client: %v\n", err)
 		os.Exit(1)
 	}
-	cl := *clp
 
 	clientsetp, err := kfclient.GetClientSet(c.Kubeconfig)
 	if err != nil {
@@ -75,12 +74,16 @@ func (c *CPAdopt) Adopt(hook string, hookVars []string, chattyStatus bool) {
 		os.Exit(1)
 	}
 
-	if err := applyAdoptedBootstrapSecret(clientsetp, c.Name, adoptedKubeconfig, c.AdoptedContext, c.AdoptedURLOverride, c.SkipURLOverride); err != nil {
+	if err := applyAdoptedBootstrapSecret(clientsetp, c.Name, bootstrapKubeconfig, c.AdoptedContext, c.AdoptedURLOverride); err != nil {
 		fmt.Fprintf(os.Stderr, "error creating adopted cluster kubeconfig: %v\n", err)
 		os.Exit(1)
 	}
 
-	cp := common.GenerateControlPlane(c.Name, string(controlPlaneType), "", hook, hookVars)
+	cp, err := common.GenerateControlPlane(c.Name, string(controlPlaneType), "", hook, hookVars)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error generating control plane object: %v\n", err)
+		os.Exit(1)
+	}
 
 	if err := cl.Create(context.TODO(), cp, &client.CreateOptions{}); err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating ControlPlane object: %v\n", err)
@@ -91,11 +94,11 @@ func (c *CPAdopt) Adopt(hook string, hookVars []string, chattyStatus bool) {
 	wg.Wait()
 }
 
-func applyAdoptedBootstrapSecret(clientset *kubernetes.Clientset, cpName, adoptedKubeconfig, contextName, adoptedURLOverride string, skipURLOverride bool) error {
+func applyAdoptedBootstrapSecret(clientset *kubernetes.Clientset, cpName, bootstrapKubeconfig, contextName, adoptedURLOverride string) error {
 	// Load the kubeconfig from file
-	config, err := clientcmd.LoadFromFile(adoptedKubeconfig)
+	config, err := clientcmd.LoadFromFile(bootstrapKubeconfig)
 	if err != nil {
-		return fmt.Errorf("failed to load kubeconfig file %s: %v", adoptedKubeconfig, err)
+		return fmt.Errorf("failed to load kubeconfig file %s: %v", bootstrapKubeconfig, err)
 	}
 
 	// Retrieve the specified context
@@ -115,16 +118,13 @@ func applyAdoptedBootstrapSecret(clientset *kubernetes.Clientset, cpName, adopte
 
 	kubeConfig.Clusters[context.Cluster] = cluster
 
-	if !skipURLOverride {
-		// Determine the server endpoint
-		endpoint := adoptedURLOverride
-		if endpoint == "" {
-			endpoint = cluster.Server
-			if !isValidServerURL(endpoint) {
-				return fmt.Errorf("invalid server endpoint %s. Please provide a valid value with the `url-override` option", endpoint)
-			}
+	kubeConfig.Clusters[context.Cluster].Server = cluster.Server
+
+	if adoptedURLOverride != "" {
+		if err := isValidServerURL(adoptedURLOverride); err != nil {
+			return fmt.Errorf("invalid server endpoint %s. Please provide a valid value with the `url-override` option", adoptedURLOverride)
 		}
-		kubeConfig.Clusters[context.Cluster].Server = endpoint
+		kubeConfig.Clusters[context.Cluster].Server = adoptedURLOverride
 	}
 
 	if authInfo, exists := config.AuthInfos[context.AuthInfo]; exists {
@@ -134,8 +134,10 @@ func applyAdoptedBootstrapSecret(clientset *kubernetes.Clientset, cpName, adopte
 	}
 
 	kubeConfig.Contexts[contextName] = &api.Context{
-		Cluster:  context.Cluster,
-		AuthInfo: contextName,
+		Cluster:    context.Cluster,
+		AuthInfo:   contextName,
+		Extensions: context.Extensions,
+		Namespace:  context.Namespace,
 	}
 	kubeConfig.CurrentContext = contextName
 
@@ -186,39 +188,68 @@ func createOrUpdateSecret(clientset *kubernetes.Clientset, cpName string, kubeco
 	return nil
 }
 
-// check if the current server URL in the adopted cluster kubeconfig is using
-// a local address, which would not work in a container
-func isValidServerURL(serverURL string) bool {
+// check if the current server URL in the adopted cluster kubeconfig is a valid URL
+// and it not using a local address, which would not work in a container
+func isValidServerURL(serverURL string) error {
+	// Parse the URL
+	parsedURL, err := url.Parse(serverURL)
+	if err != nil {
+		return fmt.Errorf("invalid URL: %v", err)
+	}
+
+	// Ensure the URL scheme is either http or https
+	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+		return errors.New("URL must start with http:// or https://")
+	}
+
+	// Ensure the host is non-empty
+	if parsedURL.Host == "" {
+		return errors.New("URL must have a host part")
+	}
+
+	// Reject URLs with user information (i.e., username or password)
+	if parsedURL.User != nil {
+		return errors.New("URL must not contain user info")
+	}
+
+	// Reject URLs containing query parameters
+	if parsedURL.RawQuery != "" {
+		return errors.New("URL must not contain query parameters")
+	}
+
+	// Reject URLs containing fragments
+	if parsedURL.Fragment != "" {
+		return errors.New("URL must not contain fragments")
+	}
+
 	localAddresses := []string{"127.0.0.1", "localhost", "::1"}
 	for _, addr := range localAddresses {
-		if strings.Contains(serverURL, addr) {
-			return false
+		if parsedURL.Host == addr {
+			return fmt.Errorf("URL must not use addresses in %v", localAddresses)
 		}
 	}
-	return true
+	return nil
 }
 
-func getAdoptedKubeconfig(c *CPAdopt) string {
+func getBootstrapKubeconfig(c *CPAdopt) string {
 	if c.AdoptedKubeconfig != "" {
 		return c.AdoptedKubeconfig
 	}
 	if c.Kubeconfig != "" {
 		return c.Kubeconfig
 	}
-	return getKubeConfigFromEnv(c.Kubeconfig)
+	return getKubeConfigFromEnv()
 }
 
-func getKubeConfigFromEnv(kubeconfig string) string {
+func getKubeConfigFromEnv() string {
+	kubeconfig := os.Getenv("KUBECONFIG")
 	if kubeconfig == "" {
-		kubeconfig = os.Getenv("KUBECONFIG")
-		if kubeconfig == "" {
-			home, err := homedir.Dir()
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error finding home directory: %v\n", err)
-				os.Exit(1)
-			}
-			kubeconfig = filepath.Join(home, ".kube", "config")
+		home, err := homedir.Dir()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error finding home directory: %v\n", err)
+			os.Exit(1)
 		}
+		kubeconfig = filepath.Join(home, ".kube", "config")
 	}
 	return kubeconfig
 }

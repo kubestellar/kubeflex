@@ -24,7 +24,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	clog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/shared"
@@ -48,7 +47,6 @@ func New(cl client.Client, scheme *runtime.Scheme, version string, clientSet *ku
 }
 
 func (r *ExternalReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
-	_ = clog.FromContext(ctx)
 
 	if err := r.BaseReconciler.ReconcileNamespace(ctx, hcp); err != nil {
 		return r.UpdateStatusForSyncingError(hcp, err)
