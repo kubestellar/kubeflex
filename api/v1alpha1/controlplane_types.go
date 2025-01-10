@@ -24,11 +24,11 @@ import (
 type ControlPlaneSpec struct {
 	Type    ControlPlaneType `json:"type,omitempty"`
 	Backend BackendDBType    `json:"backend,omitempty"`
-	// BootstrapSecretRef contains a reference to the kubeconfig used to bootstrap adoption of
+	// bootstrapSecretRef contains a reference to the kubeconfig used to bootstrap adoption of
 	// an external cluster
 	// +optional
 	BootstrapSecretRef *SecretReference `json:"bootstrapSecretRef,omitempty"`
-	// expiration time for generated auth token
+	// tokenExpirationSeconds is the expiration time for generated auth token
 	// +optional
 	// +kubebuilder:default:=31536000
 	TokenExpirationSeconds *int64            `json:"tokenExpirationSeconds,omitempty"`

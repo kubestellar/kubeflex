@@ -280,7 +280,7 @@ clusters registration and support for the [`ManifestWork` API](https://open-clus
 - vcluster: this is based on the [vcluster project](https://www.vcluster.com) and provides the ability to create pods in the hosting namespace of the hosting cluster.
 - host: this control plane type exposes the underlying hosting cluster with the same control plane abstraction
 used by the other control plane types.
-- external: this control plane type represents an existing cluster that was not created or hosted by KubeFlex.
+- external: this control plane type represents an existing cluster that was not created by KubeFlex and is not the KubeFlex hosting cluster.
 
 ## Control Plane Backends
 
@@ -342,8 +342,7 @@ kubectl --kubeconfig=$EXTERNAL_KUBECONFIG config view --minify --flatten \
 If the Kubeconfig for your external cluster uses a loopback address for the server URL, you
 need to follow these [steps](#determining-the-endpoint-for-an-external-cluster-using-loopback-address) 
 to determine the address to use for `cluster.server` in the Kubeconfig and set that value in
-the `$BOOTSTRAP_KUBECONFIG` created in the previous step. If the address is the value of `$INTERNAL_ADDRESS`
-then you can update the bootstrap Kubeconfig as follows:
+the file referenced by`$BOOTSTRAP_KUBECONFIG` created in the previous step. If the address is the value of `$INTERNAL_ADDRESS` then you can update the bootstrap Kubeconfig as follows:
 
 ```shell
 # e.g. INTERNAL_ADDRESS=https://ext1-control-plane:6443
@@ -603,14 +602,13 @@ The nginx pod is the one with the name `nginx-x-default-x-vcluster`.
 ## Working with an external control plane
 
 In this section, we will show an example of creating an external control plane to adopt
-a kind cluster named `ext1`. This setup requires that the external cluster `ext1` 
+a kind cluster named `ext1`. This example supposes that the external cluster `ext1` 
 and the KubeFlex hosting cluster are on the same docker network.
 
 ### Determining the endpoint for an external cluster using loopback address
 
-This is a common scenario when adopting kind or k3d. Ensure that both your 
-hosting and adopted clusters are on the same Docker network. For 
-clusters using the default `kind` docker network, execute the following command to 
+This is a common scenario when adopting kind or k3d. For clusters using the 
+default `kind` docker network, execute the following command to 
 check the DNS name of the external cluster `ext1` on the docker network:
 
 ```shell
