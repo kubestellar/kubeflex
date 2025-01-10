@@ -52,7 +52,7 @@ func (r *ExternalReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
-	if err := r.ReconcileKubeconfigFromBoostrapSecret(ctx, hcp); err != nil {
+	if err := r.ReconcileKubeconfigFromBootstrapSecret(ctx, hcp); err != nil {
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 

@@ -33,7 +33,7 @@ type CP struct {
 	Name       string
 }
 
-func GenerateControlPlane(name, controlPlaneType, backendType, hook string, hookVars []string) (*tenancyv1alpha1.ControlPlane, error) {
+func GenerateControlPlane(name, controlPlaneType, backendType, hook string, hookVars []string, tokenExpirationSeconds *int64) (*tenancyv1alpha1.ControlPlane, error) {
 	cp := &tenancyv1alpha1.ControlPlane{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
@@ -53,9 +53,12 @@ func GenerateControlPlane(name, controlPlaneType, backendType, hook string, hook
 	}
 	if controlPlaneType == string(tenancyv1alpha1.ControlPlaneTypeExternal) {
 		cp.Spec.BootstrapSecretRef = &tenancyv1alpha1.SecretReference{
-			Name:         util.GenerateBoostrapSecretName(name),
+			Name:         util.GenerateBootstrapSecretName(name),
 			Namespace:    util.SystemNamespace,
 			InClusterKey: util.KubeconfigSecretKeyInCluster,
+		}
+		if tokenExpirationSeconds != nil {
+			cp.Spec.TokenExpirationSeconds = tokenExpirationSeconds
 		}
 	}
 	return cp, nil

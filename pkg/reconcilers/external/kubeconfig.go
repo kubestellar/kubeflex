@@ -46,7 +46,7 @@ var (
 	defaultAdoptedTokenExpirationSeconds int64 = 365 * 86400
 )
 
-func (r *ExternalReconciler) ReconcileKubeconfigFromBoostrapSecret(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
+func (r *ExternalReconciler) ReconcileKubeconfigFromBootstrapSecret(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
 
 	// do not reconcile if kubeconfig secret is already present
 	if r.IsKubeconfigSecretPresent(ctx, *hcp) {
@@ -76,7 +76,7 @@ func (r *ExternalReconciler) ReconcileKubeconfigFromBoostrapSecret(ctx context.C
 		return fmt.Errorf("error creating ServiceAccount on the adopted cluster: %v", err)
 	}
 
-	bearerToken, err := requestTokenWithExpiration(ctx, aClientset.CoreV1().ServiceAccounts(adoptedClusterSANamespace), adoptedClusterSAName, hcp.Spec.AdoptedTokenExpirationSeconds)
+	bearerToken, err := requestTokenWithExpiration(ctx, aClientset.CoreV1().ServiceAccounts(adoptedClusterSANamespace), adoptedClusterSAName, hcp.Spec.TokenExpirationSeconds)
 	if err != nil {
 		return fmt.Errorf("error requesting token from the adopted cluster: %v", err)
 	}

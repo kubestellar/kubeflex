@@ -154,6 +154,6 @@ func DefaultString(value, defaultValue string) string {
 	return value
 }
 
-func GenerateBoostrapSecretName(cpName string) string {
+func GenerateBootstrapSecretName(cpName string) string {
 	return fmt.Sprintf("%s-bootstrap", cpName)
 }

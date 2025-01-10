@@ -49,7 +49,7 @@ func (c *CPCreate) Create(controlPlaneType, backendType, hook string, hookVars [
 		os.Exit(1)
 	}
 
-	cp, err := common.GenerateControlPlane(c.Name, controlPlaneType, backendType, hook, hookVars)
+	cp, err := common.GenerateControlPlane(c.Name, controlPlaneType, backendType, hook, hookVars, nil)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error generating control plane object: %v\n", err)
 		os.Exit(1)

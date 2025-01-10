@@ -280,8 +280,7 @@ clusters registration and support for the [`ManifestWork` API](https://open-clus
 - vcluster: this is based on the [vcluster project](https://www.vcluster.com) and provides the ability to create pods in the hosting namespace of the hosting cluster.
 - host: this control plane type exposes the underlying hosting cluster with the same control plane abstraction
 used by the other control plane types.
-- external: this control plane type exposes an external cluster with the same control plane abstraction
-used by the other control plane types.
+- external: this control plane type represents an existing cluster that was not created or hosted by KubeFlex.
 
 ## Control Plane Backends
 
@@ -340,11 +339,11 @@ kubectl --kubeconfig=$EXTERNAL_KUBECONFIG config view --minify --flatten \
 --context=$EXTERNAL_CONTEXT > $BOOTSTRAP_KUBECONFIG
 ```
 
-If your external cluster is on the same host machine as the KubeFlex hosting cluster, you
-need to follow these [steps](#determining-the-endpoint-for-an-external-cluster-in-the-same-host-machine) 
+If the Kubeconfig for your external cluster uses a loopback address for the server URL, you
+need to follow these [steps](#determining-the-endpoint-for-an-external-cluster-using-loopback-address) 
 to determine the address to use for `cluster.server` in the Kubeconfig and set that value in
-the $BOOTSTRAP_KUBECONFIG created in the previous step. If the address is set in $INTERNAL_ADDRESS
-then you can update the $B as follows:
+the `$BOOTSTRAP_KUBECONFIG` created in the previous step. If the address is the value of `$INTERNAL_ADDRESS`
+then you can update the bootstrap Kubeconfig as follows:
 
 ```shell
 # e.g. INTERNAL_ADDRESS=https://ext1-control-plane:6443
@@ -359,7 +358,7 @@ kubectl create secret generic ${CP_NAME}-bootstrap --from-file=kubeconfig-inclus
 ```
 where `${CP_NAME}` is the name of the control plane to create.
 
-*Important*: once the KubeFlex controller generates a long-lived token, it removes the boostrap secret.
+*Important*: once the KubeFlex controller generates a long-lived token, it removes the bootstrap secret.
 
 Finally, you can create the new control plane of type "external" applying the following yaml:
 
@@ -607,8 +606,10 @@ In this section, we will show an example of creating an external control plane t
 a kind cluster named `ext1`. This setup requires that the external cluster `ext1` 
 and the KubeFlex hosting cluster are on the same docker network.
 
-### Determining the endpoint for an external cluster in the same host machine
-Ensure that both your hosting and adopted clusters are on the same Docker network. For 
+### Determining the endpoint for an external cluster using loopback address
+
+This is a common scenario when adopting kind or k3d. Ensure that both your 
+hosting and adopted clusters are on the same Docker network. For 
 clusters using the default `kind` docker network, execute the following command to 
 check the DNS name of the external cluster `ext1` on the docker network:
 
@@ -624,11 +625,9 @@ The output will show something similar to the following:
   "79540574c3c7"
 ]
 ```
-The endpoint for the adopted cluster should then be set as follows:
 
-```shell
-https://ext1-control-plane:6443
-```
+The endpoint for the adopted cluster should then be set to `https://ext1-control-plane:6443`. Note that
+the port `6443` is a default value used by kind.
 
 If you're not utilizing the default `kind` network, you'll need to make sure that the external cluster `ext1` 
 and the KubeFlex hosting cluster are on the same docker network. 

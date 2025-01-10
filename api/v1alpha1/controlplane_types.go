@@ -28,11 +28,12 @@ type ControlPlaneSpec struct {
 	// an external cluster
 	// +optional
 	BootstrapSecretRef *SecretReference `json:"bootstrapSecretRef,omitempty"`
-	// expiration time for token of adopted cluster
+	// expiration time for generated auth token
 	// +optional
-	AdoptedTokenExpirationSeconds *int64            `json:"adoptedTokenExpirationSeconds,omitempty"`
-	PostCreateHook                *string           `json:"postCreateHook,omitempty"`
-	PostCreateHookVars            map[string]string `json:"postCreateHookVars,omitempty"`
+	// +kubebuilder:default:=31536000
+	TokenExpirationSeconds *int64            `json:"tokenExpirationSeconds,omitempty"`
+	PostCreateHook         *string           `json:"postCreateHook,omitempty"`
+	PostCreateHookVars     map[string]string `json:"postCreateHookVars,omitempty"`
 }
 
 // ControlPlaneStatus defines the observed state of ControlPlane

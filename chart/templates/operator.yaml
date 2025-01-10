@@ -591,7 +591,6 @@ spec:
         - --secure-listen-address=0.0.0.0:8443
         - --upstream=http://127.0.0.1:8080/
         - --logtostderr=true
-        - --v=0
         image: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1
         name: kube-rbac-proxy
         ports:
@@ -620,7 +619,7 @@ spec:
           value: /tmp
         - name: HELM_CACHE_HOME
           value: /tmp
-        image: ko.local/manager:756f7b7
+        image: ko.local/manager:28260e7
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:

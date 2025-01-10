@@ -108,8 +108,8 @@ func (in *ControlPlaneSpec) DeepCopyInto(out *ControlPlaneSpec) {
 		*out = new(SecretReference)
 		**out = **in
 	}
-	if in.AdoptedTokenExpirationSeconds != nil {
-		in, out := &in.AdoptedTokenExpirationSeconds, &out.AdoptedTokenExpirationSeconds
+	if in.TokenExpirationSeconds != nil {
+		in, out := &in.TokenExpirationSeconds, &out.TokenExpirationSeconds
 		*out = new(int64)
 		**out = **in
 	}
