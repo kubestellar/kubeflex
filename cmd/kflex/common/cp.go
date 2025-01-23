@@ -39,8 +39,9 @@ func GenerateControlPlane(name, controlPlaneType, backendType, hook string, hook
 			Name: name,
 		},
 		Spec: tenancyv1alpha1.ControlPlaneSpec{
-			Type:    tenancyv1alpha1.ControlPlaneType(controlPlaneType),
-			Backend: tenancyv1alpha1.BackendDBType(backendType),
+			Type:                   tenancyv1alpha1.ControlPlaneType(controlPlaneType),
+			Backend:                tenancyv1alpha1.BackendDBType(backendType),
+			TokenExpirationSeconds: tokenExpirationSeconds,
 		},
 	}
 	if hook != "" {
@@ -52,13 +53,10 @@ func GenerateControlPlane(name, controlPlaneType, backendType, hook string, hook
 		}
 	}
 	if controlPlaneType == string(tenancyv1alpha1.ControlPlaneTypeExternal) {
-		cp.Spec.BootstrapSecretRef = &tenancyv1alpha1.SecretReference{
+		cp.Spec.BootstrapSecretRef = &tenancyv1alpha1.BootstrapSecretReference{
 			Name:         util.GenerateBootstrapSecretName(name),
 			Namespace:    util.SystemNamespace,
 			InClusterKey: util.KubeconfigSecretKeyInCluster,
-		}
-		if tokenExpirationSeconds != nil {
-			cp.Spec.TokenExpirationSeconds = tokenExpirationSeconds
 		}
 	}
 	return cp, nil

@@ -61,13 +61,11 @@ spec:
                 type: string
               bootstrapSecretRef:
                 description: |-
-                  BootstrapSecretRef contains a reference to the kubeconfig used to bootstrap adoption of
+                  bootstrapSecretRef contains a reference to the kubeconfig used to bootstrap adoption of
                   an external cluster
                 properties:
                   inClusterKey:
                     description: Required
-                    type: string
-                  key:
                     type: string
                   name:
                     description: |-
@@ -92,7 +90,8 @@ spec:
                 type: object
               tokenExpirationSeconds:
                 default: 31536000
-                description: expiration time for generated auth token
+                description: tokenExpirationSeconds is the expiration time for generated
+                  auth token
                 format: int64
                 type: integer
               type:

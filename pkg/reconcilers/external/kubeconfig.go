@@ -111,7 +111,7 @@ func getKubeconfigFromBootstrapSecret(crClient client.Client, ctx context.Contex
 		return nil, err
 	}
 
-	key := util.DefaultString(hcp.Spec.BootstrapSecretRef.Key, util.KubeconfigSecretKeyInCluster)
+	key := util.DefaultString(hcp.Spec.BootstrapSecretRef.InClusterKey, util.KubeconfigSecretKeyInCluster)
 
 	kconfigBytes := bootstrapSecret.Data[key]
 	if kconfigBytes == nil {

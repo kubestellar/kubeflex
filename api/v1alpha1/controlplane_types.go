@@ -27,7 +27,7 @@ type ControlPlaneSpec struct {
 	// bootstrapSecretRef contains a reference to the kubeconfig used to bootstrap adoption of
 	// an external cluster
 	// +optional
-	BootstrapSecretRef *SecretReference `json:"bootstrapSecretRef,omitempty"`
+	BootstrapSecretRef *BootstrapSecretReference `json:"bootstrapSecretRef,omitempty"`
 	// tokenExpirationSeconds is the expiration time for generated auth token
 	// +optional
 	// +kubebuilder:default:=31536000
@@ -101,6 +101,19 @@ type SecretReference struct {
 	Name string `json:"name"`
 	// +optional
 	Key string `json:"key"`
+	// Required
+	InClusterKey string `json:"inClusterKey"`
+}
+
+// We do not use ObjectReference as its use is discouraged in favor of a locally defined type.
+// See ObjectReference in https://github.com/kubernetes/api/blob/master/core/v1/types.go
+type BootstrapSecretReference struct {
+	// `namespace` is the namespace of the secret.
+	// Required
+	Namespace string `json:"namespace"`
+	// `name` is the name of the secret.
+	// Required
+	Name string `json:"name"`
 	// Required
 	InClusterKey string `json:"inClusterKey"`
 }

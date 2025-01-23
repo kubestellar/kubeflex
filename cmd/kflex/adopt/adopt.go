@@ -146,17 +146,17 @@ func applyAdoptedBootstrapSecret(clientset *kubernetes.Clientset, cpName, bootst
 		return fmt.Errorf("failed to serialize the new kubeconfig: %w", err)
 	}
 
-	createOrUpdateSecret(clientset, cpName, newKubeConfig)
-
-	return nil
+	return createOrUpdateSecret(clientset, cpName, newKubeConfig)
 }
 
 func createOrUpdateSecret(clientset *kubernetes.Clientset, cpName string, kubeconfig []byte) error {
 
+	bootstrapSecretName := util.GenerateBootstrapSecretName(cpName)
+
 	// Define the kubeconfig secret
 	kubeConfigSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      util.GenerateBootstrapSecretName(cpName),
+			Name:      bootstrapSecretName,
 			Namespace: util.SystemNamespace,
 		},
 		Type: corev1.SecretTypeOpaque,
@@ -168,9 +168,9 @@ func createOrUpdateSecret(clientset *kubernetes.Clientset, cpName string, kubeco
 		// Check if the error is because the secret already exists
 		if apierrors.IsAlreadyExists(err) {
 			// Retrieve the existing secret
-			existingSecret, getErr := clientset.CoreV1().Secrets(util.SystemNamespace).Get(context.TODO(), util.AdminConfSecret, metav1.GetOptions{})
+			existingSecret, getErr := clientset.CoreV1().Secrets(util.SystemNamespace).Get(context.TODO(), bootstrapSecretName, metav1.GetOptions{})
 			if getErr != nil {
-				return fmt.Errorf("failed to fetch existing secret %s in namespace %s: %w", util.AdminConfSecret, util.SystemNamespace, getErr)
+				return fmt.Errorf("failed to fetch existing secret %s in namespace %s: %w", util.AdminConfSecret, bootstrapSecretName, getErr)
 			}
 
 			// Update the data of the existing secret
@@ -178,10 +178,10 @@ func createOrUpdateSecret(clientset *kubernetes.Clientset, cpName string, kubeco
 
 			// Update the secret with new data
 			if _, updateErr := clientset.CoreV1().Secrets(util.SystemNamespace).Update(context.TODO(), existingSecret, metav1.UpdateOptions{}); updateErr != nil {
-				return fmt.Errorf("failed to update existing secret %s in namespace %s: %w", util.AdminConfSecret, util.SystemNamespace, updateErr)
+				return fmt.Errorf("failed to update existing secret %s in namespace %s: %w", bootstrapSecretName, util.SystemNamespace, updateErr)
 			}
 		} else {
-			return fmt.Errorf("failed to create secret %s in namespace %s: %w", util.AdminConfSecret, util.SystemNamespace, err)
+			return fmt.Errorf("failed to create secret %s in namespace %s: %w", bootstrapSecretName, util.SystemNamespace, err)
 		}
 	}
 
