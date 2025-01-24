@@ -25,12 +25,15 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	clog "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/host"
@@ -163,14 +166,36 @@ func (r *ControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 func (r *ControlPlaneReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&tenancyv1alpha1.ControlPlane{}).
-		Owns(&corev1.Service{}).
 		Owns(&networkingv1.Ingress{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&appsv1.StatefulSet{}).
-		Owns(&corev1.Secret{}).
 		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.ServiceAccount{}).
+		Owns(&corev1.Secret{}).
+		Watches(&corev1.Secret{}, enqueueSecretsOfInterest()).
 		Complete(r)
+}
+
+func enqueueSecretsOfInterest() handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
+		secret, ok := o.(*corev1.Secret)
+		if !ok {
+			return nil
+		}
+
+		// Check if the secret has the specified name
+		var matches []reconcile.Request
+		if secret.Name == util.VClusterKubeConfigSecret {
+			matches = append(matches, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      secret.GetName(),
+					Namespace: secret.GetNamespace(),
+				},
+			})
+		}
+
+		return matches
+	})
 }
 
 func (r *ControlPlaneReconciler) deleteExternalResources(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
