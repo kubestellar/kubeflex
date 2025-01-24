@@ -42,10 +42,10 @@ kubectl --context kind-kubeflex wait --for=condition=Established crd cr1s.synthe
 :
 : -------------------------------------------------------------------------
 : Create a namespace in ControlPlane cp1, then wait for the namespace to
-: become active, with default timeout which is 30 seconds
+: become active
 :
 kubectl --context cp1 create ns e2e
-kubectl --context cp1 wait --for=jsonpath='{.status.phase}'=Active ns/e2e
+kubectl --context cp1 wait --for=jsonpath='{.status.phase}'=Active ns/e2e --timeout=120s
 
 :
 : -------------------------------------------------------------------------

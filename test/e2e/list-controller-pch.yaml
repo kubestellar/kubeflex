@@ -11,7 +11,7 @@ spec:
     spec:
       containers:
       - name: list-controller-container
-        image: bitnami/kubectl:latest  # Ensure this image has the kubectl tool
+        image: bitnami/kubectl:1.29
         command: ["/bin/sh", "-c"]
         args:
         - |

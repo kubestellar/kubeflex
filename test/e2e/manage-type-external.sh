@@ -23,9 +23,9 @@ EXT_CLUSTER_NAME=ext
 
 :
 : -------------------------------------------------------------------------
-: Apply a post-create-hook for testing
+: Define a post-create-hook for testing
 :
-kubectl --context kind-kubeflex apply -f ${SRC_DIR}/pod-pch.yaml
+kubectl --context kind-kubeflex apply -f ${SRC_DIR}/list-controller-pch.yaml
 
 :
 : -------------------------------------------------------------------------

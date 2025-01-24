@@ -619,7 +619,7 @@ spec:
           value: /tmp
         - name: HELM_CACHE_HOME
           value: /tmp
-        image: to-be-set-by-ci
+        image: ko.local/manager:cedb64d
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:

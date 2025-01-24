@@ -90,9 +90,13 @@ const (
 	ControlPlaneTypeExternal ControlPlaneType = "external"
 )
 
-// SecretReference is a reference to a secret that holds the kubeconfig for
-// a control planes hosted in the kubeflex hosting cluster, or for a kubeconfig
-// for the hosting cluster itself (in the case of a control plane of type 'host')
+// SecretReference is a reference to a secret that holds the kubeconfigs for
+// a control plane hosted in the kubeflex hosting cluster, or for a kubeconfig
+// for the hosting cluster itself (in the case of a control plane of type 'host').
+// The 'Key' field references the kubeconfig that can be used for acccess to a control
+// plane API server from outside the KubeFlex hosting cluster, while the 'InClusterKey'
+// references the kubeconfig that can be used for acccess to a control
+// plane API server from inside the cluster.
 // We do not use ObjectReference as its use is discouraged in favor of a locally defined type.
 // See ObjectReference in https://github.com/kubernetes/api/blob/master/core/v1/types.go
 type SecretReference struct {
