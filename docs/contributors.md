@@ -22,17 +22,34 @@ make build-all
 export PATH=$(pwd)/bin:$PATH
 ```
 
-## Commands to build and load locally the kubeflex operator image for testing
+## Prepare a hosting cluster to test
+
+One quick way to get started is just to use the kflex CLI to create
+the KubeFlex hosting cluster setup with the nginx ingress and the postgres
+DB:
 
 ```shell
-ko build --local --push=false -B ./cmd/manager -t $(git rev-parse --short HEAD) --platform linux/arm64
-kind load docker-image ko.local/manager:$(git rev-parse --short HEAD) --name kubeflex
+kflex init --create-kind 
 ```
 
-To deploy locally the image:
+Once the hosting cluster is setup, you may build a local image, load it into
+kind and install the local helm chart, which upgrades the existing helm chart
+installed init by the `kflex init` command to use the new image (and updated CRDs
+if there are CRDs changes). 
+
+## Commands to build and load locally the kubeflex operator image for testing
+
+Build the OCI image and store it in the local docker image registry
 
 ```shell
-make deploy IMG=ko.local/manager:$(git rev-parse --short HEAD)
+make ko-local-build  
+```
+
+Load the local image in kind, re-generate manifests and helm chart, and install
+the helm chart:
+
+```shell
+make install-local-chart
 ```
 
 ##  Locally building cmupdate image

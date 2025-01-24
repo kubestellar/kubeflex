@@ -23,3 +23,4 @@ kubectl config use-context kind-kubeflex
 kubectl config delete-context cp1 &> /dev/null
 kubectl config delete-context cp2 &> /dev/null
 kind delete cluster --name kubeflex
+kind delete cluster --name ext

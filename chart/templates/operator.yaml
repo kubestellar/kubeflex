@@ -619,7 +619,7 @@ spec:
           value: /tmp
         - name: HELM_CACHE_HOME
           value: /tmp
-        image: to-be-replaced-by-ci
+        image: to-be-set-by-ci
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
