@@ -18,7 +18,7 @@ CONTAINER_REGISTRY ?= ghcr.io/kubestellar/kubeflex
 # latest tag
 LATEST_TAG ?= $(shell git describe --tags $(git rev-list --tags --max-count=1))
 
-KO_DOCKER_REPO ?= ko.local
+KO_DOCKER_REPO = ko.local
 IMAGE_TAG ?= $(shell git rev-parse --short HEAD)
 CMD_NAME ?= manager
 IMG ?= ${KO_DOCKER_REPO}/${CMD_NAME}:${IMAGE_TAG}
@@ -200,7 +200,7 @@ chart: manifests kustomize
 
 .PHONY: ko-local-build
 ko-local-build:
-	KO_DOCKER_REPO=ko.local ko build -B ./cmd/${CMD_NAME} -t ${IMAGE_TAG} --platform linux/${ARCH}
+	KO_DOCKER_REPO=${KO_DOCKER_REPO} ko build -B ./cmd/${CMD_NAME} -t ${IMAGE_TAG} --platform linux/${ARCH}
 
 # this is used for local testing
 .PHONY: kind-load-image
