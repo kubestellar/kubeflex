@@ -92,7 +92,8 @@ const (
 
 // SecretReference is a reference to a secret that holds the kubeconfigs for
 // a control plane hosted in the kubeflex hosting cluster, or for a kubeconfig
-// for the hosting cluster itself (in the case of a control plane of type 'host').
+// for the hosting cluster itself (in the case of a control plane of type 'host') or
+// for a control plane representing an external cluster.
 // The 'Key' field references the kubeconfig that can be used for acccess to a control
 // plane API server from outside the KubeFlex hosting cluster, while the 'InClusterKey'
 // references the kubeconfig that can be used for acccess to a control

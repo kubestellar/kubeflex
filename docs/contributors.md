@@ -22,34 +22,19 @@ make build-all
 export PATH=$(pwd)/bin:$PATH
 ```
 
-## Prepare a hosting cluster to test
+## Setting Up a Testing Cluster for KubeFlex
 
-One quick way to get started is just to use the kflex CLI to create
-the KubeFlex hosting cluster setup with the nginx ingress and the postgres
-DB:
+To prepare a hosting cluster for testing, execute the following script. 
+This script accomplishes several key tasks:
 
-```shell
-kflex init --create-kind 
-```
-
-Once the hosting cluster is setup, you may build a local image, load it into
-kind and install the local helm chart, which upgrades the existing helm chart
-installed init by the `kflex init` command to use the new image (and updated CRDs
-if there are CRDs changes). 
-
-## Commands to build and load locally the kubeflex operator image for testing
-
-Build the OCI image and store it in the local docker image registry
+- Creates a new kind cluster specifically designed for the KubeFlex hosting environment.
+- Configures nginx ingress with SSL passthrough capabilities to ensure secure communication.
+- Builds and loads the KubeFlex Controller Manager image into the kind cluster.
+- Installs a PostgreSQL database, providing the default backend for hosted API servers.
+- Starts the KubeFlex controller manager.
 
 ```shell
-make ko-local-build  
-```
-
-Load the local image in kind, re-generate manifests and helm chart, and install
-the helm chart:
-
-```shell
-make install-local-chart
+test/e2e/setup-kubeflex.sh 
 ```
 
 ##  Locally building cmupdate image

@@ -58,11 +58,7 @@ func (c *CPDelete) Delete(chattyStatus bool) {
 		os.Exit(1)
 	}
 
-	if err = kubeconfig.DeleteContext(kconf, c.Name); err != nil {
-		fmt.Fprintf(os.Stderr, "no kubeconfig context for %s was found: %s\n", c.Name, err)
-	}
-
-	if err = kubeconfig.WriteKubeconfig(c.Ctx, kconf); err != nil {
+	if err := kubeconfig.WriteKubeconfig(c.Ctx, kconf); err != nil {
 		fmt.Fprintf(os.Stderr, "Error writing kubeconfig: %s\n", err)
 		os.Exit(1)
 	}
@@ -71,6 +67,10 @@ func (c *CPDelete) Delete(chattyStatus bool) {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error getting kf client: %s\n", err)
 		os.Exit(1)
+	}
+
+	if err := kfcClient.Get(context.TODO(), client.ObjectKeyFromObject(cp), cp, &client.GetOptions{}); err != nil {
+		fmt.Fprintf(os.Stderr, "control plane not found on server: %s", err)
 	}
 
 	if err := kfcClient.Delete(context.TODO(), cp, &client.DeleteOptions{}); err != nil {
@@ -87,6 +87,19 @@ func (c *CPDelete) Delete(chattyStatus bool) {
 	clientset := *clientsetp
 	util.PrintStatus(fmt.Sprintf("Waiting for control plane %s to be deleted...", c.Name), done, &wg, chattyStatus)
 	util.WaitForNamespaceDeletion(clientset, util.GenerateNamespaceFromControlPlaneName(c.Name))
+
+	if cp.Spec.Type != tenancyv1alpha1.ControlPlaneTypeHost &&
+		cp.Spec.Type != tenancyv1alpha1.ControlPlaneTypeExternal {
+		if err := kubeconfig.DeleteContext(kconf, c.Name); err != nil {
+			fmt.Fprintf(os.Stderr, "no kubeconfig context for %s was found: %s\n", c.Name, err)
+			os.Exit(1)
+		}
+
+		if err := kubeconfig.WriteKubeconfig(c.Ctx, kconf); err != nil {
+			fmt.Fprintf(os.Stderr, "Error writing kubeconfig: %s\n", err)
+			os.Exit(1)
+		}
+	}
 
 	done <- true
 	wg.Wait()
