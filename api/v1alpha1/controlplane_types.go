@@ -107,6 +107,9 @@ type SecretReference struct {
 	// `name` is the name of the secret.
 	// Required
 	Name string `json:"name"`
+	// This field is present for control planes of type `k8s`, `vcluster`, `ocm`, `host`.`
+	// it is not present for control planes of type `external`.
+	// Controllers for control planes of type `external` should always use the `InClusterKey`.
 	// +optional
 	Key string `json:"key"`
 	// Required

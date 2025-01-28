@@ -19,7 +19,6 @@ set -e # exit on error
 SRC_DIR="$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)"
 
 ${SRC_DIR}/cleanup.sh
-source "${SRC_DIR}/setup-shell.sh"
 ${SRC_DIR}/setup-kubeflex.sh
 ${SRC_DIR}/manage-type-k8s.sh
 ${SRC_DIR}/manage-type-vcluster.sh

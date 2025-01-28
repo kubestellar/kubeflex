@@ -377,7 +377,7 @@ EOF
 ```
 You can verify that the control plane has been created correctly with the command:
 
-```shell
+```console
 $ kubectl get cps
 NAME   SYNCED   READY   TYPE       AGE
 ext1   True     True    external   5s
@@ -385,7 +385,7 @@ ext1   True     True    external   5s
 
 and check that the secret with the long-lived token has been created in `${CP_NAME}-system`:
 
-```shell
+```console
 $ kubectl get secrets -n ${CP_NAME}-system
 NAME               TYPE     DATA   AGE
 admin-kubeconfig   Opaque   1      4m47s
@@ -395,7 +395,7 @@ admin-kubeconfig   Opaque   1      4m47s
 
 Let's create an OCM control plane:
 
-```shell
+```console
 $ kflex create cp3 --type ocm
 ✔ Checking for saved hosting cluster context...
 ✔ Switching to hosting cluster context...
@@ -405,7 +405,7 @@ $ kflex create cp3 --type ocm
 
 We may check the CRDs available for the OCM control plane:
 
-```shell
+```console
 $ kubectl get crds
 NAME                                                           CREATED AT
 addondeploymentconfigs.addon.open-cluster-management.io        2023-07-08T21:17:44Z
@@ -432,7 +432,7 @@ With the current context set to the ocm control plane, we can use `clusteradm` t
 used to register managed clusters:
 
 ```shell
-$ clusteradm get token --use-bootstrap-token
+clusteradm get token --use-bootstrap-token
 clusteradm join --hub-token <some value> --hub-apiserver https://cp3.localtest.me:9443/ --cluster-name <cluster_name>
 ```
 
@@ -464,7 +464,7 @@ and verifies that a Certificate Signing Request (csr) has been created on the OC
 running the command `kubectl get csr`. The CSR request is part of the mechanism used by OCM
 to register a new cluster. You should see an output simlar to the following:
 
-```shell
+```console
 $ kubectl get csr
 NAME             AGE   SIGNERNAME                            REQUESTOR                 REQUESTEDDURATION   CONDITION
 cluster1-zx5x5   7s    kubernetes.io/kube-apiserver-client   system:bootstrap:j5bork   <none>              Pending
@@ -478,7 +478,7 @@ clusteradm accept --clusters cluster1
 
 You can now see the new cluster in the OCM inventory:
 
-```shell
+```console
 $ kubectl get managedclusters
 NAME       HUB ACCEPTED   MANAGED CLUSTER URLS                  JOINED   AVAILABLE   AGE
 cluster1   true           https://cluster1-control-plane:6443   True     True        3m25s
@@ -533,7 +533,7 @@ and list deployments:
 kflex ctx kind-cluster1
 ```
 
-```shell
+```console
 $ kubectl get deployments.apps
 NAME               READY   UP-TO-DATE   AVAILABLE   AGE
 nginx-deployment   3/3     3            3           20s
@@ -543,7 +543,7 @@ nginx-deployment   3/3     3            3           20s
 
 Let's create a vcluster control plane:
 
-```shell
+```console
 $ kflex create cp2 --type vcluster
 ✔ Checking for saved hosting cluster context...
 ✔ Creating new control plane cp2...
@@ -558,7 +558,7 @@ kubectl run nginx --image=nginx
 
 Verify the pod is running:
 
-```shell
+```console
 $ kubectl get pods
 NAME    READY   STATUS    RESTARTS   AGE
 nginx   1/1     Running   0          24s
@@ -566,7 +566,7 @@ nginx   1/1     Running   0          24s
 
 Access the pod logs:
 
-```shell
+```console
 $ kubectl logs nginx
 /docker-entrypoint.sh: /docker-entrypoint.d/ is not empty, will attempt to perform configuration
 /docker-entrypoint.sh: Looking for shell scripts in /docker-entrypoint.d/
@@ -575,7 +575,7 @@ $ kubectl logs nginx
 
 Exec into the pod and run the `ls` command:
 
-```shell
+```console
 $ kubectl exec -it nginx -- sh
 # ls
 bin   dev                  docker-entrypoint.sh  home  media  opt   product_uuid  run   srv  tmp  var
@@ -589,7 +589,7 @@ namespace:
 kflex ctx
 ```
 
-```shell
+```console
 $ kubectl get pods -n cp2-system
 NAME                                                READY   STATUS    RESTARTS   AGE
 coredns-64c4b4d78f-2w9bx-x-kube-system-x-vcluster   1/1     Running   0          6m58s
@@ -640,7 +640,7 @@ docker inspect kubeflex-control-plane | jq '.[].NetworkSettings.Networks | keys[
 To set up the external cluster ext1 as a control plane named cpe, use the following command:
 
 ```shell
-$ kflex adopt --adopted-context kind-ext1 --url-override https://ext1-control-plane:6443 ext1
+kflex adopt --adopted-context kind-ext1 --url-override https://ext1-control-plane:6443 ext1
 ```
 
 Explanation of command parameters:

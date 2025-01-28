@@ -32,7 +32,7 @@ kubectl --context kind-kubeflex -n cp2-system wait --for=condition=Complete job/
 :
 : -------------------------------------------------------------------------
 : Create a Deployment in ControlPlane cp2, then wait for the Deployment
-: to become available, with default timeout which is 30 seconds
+: to become available
 :
 kubectl --context cp2 create deployment my-nginx --image nginx 
 kubectl --context cp2 wait --for=condition=Available deploy/my-nginx --timeout=120s

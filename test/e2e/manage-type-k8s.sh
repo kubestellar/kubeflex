@@ -16,6 +16,9 @@
 set -x # echo so that users can understand what is happening
 set -e # exit on error
 
+SRC_DIR="$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)"
+source "${SRC_DIR}/setup-shell.sh"
+
 :
 : -------------------------------------------------------------------------
 : Create a ControlPlane of type k8s

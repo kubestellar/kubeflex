@@ -150,6 +150,10 @@ spec:
                     description: Required
                     type: string
                   key:
+                    description: |-
+                      This field is present for control planes of type `k8s`, `vcluster`, `ocm`, `host`.`
+                      it is not present for control planes of type `external`.
+                      Controllers for control planes of type `external` should always use the `InClusterKey`.
                     type: string
                   name:
                     description: |-
