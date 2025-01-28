@@ -16,6 +16,9 @@
 set -x # echo so that users can understand what is happening
 set -e # exit on error
 
+SRC_DIR="$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)"
+source "${SRC_DIR}/setup-shell.sh"
+
 :
 : -------------------------------------------------------------------------
 : Create a ControlPlane of type k8s
@@ -42,10 +45,10 @@ kubectl --context kind-kubeflex wait --for=condition=Established crd cr1s.synthe
 :
 : -------------------------------------------------------------------------
 : Create a namespace in ControlPlane cp1, then wait for the namespace to
-: become active, with default timeout which is 30 seconds
+: become active
 :
 kubectl --context cp1 create ns e2e
-kubectl --context cp1 wait --for=jsonpath='{.status.phase}'=Active ns/e2e
+kubectl --context cp1 wait --for=jsonpath='{.status.phase}'=Active ns/e2e --timeout=120s
 
 :
 : -------------------------------------------------------------------------

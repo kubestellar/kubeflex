@@ -59,18 +59,48 @@ spec:
                 - shared
                 - dedicated
                 type: string
+              bootstrapSecretRef:
+                description: |-
+                  bootstrapSecretRef contains a reference to the kubeconfig used to bootstrap adoption of
+                  an external cluster
+                properties:
+                  inClusterKey:
+                    description: Required
+                    type: string
+                  name:
+                    description: |-
+                      `name` is the name of the secret.
+                      Required
+                    type: string
+                  namespace:
+                    description: |-
+                      `namespace` is the namespace of the secret.
+                      Required
+                    type: string
+                required:
+                - inClusterKey
+                - name
+                - namespace
+                type: object
               postCreateHook:
                 type: string
               postCreateHookVars:
                 additionalProperties:
                   type: string
                 type: object
+              tokenExpirationSeconds:
+                default: 31536000
+                description: tokenExpirationSeconds is the expiration time for generated
+                  auth token
+                format: int64
+                type: integer
               type:
                 enum:
                 - k8s
                 - ocm
                 - vcluster
                 - host
+                - external
                 type: string
             type: object
           status:
@@ -119,7 +149,10 @@ spec:
                     description: Required
                     type: string
                   key:
-                    description: Required
+                    description: |-
+                      This field is present for control planes of type `k8s`, `vcluster`, `ocm`, `host`.`
+                      it is not present for control planes of type `external`.
+                      Controllers for control planes of type `external` should always use the `InClusterKey`.
                     type: string
                   name:
                     description: |-
@@ -133,7 +166,6 @@ spec:
                     type: string
                 required:
                 - inClusterKey
-                - key
                 - name
                 - namespace
                 type: object
@@ -253,7 +285,10 @@ spec:
                     description: Required
                     type: string
                   key:
-                    description: Required
+                    description: |-
+                      This field is present for control planes of type `k8s`, `vcluster`, `ocm`, `host`.`
+                      it is not present for control planes of type `external`.
+                      Controllers for control planes of type `external` should always use the `InClusterKey`.
                     type: string
                   name:
                     description: |-
@@ -267,7 +302,6 @@ spec:
                     type: string
                 required:
                 - inClusterKey
-                - key
                 - name
                 - namespace
                 type: object

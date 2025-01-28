@@ -46,3 +46,31 @@ function expect-cmd-output() {
 }
 
 export -f expect-cmd-output
+
+# wait for secret
+wait-for-secret() {
+    local context="$1"
+    local namespace="$2"
+    local secretName="$3"
+   
+
+    if [ -z "$secretName" ] || [ -z "$namespace" ] || [ -z "$context" ] ; then
+        echo "Usage: waitForSecret <context> <namespace> <secret-name>"
+        return 1
+    fi
+
+    echo "Waiting for secret '$secretName' to exist in the namespace '$namespace' and context '$context'..."
+
+    set +e
+    while true; do
+        kubectl --context "$context" get secret "$secretName" -n "$namespace" >/dev/null 2>&1
+        if [ $? -eq 0 ]; then
+            echo "Secret '$secretName' found in namespace '$namespace'."
+            break
+        fi
+        sleep 2
+    done
+    set -e
+}
+
+export -f wait-for-secret

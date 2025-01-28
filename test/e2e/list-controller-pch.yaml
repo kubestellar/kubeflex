@@ -1,0 +1,32 @@
+apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
+kind: PostCreateHook
+metadata:
+  name: list-controller
+spec:
+  templates:
+  - apiVersion: v1
+    kind: Pod
+    metadata:
+      name: list-controller
+    spec:
+      containers:
+      - name: list-controller-container
+        image: bitnami/kubectl:1.29
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          while true; do
+            if [[ ! kubectl --kubeconfig=/root/.kube/kubeconfig-incluster get namespace kube-system ]]; then
+              echo "Error encountered while listing namespaces. Exiting..."
+              exit 1
+            fi
+            sleep 2
+          done
+        volumeMounts:
+        - name: kubeconfig-volume
+          mountPath: "/root/.kube"
+      restartPolicy: Never
+      volumes:
+      - name: kubeconfig-volume
+        secret:
+          secretName: admin-kubeconfig

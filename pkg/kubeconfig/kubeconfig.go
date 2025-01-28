@@ -22,6 +22,7 @@ import (
 	"time"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -138,6 +139,36 @@ func WatchForSecretCreation(clientset kubernetes.Clientset, controlPlaneName, se
 
 	go controller.Run(stopCh)
 	<-stopCh
+	return nil
+}
+
+func WaitForNamespaceReady(ctx context.Context, clientset kubernetes.Interface, controlPlaneName string) error {
+	namespace := util.GenerateNamespaceFromControlPlaneName(controlPlaneName)
+
+	err := wait.PollUntilContextTimeout(
+		ctx,
+		2*time.Second,
+		2*time.Minute,
+		true,
+		func(context.Context) (bool, error) {
+			ns, err := clientset.CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{})
+			if errors.IsNotFound(err) {
+				return false, nil // Retry if namespace is not found
+			} else if err != nil {
+				return false, fmt.Errorf("error checking namespace status: %v", err)
+			}
+
+			if ns.Status.Phase == v1.NamespaceActive {
+				return true, nil // Namespace is ready
+			}
+
+			return false, nil // Continue waiting
+		},
+	)
+
+	if err != nil {
+		return fmt.Errorf("timed out waiting for namespace %s to be ready: %v", namespace, err)
+	}
 	return nil
 }
 

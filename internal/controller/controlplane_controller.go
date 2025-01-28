@@ -36,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
+	"github.com/kubestellar/kubeflex/pkg/reconcilers/external"
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/host"
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/k8s"
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/ocm"
@@ -156,6 +157,9 @@ func (r *ControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return reconciler.Reconcile(ctx, hcp)
 	case tenancyv1alpha1.ControlPlaneTypeHost:
 		reconciler := host.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient)
+		return reconciler.Reconcile(ctx, hcp)
+	case tenancyv1alpha1.ControlPlaneTypeExternal:
+		reconciler := external.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient)
 		return reconciler.Reconcile(ctx, hcp)
 	default:
 		return ctrl.Result{}, fmt.Errorf("unsupported control plane type: %s", hcp.Spec.Type)

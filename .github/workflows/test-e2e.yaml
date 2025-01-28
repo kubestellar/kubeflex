@@ -26,6 +26,8 @@ jobs:
           go-version: v1.22
           cache: true
 
+      - uses: ko-build/setup-ko@v0.8    
+
       - name: Install kubectl
         uses: azure/setup-kubectl@v4
         id: install

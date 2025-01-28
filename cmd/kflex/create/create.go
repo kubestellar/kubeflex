@@ -20,11 +20,9 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 	"sync"
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kubestellar/kubeflex/cmd/kflex/common"
@@ -45,14 +43,17 @@ func (c *CPCreate) Create(controlPlaneType, backendType, hook string, hookVars [
 	cx := cont.CPCtx{}
 	cx.Context(chattyStatus, false, false, false)
 
-	clp, err := kfclient.GetClient(c.Kubeconfig)
+	cl, err := kfclient.GetClient(c.Kubeconfig)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error getting client: %v\n", err)
 		os.Exit(1)
 	}
-	cl := *clp
 
-	cp := c.generateControlPlane(controlPlaneType, backendType, hook, hookVars)
+	cp, err := common.GenerateControlPlane(c.Name, controlPlaneType, backendType, hook, hookVars, nil)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error generating control plane object: %v\n", err)
+		os.Exit(1)
+	}
 
 	util.PrintStatus(fmt.Sprintf("Creating new control plane %s of type %s ...", c.Name, controlPlaneType), done, &wg, chattyStatus)
 	if err := cl.Create(context.TODO(), cp, &client.CreateOptions{}); err != nil {
@@ -103,34 +104,4 @@ func (c *CPCreate) Create(controlPlaneType, backendType, hook string, hookVars [
 	}
 
 	wg.Wait()
-}
-
-func (c *CPCreate) generateControlPlane(controlPlaneType, backendType, hook string, hookVars []string) *tenancyv1alpha1.ControlPlane {
-	cp := &tenancyv1alpha1.ControlPlane{
-		ObjectMeta: v1.ObjectMeta{
-			Name: c.Name,
-		},
-		Spec: tenancyv1alpha1.ControlPlaneSpec{
-			Type:    tenancyv1alpha1.ControlPlaneType(controlPlaneType),
-			Backend: tenancyv1alpha1.BackendDBType(backendType),
-		},
-	}
-	if hook != "" {
-		cp.Spec.PostCreateHook = &hook
-		cp.Spec.PostCreateHookVars = convertToMap(hookVars)
-	}
-	return cp
-}
-
-func convertToMap(pairs []string) map[string]string {
-	params := make(map[string]string)
-
-	for _, pair := range pairs {
-		split := strings.SplitN(pair, "=", 2)
-		if len(split) == 2 {
-			params[split[0]] = split[1]
-		}
-	}
-
-	return params
 }

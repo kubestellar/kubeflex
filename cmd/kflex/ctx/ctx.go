@@ -29,7 +29,7 @@ import (
 	kfclient "github.com/kubestellar/kubeflex/pkg/client"
 	"github.com/kubestellar/kubeflex/pkg/kubeconfig"
 	"github.com/kubestellar/kubeflex/pkg/util"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -124,15 +124,14 @@ func (c *CPCtx) Context(chattyStatus, failIfNone, overwriteExistingCtx, setCurre
 }
 
 func (c *CPCtx) loadAndMergeFromServer(kconfig *api.Config) error {
-	kfcClientp, err := kfclient.GetClient(c.Kubeconfig)
+	kfcClient, err := kfclient.GetClient(c.Kubeconfig)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error getting kf client: %s\n", err)
 		os.Exit(1)
 	}
-	kfcClient := *kfcClientp
 
 	cp := &tenancyv1alpha1.ControlPlane{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: c.CP.Name,
 		},
 	}

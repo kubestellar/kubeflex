@@ -22,17 +22,19 @@ make build-all
 export PATH=$(pwd)/bin:$PATH
 ```
 
-## Commands to build and load locally the kubeflex operator image for testing
+## Setting Up a Testing Cluster for KubeFlex
+
+To prepare a hosting cluster for testing, execute the following script. 
+This script accomplishes several key tasks:
+
+- Creates a new kind cluster specifically designed for the KubeFlex hosting environment.
+- Configures nginx ingress with SSL passthrough capabilities to ensure secure communication.
+- Builds and loads the KubeFlex Controller Manager image into the kind cluster.
+- Installs a PostgreSQL database, providing the default backend for hosted API servers.
+- Starts the KubeFlex controller manager.
 
 ```shell
-ko build --local --push=false -B ./cmd/manager -t $(git rev-parse --short HEAD) --platform linux/arm64
-kind load docker-image ko.local/manager:$(git rev-parse --short HEAD) --name kubeflex
-```
-
-To deploy locally the image:
-
-```shell
-make deploy IMG=ko.local/manager:$(git rev-parse --short HEAD)
+test/e2e/setup-kubeflex.sh 
 ```
 
 ##  Locally building cmupdate image

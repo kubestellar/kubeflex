@@ -16,6 +16,17 @@
 set -x # echo so that users can understand what is happening
 set -e # exit on error
 
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
+
+:
+: -------------------------------------------------------------------------
+: Create the hosting kind cluster with ingress controller
+:
+
+kind create cluster --name kubeflex --config ${SCRIPT_DIR}/kind-config.yaml
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/refs/tags/controller-v1.12.0/deploy/static/provider/kind/deploy.yaml
+kubectl -n ingress-nginx patch deployment/ingress-nginx-controller --patch-file=${SCRIPT_DIR}/nginx-patch.yaml
+
 :
 : -------------------------------------------------------------------------
 : Compile binaries
@@ -24,10 +35,17 @@ make build
 
 :
 : -------------------------------------------------------------------------
-: Create the hosting kind cluster with ingress controller and install
-: the kubeflex operator
+: Build the OCI image for the kubeflex controller manager and load it in the local docker registry
 :
-./bin/kflex init --create-kind --chatty-status=false
+:
+make ko-local-build
+
+:
+: -------------------------------------------------------------------------
+: Load the local image in kind, re-generate manifests and helm chart, and install the helm chart:
+:
+:
+make install-local-chart
 
 :
 : -------------------------------------------------------------------------
@@ -79,3 +97,11 @@ spec:
         subresources:
           status: {}
 EOF
+
+:
+: -------------------------------------------------------------------------
+: Wait for kubeflex-controller-manager ready
+:
+
+kubectl wait --for=condition=available --timeout=300s -n kubeflex-system deployment/kubeflex-controller-manager
+
