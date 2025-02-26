@@ -118,7 +118,7 @@ helm push *.tgz oci://quay.io/kubestellar
    helm pull oci://registry-1.docker.io/bitnamicharts/postgresql:$CHART_TAG
    ```
 
-3. Unback the downlaoded `postgresql-$CHART_TAG.tgz` archive:
+3. Unpack the downloaded `postgresql-$CHART_TAG.tgz` archive:
 
    ```shell
    tar xf postgresql-$CHART_TAG.tgz
@@ -136,20 +136,20 @@ helm push *.tgz oci://quay.io/kubestellar
    tar czf postgresql-$CHART_TAG.tgz postgresql/
    ```
 
-6. Push the altered chart to quay.io:
+6. Push the customized chart to quay.io:
 
    ```shell
    helm login quay.io
    helm push postgresql-$CHART_TAG.tgz oci://quay.io/kubestellar/charts
    ```
 
-   The postgresql Helm chart reference that is hard coded in [postgresql.yaml](../chart/templates/postgresql.yaml) must be updated to match the quay.io registry, repository, and tag used in the Helm push command.
+7. Update the postgresql Helm chart reference that is hard coded in [postgresql.yaml](../chart/templates/postgresql.yaml#L97) to match the quay.io registry, repository, and tag used in the Helm push command of step 6.
 
-7. Make a multi-arch copy of postgresql container image from `docker.io` to `quay.io` to match the altered chart image reference:
+8. Make a multi-arch copy of postgresql container image from `docker.io` to `quay.io` to match the customized chart image reference:
 
    ```shell
    docker login quay.io
    docker buildx imagetools create --tag quay.io/kubestellar/postgresql:$IMAGE_TAG docker.io/bitnami/postgresql:$IMAGE_TAG
    ```
 
-   The registry, repository, and tag used in this command must match the values included in the altered chart at step 4.
+   The registry, repository, and tag used in this command must match the values included in the customized chart at step 4.
