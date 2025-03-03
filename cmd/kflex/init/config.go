@@ -17,8 +17,8 @@ limitations under the License.
 package init
 
 const (
-	PostgresURL         = "oci://registry-1.docker.io/bitnamicharts/postgresql:13.1.5"
-	PostgresRepoName    = "bitnami"
+	PostgresURL         = "oci://quay.io/kubestellar/charts/postgresql:13.1.5"
+	PostgresRepoName    = "kubestellar"
 	PostgresChartName   = "postgresql"
 	PostgresReleaseName = "postgres"
 

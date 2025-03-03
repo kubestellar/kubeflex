@@ -11,14 +11,14 @@ spec:
     spec:
       containers:
       - name: list-controller-container
-        image: bitnami/kubectl:1.29
+        image: quay.io/kubestellar/kubectl:1.29.3
         command: ["/bin/sh", "-c"]
         args:
         - |
           while true; do
-            if [[ ! kubectl --kubeconfig=/root/.kube/kubeconfig-incluster get namespace kube-system ]]; then
-              echo "Error encountered while listing namespaces. Exiting..."
-              exit 1
+            if ! kubectl --kubeconfig=/root/.kube/kubeconfig-incluster get namespace kube-system > /dev/null 2>&1; then
+                echo "Error encountered while listing namespaces. Exiting..."
+                exit 1
             fi
             sleep 2
           done
