@@ -6,4 +6,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: ko.local/manager
-  newTag: 58a4513
+  newTag: <PLACEHOLDER>
