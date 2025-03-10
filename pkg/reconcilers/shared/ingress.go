@@ -18,6 +18,7 @@ package shared
 
 import (
 	"context"
+	"fmt"
 
 	networkingv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -25,7 +26,6 @@ import (
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	clog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/util"
@@ -40,7 +40,6 @@ var (
 )
 
 func (r *BaseReconciler) ReconcileAPIServerIngress(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane, svcName string, svcPort int, domain string) error {
-	_ = clog.FromContext(ctx)
 	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
 
 	if svcName == "" {
@@ -55,14 +54,14 @@ func (r *BaseReconciler) ReconcileAPIServerIngress(ctx context.Context, hcp *ten
 		},
 	}
 
-	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(ingress), ingress, &client.GetOptions{})
+	err := r.Client.Get(ctx, client.ObjectKeyFromObject(ingress), ingress, &client.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			ingress = generateAPIServerIngress(hcp.Name, svcName, namespace, svcPort, domain)
 			if err := controllerutil.SetControllerReference(hcp, ingress, r.Scheme); err != nil {
-				return nil
+				return fmt.Errorf("failed to SetControllerReference: %w", err)
 			}
-			if err = r.Client.Create(context.TODO(), ingress, &client.CreateOptions{}); err != nil {
+			if err = r.Client.Create(ctx, ingress, &client.CreateOptions{}); err != nil {
 				return err
 			}
 		}

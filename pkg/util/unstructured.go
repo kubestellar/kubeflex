@@ -95,7 +95,8 @@ func RenderYAML(yamlTemplate []byte, data interface{}) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
-// Used for generating a single string unique representation of the object for logging info
+// Used for generating a single string unique representation of the object for logging info.
+// Namespace is not mentioned because the caller does not provide it.
 func GenerateObjectInfoString(obj unstructured.Unstructured) string {
 	group := obj.GetObjectKind().GroupVersionKind().Group
 	kind := strings.ToLower(obj.GetObjectKind().GroupVersionKind().Kind)
@@ -106,7 +107,7 @@ func GenerateObjectInfoString(obj unstructured.Unstructured) string {
 
 	}
 
-	return fmt.Sprintf("[%s] %s/%s", obj.GetNamespace(), prefix, obj.GetName())
+	return fmt.Sprintf("%s/%s", prefix, obj.GetName())
 }
 
 func IsClusterScoped(gvk schema.GroupVersionKind, apiResourceLists []*metav1.APIResourceList) (bool, error) {

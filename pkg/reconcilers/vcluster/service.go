@@ -18,6 +18,7 @@ package vcluster
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/kubestellar/kubeflex/pkg/util"
 	corev1 "k8s.io/api/core/v1"
@@ -26,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	clog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 )
@@ -36,7 +36,6 @@ const (
 )
 
 func (r *VClusterReconciler) ReconcileNodePortService(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
-	_ = clog.FromContext(ctx)
 	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
 
 	// create service object
@@ -47,14 +46,14 @@ func (r *VClusterReconciler) ReconcileNodePortService(ctx context.Context, hcp *
 		},
 	}
 
-	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(service), service, &client.GetOptions{})
+	err := r.Client.Get(ctx, client.ObjectKeyFromObject(service), service, &client.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			service := generateNodePortService(util.VClusterNodePortServiceName, namespace)
 			if err := controllerutil.SetControllerReference(hcp, service, r.Scheme); err != nil {
-				return nil
+				return fmt.Errorf("failed to SetControllerReference: %w", err)
 			}
-			err = r.Client.Create(context.TODO(), service, &client.CreateOptions{})
+			err = r.Client.Create(ctx, service, &client.CreateOptions{})
 			if err != nil {
 				return err
 			}

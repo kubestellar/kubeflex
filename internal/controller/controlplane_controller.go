@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -28,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -53,6 +55,7 @@ type ControlPlaneReconciler struct {
 	Version       string
 	ClientSet     *kubernetes.Clientset
 	DynamicClient *dynamic.DynamicClient
+	EventRecorder record.EventRecorder
 }
 
 //+kubebuilder:rbac:groups=tenancy.kflex.kubestellar.org,resources=controlplanes,verbs=get;list;watch;create;update;patch;delete
@@ -147,19 +150,19 @@ func (r *ControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// select the reconciler to use for the type of control plane
 	switch hcp.Spec.Type {
 	case tenancyv1alpha1.ControlPlaneTypeK8S:
-		reconciler := k8s.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient)
+		reconciler := k8s.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
 		return reconciler.Reconcile(ctx, hcp)
 	case tenancyv1alpha1.ControlPlaneTypeOCM:
-		reconciler := ocm.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient)
+		reconciler := ocm.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
 		return reconciler.Reconcile(ctx, hcp)
 	case tenancyv1alpha1.ControlPlaneTypeVCluster:
-		reconciler := vcluster.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient)
+		reconciler := vcluster.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
 		return reconciler.Reconcile(ctx, hcp)
 	case tenancyv1alpha1.ControlPlaneTypeHost:
-		reconciler := host.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient)
+		reconciler := host.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
 		return reconciler.Reconcile(ctx, hcp)
 	case tenancyv1alpha1.ControlPlaneTypeExternal:
-		reconciler := external.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient)
+		reconciler := external.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
 		return reconciler.Reconcile(ctx, hcp)
 	default:
 		return ctrl.Result{}, fmt.Errorf("unsupported control plane type: %s", hcp.Spec.Type)
@@ -168,6 +171,7 @@ func (r *ControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ControlPlaneReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	r.EventRecorder = mgr.GetEventRecorderFor("kubeflex-controlplane-controller")
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&tenancyv1alpha1.ControlPlane{}).
 		Owns(&networkingv1.Ingress{}).
@@ -176,11 +180,11 @@ func (r *ControlPlaneReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.ServiceAccount{}).
 		Owns(&corev1.Secret{}).
-		Watches(&corev1.Secret{}, enqueueSecretsOfInterest()).
+		Watches(&corev1.Secret{}, enqueueSecretsOfInterest(mgr.GetLogger())).
 		Complete(r)
 }
 
-func enqueueSecretsOfInterest() handler.EventHandler {
+func enqueueSecretsOfInterest(logger logr.Logger) handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
 		secret, ok := o.(*corev1.Secret)
 		if !ok {
@@ -188,17 +192,15 @@ func enqueueSecretsOfInterest() handler.EventHandler {
 		}
 
 		// Check if the secret has the specified name
-		var matches []reconcile.Request
 		if secret.Name == util.VClusterKubeConfigSecret {
-			matches = append(matches, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      secret.GetName(),
-					Namespace: secret.GetNamespace(),
-				},
-			})
+			cpName, err := util.ControlPlaneNameFromNamespace(secret.Namespace)
+			if err == nil {
+				return []reconcile.Request{{NamespacedName: types.NamespacedName{Name: cpName}}}
+			}
+			logger.Info("Ignoring non-ControlPlane Secret named "+util.VClusterKubeConfigSecret, "namespace", secret.Namespace)
 		}
 
-		return matches
+		return []reconcile.Request{}
 	})
 }
 

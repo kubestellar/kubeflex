@@ -133,7 +133,7 @@ func applyPostCreateHook(ctx context.Context, clientSet *kubernetes.Clientset, d
 			return err
 		}
 
-		logger.Info("Applying", "object", util.GenerateObjectInfoString(*obj))
+		logger.Info("Applying", "object", util.GenerateObjectInfoString(*obj), "cpNamespace", namespace)
 
 		if clusterScoped {
 			setTrackingLabelsAndAnnotations(obj, hcp.Name)
