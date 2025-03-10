@@ -60,7 +60,7 @@ type SharedConfig struct {
 
 func (r *BaseReconciler) UpdateStatusForSyncingError(hcp *tenancyv1alpha1.ControlPlane, e error) (ctrl.Result, error) {
 	if r.EventRecorder != nil {
-		r.EventRecorder.Event(hcp, "Warning", "syncFail", e.Error())
+		r.EventRecorder.Event(hcp, "Warning", "SyncFail", e.Error())
 	}
 	tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionReconcileError(e))
 	err := r.Status().Update(context.Background(), hcp)
@@ -72,7 +72,7 @@ func (r *BaseReconciler) UpdateStatusForSyncingError(hcp *tenancyv1alpha1.Contro
 
 func (r *BaseReconciler) UpdateStatusForSyncingSuccess(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
 	if r.EventRecorder != nil {
-		r.EventRecorder.Event(hcp, "Normal", "syncSuccess", "")
+		r.EventRecorder.Event(hcp, "Normal", "SyncSuccess", "")
 	}
 	_ = clog.FromContext(ctx)
 	tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionReconcileSuccess())
