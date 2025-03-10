@@ -18,6 +18,7 @@ package shared
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/kubestellar/kubeflex/pkg/util"
 	v1 "k8s.io/api/core/v1"
@@ -25,13 +26,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	clog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 )
 
 func (r *BaseReconciler) ReconcileNamespace(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
-	_ = clog.FromContext(ctx)
 	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
 
 	// create namespace object
@@ -41,13 +40,13 @@ func (r *BaseReconciler) ReconcileNamespace(ctx context.Context, hcp *tenancyv1a
 		},
 	}
 
-	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(ns), ns, &client.GetOptions{})
+	err := r.Client.Get(ctx, client.ObjectKeyFromObject(ns), ns, &client.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			if err := controllerutil.SetControllerReference(hcp, ns, r.Scheme); err != nil {
-				return err
+				return fmt.Errorf("failed to SetControllerReference: %w", err)
 			}
-			if err = r.Client.Create(context.TODO(), ns, &client.CreateOptions{}); err != nil {
+			if err = r.Client.Create(ctx, ns, &client.CreateOptions{}); err != nil {
 				return err
 			}
 		}

@@ -28,7 +28,6 @@ import (
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	clog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 )
@@ -39,7 +38,6 @@ const (
 )
 
 func (r *BaseReconciler) ReconcileUpdateClusterInfoJob(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane, cfg *SharedConfig, version string) error {
-	_ = clog.FromContext(ctx)
 	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
 
 	// create job object
@@ -53,14 +51,14 @@ func (r *BaseReconciler) ReconcileUpdateClusterInfoJob(ctx context.Context, hcp 
 	kubeconfigSecret := util.GetKubeconfSecretNameByControlPlaneType(string(hcp.Spec.Type))
 	kubeconfigSecretKey := util.GetKubeconfSecretKeyNameByControlPlaneType(string(hcp.Spec.Type))
 
-	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(job), job, &client.GetOptions{})
+	err := r.Client.Get(ctx, client.ObjectKeyFromObject(job), job, &client.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			job := generateClusterInfoJob(jobName, namespace, kubeconfigSecret, kubeconfigSecretKey, r.Version, cfg)
 			if err := controllerutil.SetControllerReference(hcp, job, r.Scheme); err != nil {
-				return nil
+				return fmt.Errorf("failed to SetControllerReference: %w", err)
 			}
-			err = r.Client.Create(context.TODO(), job, &client.CreateOptions{})
+			err = r.Client.Create(ctx, job, &client.CreateOptions{})
 			if err != nil {
 				return err
 			}

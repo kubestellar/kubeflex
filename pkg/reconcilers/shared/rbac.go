@@ -18,6 +18,7 @@ package shared
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/kubestellar/kubeflex/pkg/util"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -25,7 +26,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	clog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 )
@@ -35,7 +35,6 @@ const (
 )
 
 func (r *BaseReconciler) ReconcileUpdateClusterInfoJobRole(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
-	_ = clog.FromContext(ctx)
 	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
 
 	// create role object
@@ -46,14 +45,14 @@ func (r *BaseReconciler) ReconcileUpdateClusterInfoJobRole(ctx context.Context, 
 		},
 	}
 
-	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(role), role, &client.GetOptions{})
+	err := r.Client.Get(ctx, client.ObjectKeyFromObject(role), role, &client.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			role := generateClusterInfoJobRole(roleName, namespace)
 			if err := controllerutil.SetControllerReference(hcp, role, r.Scheme); err != nil {
-				return nil
+				return fmt.Errorf("failed to SetControllerReference: %w", err)
 			}
-			err = r.Client.Create(context.TODO(), role, &client.CreateOptions{})
+			err = r.Client.Create(ctx, role, &client.CreateOptions{})
 			if err != nil {
 				return err
 			}
@@ -90,7 +89,6 @@ func generateClusterInfoJobRole(name, namespace string) *rbacv1.Role {
 }
 
 func (r *BaseReconciler) ReconcileUpdateClusterInfoJobRoleBinding(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
-	_ = clog.FromContext(ctx)
 	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
 
 	// create role binding object
@@ -101,14 +99,14 @@ func (r *BaseReconciler) ReconcileUpdateClusterInfoJobRoleBinding(ctx context.Co
 		},
 	}
 
-	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(binding), binding, &client.GetOptions{})
+	err := r.Client.Get(ctx, client.ObjectKeyFromObject(binding), binding, &client.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			binding := generateClusterInfoJobRoleBinding(roleName, namespace)
 			if err := controllerutil.SetControllerReference(hcp, binding, r.Scheme); err != nil {
-				return nil
+				return fmt.Errorf("failed to SetControllerReference: %w", err)
 			}
-			err = r.Client.Create(context.TODO(), binding, &client.CreateOptions{})
+			err = r.Client.Create(ctx, binding, &client.CreateOptions{})
 			if err != nil {
 				return err
 			}

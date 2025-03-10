@@ -18,6 +18,7 @@ package shared
 
 import (
 	"context"
+	"fmt"
 
 	routev1 "github.com/openshift/api/route/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -33,7 +34,6 @@ import (
 )
 
 func (r *BaseReconciler) ReconcileAPIServerRoute(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane, svcName string, svcPort int, domain string) error {
-	_ = clog.FromContext(ctx)
 	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
 
 	if svcName == "" {
@@ -48,14 +48,14 @@ func (r *BaseReconciler) ReconcileAPIServerRoute(ctx context.Context, hcp *tenan
 		},
 	}
 
-	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(route), route, &client.GetOptions{})
+	err := r.Client.Get(ctx, client.ObjectKeyFromObject(route), route, &client.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			route = generateAPIServerRoute(hcp.Name, svcName, namespace, svcPort, domain)
 			if err := controllerutil.SetControllerReference(hcp, route, r.Scheme); err != nil {
-				return nil
+				return fmt.Errorf("failed to SetControllerReference: %w", err)
 			}
-			if err = r.Client.Create(context.TODO(), route, &client.CreateOptions{}); err != nil {
+			if err = r.Client.Create(ctx, route, &client.CreateOptions{}); err != nil {
 				return err
 			}
 		}
