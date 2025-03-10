@@ -192,7 +192,7 @@ func enqueueSecretsOfInterest(logger logr.Logger) handler.EventHandler {
 		}
 
 		// Check if the secret has the specified name
-		if secret.Name != util.VClusterKubeConfigSecret {
+		if secret.Name == util.VClusterKubeConfigSecret {
 			cpName, err := util.ControlPlaneNameFromNamespace(secret.Namespace)
 			if err == nil {
 				return []reconcile.Request{{NamespacedName: types.NamespacedName{Name: cpName}}}
