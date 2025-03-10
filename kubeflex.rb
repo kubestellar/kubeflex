@@ -5,20 +5,20 @@
 class Kubeflex < Formula
   desc ""
   homepage "https://github.com/kubestellar/kubeflex"
-  version "0.8.1"
+  version "0.8.2"
 
   on_macos do
     if Hardware::CPU.intel?
-      url "https://github.com/kubestellar/kubeflex/releases/download/v0.8.1/kubeflex_0.8.1_darwin_amd64.tar.gz"
-      sha256 "1ba5938ad65cb06c1adcf878b9d02abd9a3e68feeba599ab7d81908f06e426d8"
+      url "https://github.com/kubestellar/kubeflex/releases/download/v0.8.2/kubeflex_0.8.2_darwin_amd64.tar.gz"
+      sha256 "75b8b6d96a14e22b764a62ac2b09c0b986ca81292b193726fca07bb85ff659a3"
 
       def install
         bin.install "bin/kflex"
       end
     end
     if Hardware::CPU.arm?
-      url "https://github.com/kubestellar/kubeflex/releases/download/v0.8.1/kubeflex_0.8.1_darwin_arm64.tar.gz"
-      sha256 "b304357f0fdbc49fa92c0fd7ae43f158efbdb4a4de660e8f6a6b0fdf15c7fbbd"
+      url "https://github.com/kubestellar/kubeflex/releases/download/v0.8.2/kubeflex_0.8.2_darwin_arm64.tar.gz"
+      sha256 "f6fa646a435f8f7a6aea87d179b0b1bac9136304936c883f97be39dce53647d8"
 
       def install
         bin.install "bin/kflex"
@@ -29,8 +29,8 @@ class Kubeflex < Formula
   on_linux do
     if Hardware::CPU.intel?
       if Hardware::CPU.is_64_bit?
-        url "https://github.com/kubestellar/kubeflex/releases/download/v0.8.1/kubeflex_0.8.1_linux_amd64.tar.gz"
-        sha256 "441cebb3a44667fb99f2bb4a5d68d60156248b0425a98d51f0bcfb2033169151"
+        url "https://github.com/kubestellar/kubeflex/releases/download/v0.8.2/kubeflex_0.8.2_linux_amd64.tar.gz"
+        sha256 "e5e0912e0bc9c624da43ef8929fc3699c889981320189ba92bcde9bffcf49019"
 
         def install
           bin.install "bin/kflex"
@@ -39,8 +39,8 @@ class Kubeflex < Formula
     end
     if Hardware::CPU.arm?
       if Hardware::CPU.is_64_bit?
-        url "https://github.com/kubestellar/kubeflex/releases/download/v0.8.1/kubeflex_0.8.1_linux_arm64.tar.gz"
-        sha256 "3b4ae6b42837e251d3dcfff0cebd9d5a5bef7acbbb21faa360ea0717b942dcca"
+        url "https://github.com/kubestellar/kubeflex/releases/download/v0.8.2/kubeflex_0.8.2_linux_arm64.tar.gz"
+        sha256 "f50331798fb855d16907638793785c7b00729ff6d74d1b03efed13bbc201e62f"
 
         def install
           bin.install "bin/kflex"
