@@ -38,7 +38,7 @@ const (
 )
 
 var (
-	configs = []string{
+	configsBase = []string{
 		"vcluster.image=rancher/k3s:v1.27.2-k3s1",
 	}
 )
@@ -47,6 +47,7 @@ func (r *VClusterReconciler) ReconcileChart(ctx context.Context, hcp *tenancyv1a
 	_ = clog.FromContext(ctx)
 	dnsName := util.GenerateDevLocalDNSName(hcp.Name, cfg.Domain)
 	port := cfg.ExternalPort
+	configs := append([]string{}, configsBase...)
 	if cfg.ExternalURL != "" {
 		dnsName = cfg.ExternalURL
 		port = 443
