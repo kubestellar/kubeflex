@@ -45,10 +45,21 @@ const (
 	KubeconfigSecretKeyInCluster         = "kubeconfig-incluster"
 	KubeconfigSecretKeyVCluster          = "config"
 	KubeconfigSecretKeyVClusterInCluster = "config-incluster"
+	NamespaceSuffix                      = "-system"
 )
 
 func GenerateNamespaceFromControlPlaneName(name string) string {
-	return fmt.Sprintf("%s-system", name)
+	return name + NamespaceSuffix
+}
+
+func ControlPlaneNameFromNamespace(nsName string) (string, error) {
+	const suffixLen = len(NamespaceSuffix)
+	nsLen := len(nsName)
+	cpLen := nsLen - suffixLen
+	if cpLen > 0 && nsName[cpLen:] == NamespaceSuffix {
+		return nsName[:cpLen], nil
+	}
+	return "", fmt.Errorf("namespace %q does not end with %q", nsName, NamespaceSuffix)
 }
 
 // GenerateDevLocalDNSName: generates the local dns name for test/dev

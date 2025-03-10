@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -176,11 +177,11 @@ func (r *ControlPlaneReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.ServiceAccount{}).
 		Owns(&corev1.Secret{}).
-		Watches(&corev1.Secret{}, enqueueSecretsOfInterest()).
+		Watches(&corev1.Secret{}, enqueueSecretsOfInterest(mgr.GetLogger())).
 		Complete(r)
 }
 
-func enqueueSecretsOfInterest() handler.EventHandler {
+func enqueueSecretsOfInterest(logger logr.Logger) handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
 		secret, ok := o.(*corev1.Secret)
 		if !ok {
@@ -188,17 +189,15 @@ func enqueueSecretsOfInterest() handler.EventHandler {
 		}
 
 		// Check if the secret has the specified name
-		var matches []reconcile.Request
-		if secret.Name == util.VClusterKubeConfigSecret {
-			matches = append(matches, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      secret.GetName(),
-					Namespace: secret.GetNamespace(),
-				},
-			})
+		if secret.Name != util.VClusterKubeConfigSecret {
+			cpName, err := util.ControlPlaneNameFromNamespace(secret.Namespace)
+			if err == nil {
+				return []reconcile.Request{{NamespacedName: types.NamespacedName{Name: cpName}}}
+			}
+			logger.Info("Ignoring non-ControlPlane Secret named "+util.VClusterKubeConfigSecret, "namespace", secret.Namespace)
 		}
 
-		return matches
+		return []reconcile.Request{}
 	})
 }
 
