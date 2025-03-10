@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -54,6 +55,7 @@ type ControlPlaneReconciler struct {
 	Version       string
 	ClientSet     *kubernetes.Clientset
 	DynamicClient *dynamic.DynamicClient
+	EventRecorder record.EventRecorder
 }
 
 //+kubebuilder:rbac:groups=tenancy.kflex.kubestellar.org,resources=controlplanes,verbs=get;list;watch;create;update;patch;delete
@@ -148,19 +150,19 @@ func (r *ControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// select the reconciler to use for the type of control plane
 	switch hcp.Spec.Type {
 	case tenancyv1alpha1.ControlPlaneTypeK8S:
-		reconciler := k8s.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient)
+		reconciler := k8s.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
 		return reconciler.Reconcile(ctx, hcp)
 	case tenancyv1alpha1.ControlPlaneTypeOCM:
-		reconciler := ocm.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient)
+		reconciler := ocm.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
 		return reconciler.Reconcile(ctx, hcp)
 	case tenancyv1alpha1.ControlPlaneTypeVCluster:
-		reconciler := vcluster.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient)
+		reconciler := vcluster.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
 		return reconciler.Reconcile(ctx, hcp)
 	case tenancyv1alpha1.ControlPlaneTypeHost:
-		reconciler := host.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient)
+		reconciler := host.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
 		return reconciler.Reconcile(ctx, hcp)
 	case tenancyv1alpha1.ControlPlaneTypeExternal:
-		reconciler := external.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient)
+		reconciler := external.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
 		return reconciler.Reconcile(ctx, hcp)
 	default:
 		return ctrl.Result{}, fmt.Errorf("unsupported control plane type: %s", hcp.Spec.Type)
@@ -169,6 +171,7 @@ func (r *ControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ControlPlaneReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	r.EventRecorder = mgr.GetEventRecorderFor("kubeflex-controlplane-controller")
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&tenancyv1alpha1.ControlPlane{}).
 		Owns(&networkingv1.Ingress{}).

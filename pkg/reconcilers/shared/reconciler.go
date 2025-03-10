@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	clog "sigs.k8s.io/controller-runtime/pkg/log"
@@ -46,6 +47,7 @@ type BaseReconciler struct {
 	Version       string
 	ClientSet     *kubernetes.Clientset
 	DynamicClient *dynamic.DynamicClient
+	EventRecorder record.EventRecorder
 }
 
 type SharedConfig struct {
@@ -57,6 +59,9 @@ type SharedConfig struct {
 }
 
 func (r *BaseReconciler) UpdateStatusForSyncingError(hcp *tenancyv1alpha1.ControlPlane, e error) (ctrl.Result, error) {
+	if r.EventRecorder != nil {
+		r.EventRecorder.Event(hcp, "Warning", "syncFail", e.Error())
+	}
 	tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionReconcileError(e))
 	err := r.Status().Update(context.Background(), hcp)
 	if err != nil {
@@ -66,6 +71,9 @@ func (r *BaseReconciler) UpdateStatusForSyncingError(hcp *tenancyv1alpha1.Contro
 }
 
 func (r *BaseReconciler) UpdateStatusForSyncingSuccess(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
+	if r.EventRecorder != nil {
+		r.EventRecorder.Event(hcp, "Normal", "syncSuccess", "")
+	}
 	_ = clog.FromContext(ctx)
 	tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionReconcileSuccess())
 	err := r.Status().Update(context.Background(), hcp)
