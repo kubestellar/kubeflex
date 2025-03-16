@@ -20,11 +20,13 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"os"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/util"
+	"github.com/kubestellar/kubeflex/pkg/client"
 )
 
 type CP struct {
@@ -88,4 +90,30 @@ func convertToMap(pairs []string) (map[string]string, error) {
 	}
 
 	return params, nil
+}
+
+func (cp *CP) List(chattyStatus bool) {
+	clientset, err := client.GetClientSet(cp.Kubeconfig)
+	if err != nil {
+		fmt.Printf("Error getting clientset: %s\n", err)
+		os.Exit(1)
+	}
+
+	cps, err := clientset.CoreV1().CustomResourceDefinitions().List(cp.Ctx, metav1.ListOptions{
+		LabelSelector: "tenancy.kflex.kubestellar.io/controlplane",
+	})
+	if err != nil {
+		fmt.Printf("Error listing control planes: %s\n", err)
+		os.Exit(1)
+	}
+
+	if len(cps.Items) == 0 {
+		fmt.Println("No control planes found.")
+		return
+	}
+
+	fmt.Println("Control Planes:")
+	for _, cp := range cps.Items {
+		fmt.Printf("- %s\n", cp.Name)
+	}
 }
