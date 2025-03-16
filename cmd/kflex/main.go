@@ -32,6 +32,7 @@ import (
 	cont "github.com/kubestellar/kubeflex/cmd/kflex/ctx"
 	del "github.com/kubestellar/kubeflex/cmd/kflex/delete"
 	in "github.com/kubestellar/kubeflex/cmd/kflex/init"
+	"github.com/kubestellar/kubeflex/cmd/kflex/list"
 	cluster "github.com/kubestellar/kubeflex/cmd/kflex/init/cluster"
 	"github.com/kubestellar/kubeflex/pkg/client"
 	"github.com/kubestellar/kubeflex/pkg/util"
@@ -209,6 +210,20 @@ var ctxCmd = &cobra.Command{
 	},
 }
 
+var listCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List all control planes",
+	Long:  `List all control planes managed by KubeFlex`,
+	Args:  cobra.ExactArgs(0),
+	Run: func(cmd *cobra.Command, args []string) {
+		cp := list.CPList{
+			Ctx:        createContext(),
+			Kubeconfig: kubeconfig,
+		}
+		cp.List(chattyStatus)
+	},
+}
+
 func init() {
 	versionCmd.Flags().StringVarP(&kubeconfig, "kubeconfig", "k", "", "path to the kubeconfig file for the KubeFlex hosting cluster. If not specified, and $KUBECONFIG is set, it uses the value in $KUBECONFIG, otherwise it falls back to ${HOME}/.kube/configg")
 	versionCmd.Flags().BoolVarP(&chattyStatus, "chatty-status", "s", true, "chatty status indicator")
@@ -255,6 +270,7 @@ func init() {
 	rootCmd.AddCommand(adoptCmd)
 	rootCmd.AddCommand(deleteCmd)
 	rootCmd.AddCommand(ctxCmd)
+	rootCmd.AddCommand(listCmd)
 }
 
 // TODO - work on passing the verbosity to the logger
