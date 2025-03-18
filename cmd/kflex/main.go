@@ -186,12 +186,28 @@ var deleteCmd = &cobra.Command{
 	},
 }
 
+var ctxGetCmd = &cobra.Command{
+	Use:   "get",
+	Short: "Get the current kubeconfig context",
+	Long:  `Retrieve and display the current context from the kubeconfig file`,
+	Args:  cobra.ExactArgs(0),
+	Run: func(cmd *cobra.Command, args []string) {
+		cp := cont.CPCtx{
+			CP: common.CP{
+				Ctx:        createContext(),
+				Kubeconfig: kubeconfig,
+			},
+		}
+		cp.GetCurrentContext()
+	},
+}
+
 var ctxCmd = &cobra.Command{
 	Use:   "ctx",
-	Short: "Switch kubeconfig context to a control plane instance",
+	Short: "Switch or get kubeconfig context",
 	Long: `Running without an argument switches the context back to the hosting cluster context,
 			        while providing the control plane name as argument switches the context to
-					that control plane`,
+					that control plane. Use 'get' to retrieve the current context.`,
 	Args: cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		cpName := ""
@@ -248,6 +264,8 @@ func init() {
 	ctxCmd.Flags().BoolVarP(&chattyStatus, "chatty-status", "s", true, "chatty status indicator")
 	ctxCmd.Flags().BoolVarP(&overwriteExistingCtx, "overwrite-existing-context", "o", false, "Overwrite of hosting cluster context with new control plane context")
 	ctxCmd.Flags().BoolVarP(&setCurrentCtxAsHosting, "set-current-for-hosting", "c", false, "Set current context as hosting cluster context")
+
+	ctxCmd.AddCommand(ctxGetCmd)
 
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(initCmd)
