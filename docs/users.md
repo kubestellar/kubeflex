@@ -599,6 +599,13 @@ vcluster-0                                          2/2     Running   0         
 
 The nginx pod is the one with the name `nginx-x-default-x-vcluster`.
 
+## Listing Control Planes
+
+To list all control planes managed by KubeFlex, use the following command:
+
+```shell
+kflex list
+
 ## Working with an external control plane
 
 In this section, we will show an example of creating an external control plane to adopt
