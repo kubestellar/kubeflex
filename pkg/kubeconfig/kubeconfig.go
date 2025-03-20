@@ -219,3 +219,11 @@ func renameKey(m interface{}, oldKey string, newKey string) interface{} {
 	}
 	return m
 }
+
+func GetCurrentContext(ctx context.Context) (string, error) {
+    kconf, err := LoadKubeconfig(ctx)
+    if err != nil {
+        return "", fmt.Errorf("error loading kubeconfig: %v", err)
+    }
+    return kconf.CurrentContext, nil
+}
