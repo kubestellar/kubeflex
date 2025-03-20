@@ -47,7 +47,7 @@ func LoadAndMerge(ctx context.Context, client kubernetes.Clientset, name, contro
 		if err != nil {
 			return err
 		}
-		adjustConfigKeys(cpKonfig, name, controlPlaneType)
+		adjustConfigKeys(cpKonfig, name, controlPlaneType, "")
 
 		err = merge(konfig, cpKonfig)
 		if err != nil {
@@ -69,7 +69,7 @@ func LoadAndMergeNoWrite(ctx context.Context, client kubernetes.Clientset, name,
 	if err != nil {
 		return err
 	}
-	adjustConfigKeys(cpKonfig, name, controlPlaneType)
+	adjustConfigKeys(cpKonfig, name, controlPlaneType, "")
 
 	err = merge(konfig, cpKonfig)
 	if err != nil {
@@ -172,25 +172,30 @@ func WaitForNamespaceReady(ctx context.Context, clientset kubernetes.Interface, 
 	return nil
 }
 
-func adjustConfigKeys(config *clientcmdapi.Config, cpName, controlPlaneType string) {
+func adjustConfigKeys(config *clientcmdapi.Config, cpName, controlPlaneType, customName string) {
+	namePrefix := cpName
+	if customName != "" {
+		namePrefix = customName
+	}
+
 	switch controlPlaneType {
 	case string(tenancyv1alpha1.ControlPlaneTypeOCM):
-		renameKey(config.Clusters, "multicluster-controlplane", certs.GenerateClusterName(cpName))
-		renameKey(config.AuthInfos, "user", certs.GenerateAuthInfoAdminName(cpName))
-		renameKey(config.Contexts, "multicluster-controlplane", certs.GenerateContextName(cpName))
-		config.CurrentContext = certs.GenerateContextName(cpName)
-		config.Contexts[certs.GenerateContextName(cpName)] = &clientcmdapi.Context{
-			Cluster:  certs.GenerateClusterName(cpName),
-			AuthInfo: certs.GenerateAuthInfoAdminName(cpName),
+		renameKey(config.Clusters, "multicluster-controlplane", certs.GenerateClusterName(namePrefix))
+		renameKey(config.AuthInfos, "user", certs.GenerateAuthInfoAdminName(namePrefix))
+		renameKey(config.Contexts, "multicluster-controlplane", certs.GenerateContextName(namePrefix))
+		config.CurrentContext = certs.GenerateContextName(namePrefix)
+		config.Contexts[certs.GenerateContextName(namePrefix)] = &clientcmdapi.Context{
+			Cluster:  certs.GenerateClusterName(namePrefix),
+			AuthInfo: certs.GenerateAuthInfoAdminName(namePrefix),
 		}
 	case string(tenancyv1alpha1.ControlPlaneTypeVCluster):
-		renameKey(config.Clusters, "my-vcluster", certs.GenerateClusterName(cpName))
-		renameKey(config.AuthInfos, "my-vcluster", certs.GenerateAuthInfoAdminName(cpName))
-		renameKey(config.Contexts, "my-vcluster", certs.GenerateContextName(cpName))
-		config.CurrentContext = certs.GenerateContextName(cpName)
-		config.Contexts[certs.GenerateContextName(cpName)] = &clientcmdapi.Context{
-			Cluster:  certs.GenerateClusterName(cpName),
-			AuthInfo: certs.GenerateAuthInfoAdminName(cpName),
+		renameKey(config.Clusters, "my-vcluster", certs.GenerateClusterName(namePrefix))
+		renameKey(config.AuthInfos, "my-vcluster", certs.GenerateAuthInfoAdminName(namePrefix))
+		renameKey(config.Contexts, "my-vcluster", certs.GenerateContextName(namePrefix))
+		config.CurrentContext = certs.GenerateContextName(namePrefix)
+		config.Contexts[certs.GenerateContextName(namePrefix)] = &clientcmdapi.Context{
+			Cluster:  certs.GenerateClusterName(namePrefix),
+			AuthInfo: certs.GenerateAuthInfoAdminName(namePrefix),
 		}
 	default:
 		return
