@@ -115,6 +115,11 @@ func (r *ControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 	hcp := hostedControlPlane.DeepCopy()
 
+	// Update observedGeneration if it doesn't match the current generation
+	if hcp.Status.ObservedGeneration != hcp.Generation {
+		hcp.Status.ObservedGeneration = hcp.Generation
+	}
+
 	// finalizer logic
 	if hcp.GetDeletionTimestamp() != nil {
 		if controllerutil.ContainsFinalizer(hcp, kfFinalizer) {
