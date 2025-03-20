@@ -32,11 +32,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
 type CPCtx struct {
 	common.CP
-	Type tenancyv1alpha1.ControlPlaneType
+	Type       tenancyv1alpha1.ControlPlaneType
+	CustomName string // Add this field for custom naming
 }
 
 // Context switch context in Kubeconfig
@@ -77,7 +79,13 @@ func (c *CPCtx) Context(chattyStatus, failIfNone, overwriteExistingCtx, setCurre
 			done <- true
 		}
 	default:
-		ctxName := certs.GenerateContextName(c.Name)
+		// Use custom name if provided, otherwise use the control plane name
+		namePrefix := c.CP.Name
+		if c.CustomName != "" {
+			namePrefix = c.CustomName
+		}
+
+		ctxName := certs.GenerateContextName(namePrefix)
 		if overwriteExistingCtx {
 			util.PrintStatus("Overwriting existing context for control plane", done, &wg, chattyStatus)
 			if err = kubeconfig.DeleteContext(kconf, c.Name); err != nil {
@@ -113,7 +121,6 @@ func (c *CPCtx) Context(chattyStatus, failIfNone, overwriteExistingCtx, setCurre
 			}
 		}
 		done <- true
-
 	}
 
 	if err = kubeconfig.WriteKubeconfig(c.Ctx, kconf); err != nil {
@@ -123,7 +130,7 @@ func (c *CPCtx) Context(chattyStatus, failIfNone, overwriteExistingCtx, setCurre
 	wg.Wait()
 }
 
-func (c *CPCtx) loadAndMergeFromServer(kconfig *api.Config) error {
+func (c *CPCtx) loadAndMergeFromServer(kconfig *clientcmdapi.Config) error {
 	kfcClient, err := kfclient.GetClient(c.Kubeconfig)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error getting kf client: %s\n", err)
@@ -139,6 +146,9 @@ func (c *CPCtx) loadAndMergeFromServer(kconfig *api.Config) error {
 		return fmt.Errorf("control plane not found on server: %s", err)
 	}
 	c.Type = cp.Spec.Type
+
+	// Pass the custom name to adjustConfigKeys
+	adjustConfigKeys(kconfig, c.Name, string(c.Type), c.CustomName)
 
 	// for control plane of type host just switch to initial context
 	if cp.Spec.Type == tenancyv1alpha1.ControlPlaneTypeHost {
@@ -180,4 +190,57 @@ func (c *CPCtx) isCurrentContextHostingClusterContext() bool {
 	}
 	clientset := *clientsetp
 	return util.CheckResourceExists(clientset, "tenancy.kflex.kubestellar.org", "v1alpha1", "controlplanes")
+}
+
+func adjustConfigKeys(config *clientcmdapi.Config, cpName, controlPlaneType, customName string) {
+	namePrefix := cpName
+	if customName != "" {
+		namePrefix = customName
+	}
+
+	switch controlPlaneType {
+	case string(tenancyv1alpha1.ControlPlaneTypeOCM):
+		renameKey(config.Clusters, "multicluster-controlplane", certs.GenerateClusterName(namePrefix))
+		renameKey(config.AuthInfos, "user", certs.GenerateAuthInfoAdminName(namePrefix))
+		renameKey(config.Contexts, "multicluster-controlplane", certs.GenerateContextName(namePrefix))
+		config.CurrentContext = certs.GenerateContextName(namePrefix)
+		config.Contexts[certs.GenerateContextName(namePrefix)] = &clientcmdapi.Context{
+			Cluster:  certs.GenerateClusterName(namePrefix),
+			AuthInfo: certs.GenerateAuthInfoAdminName(namePrefix),
+		}
+	case string(tenancyv1alpha1.ControlPlaneTypeVCluster):
+		renameKey(config.Clusters, "my-vcluster", certs.GenerateClusterName(namePrefix))
+		renameKey(config.AuthInfos, "my-vcluster", certs.GenerateAuthInfoAdminName(namePrefix))
+		renameKey(config.Contexts, "my-vcluster", certs.GenerateContextName(namePrefix))
+		config.CurrentContext = certs.GenerateContextName(namePrefix)
+		config.Contexts[certs.GenerateContextName(namePrefix)] = &clientcmdapi.Context{
+			Cluster:  certs.GenerateClusterName(namePrefix),
+			AuthInfo: certs.GenerateAuthInfoAdminName(namePrefix),
+		}
+	default:
+		return
+	}
+}
+
+func renameKey(m interface{}, oldKey string, newKey string) interface{} {
+	switch v := m.(type) {
+	case map[string]*clientcmdapi.Cluster:
+		if cluster, ok := v[oldKey]; ok {
+			delete(v, oldKey)
+			v[newKey] = cluster
+		}
+	case map[string]*clientcmdapi.AuthInfo:
+		if authInfo, ok := v[oldKey]; ok {
+			delete(v, oldKey)
+			v[newKey] = authInfo
+		}
+	case map[string]*clientcmdapi.Context:
+		if context, ok := v[oldKey]; ok {
+			delete(v, oldKey)
+			v[newKey] = context
+		}
+	default:
+		// no action
+	}
+	return m
 }

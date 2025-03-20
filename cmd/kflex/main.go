@@ -59,6 +59,7 @@ var adoptedKubeconfig string
 var adoptedContext string
 var adoptedURLOverride string
 var adoptedTokenExpirationSeconds int64
+var customName string
 
 // defaults
 const BKTypeDefault = string(tenancyv1alpha1.BackendDBTypeShared)
@@ -263,6 +264,7 @@ func init() {
 	ctxCmd.Flags().BoolVarP(&chattyStatus, "chatty-status", "s", true, "chatty status indicator")
 	ctxCmd.Flags().BoolVarP(&overwriteExistingCtx, "overwrite-existing-context", "o", false, "Overwrite of hosting cluster context with new control plane context")
 	ctxCmd.Flags().BoolVarP(&setCurrentCtxAsHosting, "set-current-for-hosting", "c", false, "Set current context as hosting cluster context")
+	ctxCmd.Flags().StringVarP(&customName, "custom-name", "n", "", "Custom name prefix for the cluster, user, and context entries in the kubeconfig")
 
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(initCmd)
