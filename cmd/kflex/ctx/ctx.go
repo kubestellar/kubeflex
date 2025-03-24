@@ -50,6 +50,14 @@ func (c *CPCtx) Context(chattyStatus, failIfNone, overwriteExistingCtx, setCurre
 	}
 
 	switch c.CP.Name {
+	case "get":
+		currentContext, err := kubeconfig.GetCurrentContext(c.Ctx)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error retrieving current context: %s\n", err)
+			os.Exit(1)
+		}
+		fmt.Println(currentContext)
+		return
 	case "":
 		if setCurrentCtxAsHosting { // set hosting cluster context unconditionally to the current context
 			kubeconfig.SetHostingClusterContextPreference(kconf, nil)
@@ -113,7 +121,6 @@ func (c *CPCtx) Context(chattyStatus, failIfNone, overwriteExistingCtx, setCurre
 			}
 		}
 		done <- true
-
 	}
 
 	if err = kubeconfig.WriteKubeconfig(c.Ctx, kconf); err != nil {
@@ -180,4 +187,13 @@ func (c *CPCtx) isCurrentContextHostingClusterContext() bool {
 	}
 	clientset := *clientsetp
 	return util.CheckResourceExists(clientset, "tenancy.kflex.kubestellar.org", "v1alpha1", "controlplanes")
+}
+
+func (c *CPCtx) GetCurrentContext() {
+    currentContext, err := kubeconfig.GetCurrentContext(c.Ctx)
+    if err != nil {
+        fmt.Fprintf(os.Stderr, "Error retrieving current context: %s\n", err)
+        os.Exit(1)
+    }
+    fmt.Println(currentContext)
 }
