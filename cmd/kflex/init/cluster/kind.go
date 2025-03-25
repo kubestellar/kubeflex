@@ -135,7 +135,7 @@ nodes:
 // installAndPatchNginxIngress installs and patches the nginx ingress controller on the kind cluster
 func installAndPatchNginxIngress() error {
 	// run the kubectl apply command to install the nginx ingress controller
-	cmd := exec.Command("kubectl", "apply", "-f", "https://raw.githubusercontent.com/kubernetes/ingress-nginx/refs/tags/controller-v1.12.0/deploy/static/provider/kind/deploy.yaml")
+	cmd := exec.Command("kubectl", "apply", "-f", "https://raw.githubusercontent.com/kubernetes/ingress-nginx/refs/tags/controller-v1.12.1/deploy/static/provider/kind/deploy.yaml")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err := cmd.Run()
