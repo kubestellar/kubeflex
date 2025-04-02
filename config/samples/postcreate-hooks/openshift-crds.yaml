@@ -20,7 +20,7 @@ spec:
               - upgrade
               - --install
               - "{{.HookName}}"
-              - oci://quay.io/pdettori/openshift-crds
+              - oci://quay.io/kubestellar/openshift-crds
               - --version
               - "0.1.0"
             env:
