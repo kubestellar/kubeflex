@@ -58,6 +58,9 @@ func (c *CPCtx) Context(chattyStatus, failIfNone, overwriteExistingCtx, setCurre
 		}
 		fmt.Println(currentContext)
 		return
+	case "list":
+		c.ListContexts()
+		return
 	case "":
 		if setCurrentCtxAsHosting { // set hosting cluster context unconditionally to the current context
 			kubeconfig.SetHostingClusterContextPreference(kconf, nil)
@@ -190,10 +193,33 @@ func (c *CPCtx) isCurrentContextHostingClusterContext() bool {
 }
 
 func (c *CPCtx) GetCurrentContext() {
-    currentContext, err := kubeconfig.GetCurrentContext(c.Ctx)
-    if err != nil {
-        fmt.Fprintf(os.Stderr, "Error retrieving current context: %s\n", err)
-        os.Exit(1)
-    }
-    fmt.Println(currentContext)
+	currentContext, err := kubeconfig.GetCurrentContext(c.Ctx)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error retrieving current context: %s\n", err)
+		os.Exit(1)
+	}
+	fmt.Println(currentContext)
+}
+
+func (c *CPCtx) ListContexts() {
+	kconf, err := kubeconfig.LoadKubeconfig(c.Ctx)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading kubeconfig: %s\n", err)
+		os.Exit(1)
+	}
+
+	if len(kconf.Contexts) == 0 {
+		fmt.Println("No contexts found in kubeconfig")
+		return
+	}
+
+	currentContext := kconf.CurrentContext
+	fmt.Println("Available Contexts:")
+	for name := range kconf.Contexts {
+		prefix := " "
+		if name == currentContext {
+			prefix = "*"
+		}
+		fmt.Printf("%s %s\n", prefix, name)
+	}
 }
