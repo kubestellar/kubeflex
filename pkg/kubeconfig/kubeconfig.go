@@ -71,7 +71,7 @@ func LoadAndMergeNoWrite(ctx context.Context, client kubernetes.Clientset, name,
 	}
 	adjustConfigKeys(cpKonfig, name, controlPlaneType)
 
-	err = merge(konfig, cpKonfig, name)
+	err = merge(konfig, cpKonfig,name)
 	if err != nil {
 		return err
 	}
