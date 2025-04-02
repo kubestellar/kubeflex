@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"strings"
 
 	"github.com/kubestellar/kubeflex/pkg/certs"
 )
@@ -34,7 +35,42 @@ const (
 	InitialContextName  = "kflex-initial-ctx-name"
 )
 
-func merge(existing, new *clientcmdapi.Config) error {
+func merge(existing, new *clientcmdapi.Config, altName string) error {
+	if altName != "" {
+		// Rename clusters
+		for k, v := range new.Clusters {
+			newName := strings.Replace(k, certs.GenerateClusterName(""), certs.GenerateClusterName(altName), 1)
+			delete(new.Clusters, k)
+			new.Clusters[newName] = v
+		}
+
+		// Rename auth infos
+		for k, v := range new.AuthInfos {
+			newName := strings.Replace(k, certs.GenerateAuthInfoAdminName(""), certs.GenerateAuthInfoAdminName(altName), 1)
+			delete(new.AuthInfos, k)
+			new.AuthInfos[newName] = v
+		}
+
+		// Rename contexts and update current context
+		for k, v := range new.Contexts {
+			newName := strings.Replace(k, certs.GenerateContextName(""), certs.GenerateContextName(altName), 1)
+			delete(new.Contexts, k)
+			new.Contexts[newName] = v
+
+			// Update cluster and user references in context
+			if v.Cluster == certs.GenerateClusterName("") {
+				v.Cluster = certs.GenerateClusterName(altName)
+			}
+			if v.AuthInfo == certs.GenerateAuthInfoAdminName("") {
+				v.AuthInfo = certs.GenerateAuthInfoAdminName(altName)
+			}
+		}
+
+		if new.CurrentContext == certs.GenerateContextName("") {
+			new.CurrentContext = certs.GenerateContextName(altName)
+		}
+	}
+
 	for k, v := range new.Clusters {
 		existing.Clusters[k] = v
 	}
@@ -56,8 +92,11 @@ func merge(existing, new *clientcmdapi.Config) error {
 	return nil
 }
 
-func SwitchContext(config *clientcmdapi.Config, cpName string) error {
+func SwitchContext(config *clientcmdapi.Config, cpName string, altName string) error {
 	ctxName := certs.GenerateContextName(cpName)
+	if altName != "" {
+		ctxName = altName
+	}
 	_, ok := config.Contexts[ctxName]
 	if !ok {
 		return fmt.Errorf("context %s not found", ctxName)
@@ -66,10 +105,16 @@ func SwitchContext(config *clientcmdapi.Config, cpName string) error {
 	return nil
 }
 
-func DeleteContext(config *clientcmdapi.Config, cpName string) error {
+func DeleteContext(config *clientcmdapi.Config, cpName string, altName string) error {
 	ctxName := certs.GenerateContextName(cpName)
 	clusterName := certs.GenerateClusterName(cpName)
 	authName := certs.GenerateAuthInfoAdminName(cpName)
+
+	if altName != "" {
+		ctxName = altName
+		clusterName = altName + "-cluster"
+		authName = altName + "-admin"
+	}
 
 	_, ok := config.Contexts[ctxName]
 	if !ok {

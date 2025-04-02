@@ -90,7 +90,7 @@ func (c *CPDelete) Delete(chattyStatus bool) {
 
 	if cp.Spec.Type != tenancyv1alpha1.ControlPlaneTypeHost &&
 		cp.Spec.Type != tenancyv1alpha1.ControlPlaneTypeExternal {
-		if err := kubeconfig.DeleteContext(kconf, c.Name); err != nil {
+		if err := kubeconfig.DeleteContext(kconf, c.Name, ""); err != nil {
 			fmt.Fprintf(os.Stderr, "no kubeconfig context for %s was found: %s\n", c.Name, err)
 			os.Exit(1)
 		}
