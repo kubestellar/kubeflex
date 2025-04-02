@@ -174,15 +174,24 @@ func (c *ConfigGen) generateServerEndpoint() string {
 	return fmt.Sprintf("https://%s:%d", util.GenerateDevLocalDNSName(c.CpName, c.CpDomain), c.CpPort)
 }
 
-func GenerateClusterName(cpName string) string {
+func GenerateClusterName(cpName string, altName ...string) string {
+	if len(altName) > 0 && altName[0] != "" {
+		return fmt.Sprintf("%s-cluster", altName[0])
+	}
 	return fmt.Sprintf("%s-cluster", cpName)
 }
 
-func GenerateAuthInfoAdminName(cpName string) string {
+func GenerateAuthInfoAdminName(cpName string, altName ...string) string {
+	if len(altName) > 0 && altName[0] != "" {
+		return fmt.Sprintf("%s-admin", altName[0])
+	}
 	return fmt.Sprintf("%s-admin", cpName)
 }
 
-func GenerateContextName(cpName string) string {
+func GenerateContextName(cpName string, altName ...string) string {
+	if len(altName) > 0 && altName[0] != "" {
+		return altName[0]
+	}
 	return cpName
 }
 
