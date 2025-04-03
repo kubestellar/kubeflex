@@ -67,4 +67,16 @@ brews:
     commit_author:
       name: "{{ .Env.USER }}"
       email: "{{ .Env.EMAIL }}"  
+  - name: kflex
+    homepage: "https://github.com/kubestellar/kubeflex"
+    repository:
+      owner: kubestellar
+      name: kubeflex
+      branch: brew
+      pull_request:
+        enabled: false
+    commit_author:
+      name: "{{ .Env.USER }}"
+      email: "{{ .Env.EMAIL }}"  
+
 
