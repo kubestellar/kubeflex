@@ -49,7 +49,7 @@ func LoadAndMerge(ctx context.Context, client kubernetes.Clientset, name, contro
 		}
 		adjustConfigKeys(cpKonfig, name, controlPlaneType)
 
-		err = merge(konfig, cpKonfig)
+		err = merge(konfig, cpKonfig, name)
 		if err != nil {
 			return err
 		}
@@ -71,7 +71,7 @@ func LoadAndMergeNoWrite(ctx context.Context, client kubernetes.Clientset, name,
 	}
 	adjustConfigKeys(cpKonfig, name, controlPlaneType)
 
-	err = merge(konfig, cpKonfig)
+	err = merge(konfig, cpKonfig, name)
 	if err != nil {
 		return err
 	}
@@ -221,9 +221,9 @@ func renameKey(m interface{}, oldKey string, newKey string) interface{} {
 }
 
 func GetCurrentContext(ctx context.Context) (string, error) {
-    kconf, err := LoadKubeconfig(ctx)
-    if err != nil {
-        return "", fmt.Errorf("error loading kubeconfig: %v", err)
-    }
-    return kconf.CurrentContext, nil
+	kconf, err := LoadKubeconfig(ctx)
+	if err != nil {
+		return "", fmt.Errorf("error loading kubeconfig: %v", err)
+	}
+	return kconf.CurrentContext, nil
 }

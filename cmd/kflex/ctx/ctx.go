@@ -36,7 +36,8 @@ import (
 
 type CPCtx struct {
 	common.CP
-	Type tenancyv1alpha1.ControlPlaneType
+	Type    tenancyv1alpha1.ControlPlaneType
+	AltName string
 }
 
 // Context switch context in Kubeconfig
@@ -85,17 +86,21 @@ func (c *CPCtx) Context(chattyStatus, failIfNone, overwriteExistingCtx, setCurre
 			done <- true
 		}
 	default:
-		ctxName := certs.GenerateContextName(c.Name)
+		ctxName := c.Name
+		if c.AltName != "" {
+			ctxName = c.AltName
+		}
+		ctxName = certs.GenerateContextName(c.Name)
 		if overwriteExistingCtx {
 			util.PrintStatus("Overwriting existing context for control plane", done, &wg, chattyStatus)
-			if err = kubeconfig.DeleteContext(kconf, c.Name); err != nil {
+			if err = kubeconfig.DeleteContext(kconf, c.Name, ""); err != nil {
 				fmt.Fprintf(os.Stderr, "no kubeconfig context for %s was found: %s\n", c.Name, err)
 			}
 			done <- true
 		}
 
 		util.PrintStatus(fmt.Sprintf("Switching to context %s...", ctxName), done, &wg, chattyStatus)
-		if err = kubeconfig.SwitchContext(kconf, c.Name); err != nil {
+		if err = kubeconfig.SwitchContext(kconf, c.Name, ""); err != nil {
 			if overwriteExistingCtx {
 				fmt.Fprintf(os.Stderr, "trying to load new context %s from server...\n", c.Name)
 			} else {
@@ -111,7 +116,7 @@ func (c *CPCtx) Context(chattyStatus, failIfNone, overwriteExistingCtx, setCurre
 			}
 			// context exists only for CPs that are not of type host
 			if c.Type != tenancyv1alpha1.ControlPlaneTypeHost {
-				if err = kubeconfig.SwitchContext(kconf, c.Name); err != nil {
+				if err = kubeconfig.SwitchContext(kconf, c.Name, ""); err != nil {
 					fmt.Fprintf(os.Stderr, "Error switching kubeconfig context after loading from server: %s\n", err)
 					os.Exit(1)
 				}
@@ -190,10 +195,10 @@ func (c *CPCtx) isCurrentContextHostingClusterContext() bool {
 }
 
 func (c *CPCtx) GetCurrentContext() {
-    currentContext, err := kubeconfig.GetCurrentContext(c.Ctx)
-    if err != nil {
-        fmt.Fprintf(os.Stderr, "Error retrieving current context: %s\n", err)
-        os.Exit(1)
-    }
-    fmt.Println(currentContext)
+	currentContext, err := kubeconfig.GetCurrentContext(c.Ctx)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error retrieving current context: %s\n", err)
+		os.Exit(1)
+	}
+	fmt.Println(currentContext)
 }
