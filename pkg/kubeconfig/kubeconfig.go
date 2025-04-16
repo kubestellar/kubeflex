@@ -221,9 +221,22 @@ func renameKey(m interface{}, oldKey string, newKey string) interface{} {
 }
 
 func GetCurrentContext(ctx context.Context) (string, error) {
-    kconf, err := LoadKubeconfig(ctx)
-    if err != nil {
-        return "", fmt.Errorf("error loading kubeconfig: %v", err)
-    }
-    return kconf.CurrentContext, nil
+	config, err := LoadKubeconfig(ctx)
+	if err != nil {
+		return "", err
+	}
+	return config.CurrentContext, nil
+}
+
+func ListContexts(ctx context.Context) ([]string, error) {
+	config, err := LoadKubeconfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	contexts := make([]string, 0, len(config.Contexts))
+	for name := range config.Contexts {
+		contexts = append(contexts, name)
+	}
+	return contexts, nil
 }
