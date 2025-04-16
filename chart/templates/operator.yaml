@@ -619,7 +619,7 @@ spec:
           value: /tmp
         - name: HELM_CACHE_HOME
           value: /tmp
-        image: <to-be-replaced-by-ci>
+        image: ko.local/manager:eb0f5d1
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
