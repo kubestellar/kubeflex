@@ -908,3 +908,10 @@ helm delete -n kubeflex-system postgres
 kubectl delete pvc data-postgres-postgresql-0
 kubectl delete ns kubeflex-system
 ```
+
+## Listing Available Contexts
+
+To list all available contexts in your kubeconfig file, use the following command:
+
+```shell
+kflex ctx list
