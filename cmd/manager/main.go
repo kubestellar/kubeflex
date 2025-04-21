@@ -35,6 +35,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/internal/controller"
@@ -76,9 +77,8 @@ func main() {
 
 	config := ctrl.GetConfigOrDie()
 	mgr, err := ctrl.NewManager(config, ctrl.Options{
+		Metrics:                server.Options{BindAddress: metricsAddr},
 		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
-		Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "c6f71c85.kflex.kubestellar.org",
