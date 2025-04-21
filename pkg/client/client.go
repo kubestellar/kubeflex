@@ -58,7 +58,7 @@ func GetClient(kubeconfig string) (client.Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error creating HTTPClient: %s", err)
 	}
-	mapper, err := apiutil.NewDiscoveryRESTMapper(config, httpClient)
+	mapper, err := apiutil.NewDynamicRESTMapper(config, httpClient)
 	if err != nil {
 		return nil, fmt.Errorf("error creating NewDiscoveryRESTMapper: %s", err)
 	}
