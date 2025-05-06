@@ -114,6 +114,11 @@ func (r *OCMReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.Cont
 	if hcp.Spec.PostCreateHook != nil &&
 		tenancyv1alpha1.HasConditionAvailable(hcp.Status.Conditions) {
 		if err := r.ReconcileUpdatePostCreateHook(ctx, hcp); err != nil {
+			// Check if this is a PostCreateHookNotFoundError
+			if _, ok := err.(*shared.PostCreateHookNotFoundError); ok {
+				// Requeue with a delay to wait for the hook to be created
+				return ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, nil
+			}
 			return r.UpdateStatusForSyncingError(hcp, err)
 		}
 	}

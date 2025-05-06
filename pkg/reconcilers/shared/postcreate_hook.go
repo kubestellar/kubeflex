@@ -76,7 +76,11 @@ func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp 
 	}
 	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(hook), hook, &client.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("error retrieving post create hook %s %s", *hcp.Spec.PostCreateHook, err)
+		// Return a special error type that indicates we should requeue
+		return &PostCreateHookNotFoundError{
+			hookName: *hcp.Spec.PostCreateHook,
+			err:      err,
+		}
 	}
 
 	if err := applyPostCreateHook(ctx, r.ClientSet, r.DynamicClient, hook, vars, hcp); err != nil {
@@ -196,4 +200,14 @@ func propagateLabels(hook *v1alpha1.PostCreateHook, hcp *v1alpha1.ControlPlane, 
 	}
 
 	return nil
+}
+
+// PostCreateHookNotFoundError is a special error type that indicates a PostCreateHook wasn't found
+type PostCreateHookNotFoundError struct {
+	hookName string
+	err      error
+}
+
+func (e *PostCreateHookNotFoundError) Error() string {
+	return fmt.Sprintf("error retrieving post create hook %s: %s", e.hookName, e.err)
 }
