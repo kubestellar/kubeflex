@@ -16,11 +16,11 @@ Make sure that `${HOME}/go/bin` is in your `$PATH`.
 Clone the repo, set up upstream remote, fetch tags, build the binaries and add them to your path:
 
 ```shell
-# Clone your fork
+# Clone your fork – command only shown for HTTPS; adjust the URL if you prefer SSH
 git clone https://github.com/<your-username>/kubeflex.git
 cd kubeflex
 
-# Add the upstream repository as a remote
+# Add the upstream repository as a remote (adjust the URL if you prefer SSH)
 git remote add upstream https://github.com/kubestellar/kubeflex.git
 
 # Fetch all tags from upstream
