@@ -31,6 +31,7 @@ type CP struct {
 	Ctx        context.Context
 	Kubeconfig string
 	Name       string
+	AliasName string
 }
 
 func GenerateControlPlane(name, controlPlaneType, backendType, hook string, hookVars []string, tokenExpirationSeconds *int64) (*tenancyv1alpha1.ControlPlane, error) {

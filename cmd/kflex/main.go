@@ -211,6 +211,7 @@ var ctxCmd = &cobra.Command{
 					that control plane. Use 'get' to retrieve the current context.`,
 	Args: cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		aliasName, _ := cmd.Flags().GetString("alias")
 		cpName := ""
 		if len(args) == 1 {
 			cpName = args[0]
@@ -219,6 +220,7 @@ var ctxCmd = &cobra.Command{
 			CP: common.CP{
 				Ctx:        createContext(),
 				Name:       cpName,
+				AliasName:  aliasName,
 				Kubeconfig: kubeconfig,
 			},
 		}
@@ -295,6 +297,7 @@ func init() {
 	ctxCmd.Flags().BoolVarP(&chattyStatus, "chatty-status", "s", true, "chatty status indicator")
 	ctxCmd.Flags().BoolVarP(&overwriteExistingCtx, "overwrite-existing-context", "o", false, "Overwrite of hosting cluster context with new control plane context")
 	ctxCmd.Flags().BoolVarP(&setCurrentCtxAsHosting, "set-current-for-hosting", "c", false, "Set current context as hosting cluster context")
+	ctxCmd.Flags().String("alias", "", "Set an alias name as the context, user and cluster value instead of cp name")
 
 	ctxCmd.AddCommand(ctxGetCmd)
 	ctxCmd.AddCommand(listCtxCmd)

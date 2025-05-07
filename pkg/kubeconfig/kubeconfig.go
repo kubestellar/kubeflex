@@ -175,18 +175,18 @@ func WaitForNamespaceReady(ctx context.Context, clientset kubernetes.Interface, 
 func adjustConfigKeys(config *clientcmdapi.Config, cpName, controlPlaneType string) {
 	switch controlPlaneType {
 	case string(tenancyv1alpha1.ControlPlaneTypeOCM):
-		renameKey(config.Clusters, "multicluster-controlplane", certs.GenerateClusterName(cpName))
-		renameKey(config.AuthInfos, "user", certs.GenerateAuthInfoAdminName(cpName))
-		renameKey(config.Contexts, "multicluster-controlplane", certs.GenerateContextName(cpName))
+		RenameKey(config.Clusters, "multicluster-controlplane", certs.GenerateClusterName(cpName))
+		RenameKey(config.AuthInfos, "user", certs.GenerateAuthInfoAdminName(cpName))
+		RenameKey(config.Contexts, "multicluster-controlplane", certs.GenerateContextName(cpName))
 		config.CurrentContext = certs.GenerateContextName(cpName)
 		config.Contexts[certs.GenerateContextName(cpName)] = &clientcmdapi.Context{
 			Cluster:  certs.GenerateClusterName(cpName),
 			AuthInfo: certs.GenerateAuthInfoAdminName(cpName),
 		}
 	case string(tenancyv1alpha1.ControlPlaneTypeVCluster):
-		renameKey(config.Clusters, "my-vcluster", certs.GenerateClusterName(cpName))
-		renameKey(config.AuthInfos, "my-vcluster", certs.GenerateAuthInfoAdminName(cpName))
-		renameKey(config.Contexts, "my-vcluster", certs.GenerateContextName(cpName))
+		RenameKey(config.Clusters, "my-vcluster", certs.GenerateClusterName(cpName))
+		RenameKey(config.AuthInfos, "my-vcluster", certs.GenerateAuthInfoAdminName(cpName))
+		RenameKey(config.Contexts, "my-vcluster", certs.GenerateContextName(cpName))
 		config.CurrentContext = certs.GenerateContextName(cpName)
 		config.Contexts[certs.GenerateContextName(cpName)] = &clientcmdapi.Context{
 			Cluster:  certs.GenerateClusterName(cpName),
@@ -197,7 +197,7 @@ func adjustConfigKeys(config *clientcmdapi.Config, cpName, controlPlaneType stri
 	}
 }
 
-func renameKey(m interface{}, oldKey string, newKey string) interface{} {
+func RenameKey(m interface{}, oldKey string, newKey string) interface{} {
 	switch v := m.(type) {
 	case map[string]*clientcmdapi.Cluster:
 		if cluster, ok := v[oldKey]; ok {
