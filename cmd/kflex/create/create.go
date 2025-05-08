@@ -39,8 +39,8 @@ const (
 	CTypeDefault         = string(tenancyv1alpha1.ControlPlaneTypeK8S) // REFACTOR? local to create or common
 	ControlPlaneTypeFlag = "type"
 	BackendTypeFlag      = "backend-type"
-	PostCreateHookFlag   = "postcreate-hook"
-	ChattyStatusFlag     = "chatty-status"
+
+	ChattyStatusFlag = "chatty-status"
 )
 
 // REFACTOR: removed variables such as `hookVars` as they are used by multiple commands (create and adopt...). It should be defined locally to each command package instead of pointing to the same variable defined in main avoiding extreme edge cases.
@@ -58,7 +58,7 @@ func Command() *cobra.Command {
 			chattyStatus, _ := flagset.GetBool(common.ChattyStatusFlag)
 			cpType, _ := flagset.GetString(ControlPlaneTypeFlag)
 			backendType, _ := flagset.GetString(BackendTypeFlag)
-			postCreateHook, _ := flagset.GetString(PostCreateHookFlag)
+			postCreateHook, _ := flagset.GetString(common.PostCreateHookFlag)
 			hookVars, _ := flagset.GetStringArray(common.SetFlag)
 			cp := common.NewCP(kubeconfig, common.WithName(args[0]))
 			// create passing the control plane type and backend type
@@ -71,7 +71,7 @@ func Command() *cobra.Command {
 	flagset.StringP(ControlPlaneTypeFlag, "t", CTypeDefault, "type of control plane: k8s|ocm|vcluster")
 	// REFACTOR: same than CTypeDefault for BKTypeDefault
 	flagset.StringP(BackendTypeFlag, "b", BKTypeDefault, "backend DB sharing: shared|dedicated")
-	flagset.StringP(PostCreateHookFlag, "p", "", "name of post create hook to run")
+	flagset.StringP(common.PostCreateHookFlag, "p", "", "name of post create hook to run")
 	flagset.BoolP(ChattyStatusFlag, "s", true, "chatty status indicator")
 	flagset.StringArrayP(common.SetFlag, "e", []string{}, "set post create hook variables, in the form name=value ")
 	return command

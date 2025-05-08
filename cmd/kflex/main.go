@@ -119,24 +119,6 @@ var initCmd = &cobra.Command{
 
 // REFACTOR: to move to its own package (see how create command is implemented)
 // REFACTOR: remove cont.CPAdopt as common.CP is enough
-var adoptCmd = &cobra.Command{
-	Use:   "adopt <name>",
-	Short: "Adopt a control plane from an external cluster",
-	Long: `Adopt a control plane from an external cluster and switches the Kubeconfig context to
-	        the current instance`,
-	Args: cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		cp := adopt.CPAdopt{
-			CP:                            common.NewCP(kubeconfig, common.WithName(args[0])),
-			AdoptedKubeconfig:             adoptedKubeconfig,
-			AdoptedContext:                adoptedContext,
-			AdoptedURLOverride:            adoptedURLOverride,
-			AdoptedTokenExpirationSeconds: adoptedTokenExpirationSeconds,
-		}
-		// create passing the control plane type and backend type
-		cp.Adopt(Hook, hookVars, chattyStatus)
-	},
-}
 
 // REFACTOR: to move to its own package (see how create command is implemented)
 // REFACTOR: remove cont.CPDelete as common.CP is enough
@@ -207,12 +189,7 @@ func init() {
 	initCmd.Flags().StringVarP(&hostContainer, "hostContainerName", "n", "kubeflex-control-plane", "Name of the hosting cluster container (kind or k3d only)")
 	initCmd.Flags().IntVarP(&externalPort, "externalPort", "p", 9443, "external port used by ingress")
 	// REFACTOR: to move to its own package (see how create command is implemented)
-	adoptCmd.Flags().StringVarP(&Hook, "postcreate-hook", "p", "", "name of post create hook to run")
-	adoptCmd.Flags().StringArrayVarP(&hookVars, "set", "e", []string{}, "set post create hook variables, in the form name=value ")
-	adoptCmd.Flags().StringVarP(&adoptedKubeconfig, "adopted-kubeconfig", "a", "", "path to the kubeconfig file for the adopted cluster. If unspecified, it uses the default Kubeconfig")
-	adoptCmd.Flags().StringVarP(&adoptedContext, "adopted-context", "c", "", "path to adopted cluster context in adopted kubeconfig")
-	adoptCmd.Flags().StringVarP(&adoptedURLOverride, "url-override", "u", "", "URL overrride for adopted cluster. Required when cluster address uses local host address, e.g. `https://127.0.0.1` ")
-	adoptCmd.Flags().Int64VarP(&adoptedTokenExpirationSeconds, "expiration-seconds", "x", 86400*365, "adopted token expiration in seconds. Default is one year.")
+
 	// REFACTOR: to move to its own package (see how create command is implemented)
 	ctxCmd.Flags().BoolVarP(&overwriteExistingCtx, "overwrite-existing-context", "o", false, "Overwrite of hosting cluster context with new control plane context")
 	ctxCmd.Flags().BoolVarP(&setCurrentCtxAsHosting, "set-current-for-hosting", "c", false, "Set current context as hosting cluster context")
@@ -223,9 +200,9 @@ func init() {
 
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(initCmd)
-	rootCmd.AddCommand(adoptCmd)
 	rootCmd.AddCommand(ctxCmd)
 	// REFACTOR: call command from their respective package
+	rootCmd.AddCommand(adopt.Command())
 	rootCmd.AddCommand(delete.Command())
 	rootCmd.AddCommand(create.Command())
 	rootCmd.AddCommand(list.Command())

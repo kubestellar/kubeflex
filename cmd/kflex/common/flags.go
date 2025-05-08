@@ -19,8 +19,9 @@ package common
 import "k8s.io/client-go/tools/clientcmd"
 
 const (
-	KubeconfigFlag   = clientcmd.RecommendedConfigPathFlag
-	ChattyStatusFlag = "chatty-status"
-	VerbosityFlag    = "verbosity"
-	SetFlag          = "set"
+	KubeconfigFlag     = clientcmd.RecommendedConfigPathFlag
+	ChattyStatusFlag   = "chatty-status"
+	VerbosityFlag      = "verbosity"
+	PostCreateHookFlag = "postcreate-hook"
+	SetFlag            = "set"
 )
