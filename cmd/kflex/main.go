@@ -26,7 +26,7 @@ import (
 	"github.com/kubestellar/kubeflex/cmd/kflex/common"
 	"github.com/kubestellar/kubeflex/cmd/kflex/create"
 	cont "github.com/kubestellar/kubeflex/cmd/kflex/ctx"
-	del "github.com/kubestellar/kubeflex/cmd/kflex/delete"
+	"github.com/kubestellar/kubeflex/cmd/kflex/delete"
 	in "github.com/kubestellar/kubeflex/cmd/kflex/init"
 	cluster "github.com/kubestellar/kubeflex/cmd/kflex/init/cluster"
 	"github.com/kubestellar/kubeflex/cmd/kflex/list"
@@ -140,19 +140,6 @@ var adoptCmd = &cobra.Command{
 
 // REFACTOR: to move to its own package (see how create command is implemented)
 // REFACTOR: remove cont.CPDelete as common.CP is enough
-var deleteCmd = &cobra.Command{
-	Use:   "delete <name>",
-	Short: "Delete a control plane instance",
-	Long: `Delete a control plane instance and switches the context back to
-	        the hosting cluster context`,
-	Args: cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		cp := del.CPDelete{
-			CP: common.NewCP(kubeconfig, common.WithName(args[0])),
-		}
-		cp.Delete(chattyStatus)
-	},
-}
 
 // REFACTOR: to move to its own package (see how create command is implemented)
 // REFACTOR: remove cont.CPCtx as common.CP is enough
@@ -237,9 +224,9 @@ func init() {
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(adoptCmd)
-	rootCmd.AddCommand(deleteCmd)
 	rootCmd.AddCommand(ctxCmd)
 	// REFACTOR: call command from their respective package
+	rootCmd.AddCommand(delete.Command())
 	rootCmd.AddCommand(create.Command())
 	rootCmd.AddCommand(list.Command())
 }
