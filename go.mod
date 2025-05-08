@@ -1,8 +1,6 @@
 module github.com/kubestellar/kubeflex
 
-go 1.23.0
-
-toolchain go1.24.1
+go 1.23.9
 
 require (
 	github.com/fatih/color v1.18.0
