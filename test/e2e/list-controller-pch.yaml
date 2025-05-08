@@ -11,7 +11,7 @@ spec:
     spec:
       containers:
       - name: list-controller-container
-        image: quay.io/kubestellar/kubectl:1.29.3
+        image: quay.io/kubestellar/kubectl:1.30.12
         command: ["/bin/sh", "-c"]
         args:
         - |

@@ -480,7 +480,7 @@ spec:
         command:
         - sh
         - -c
-        image: quay.io/kubestellar/kubectl:1.29.3
+        image: quay.io/kubestellar/kubectl:1.30.12
         name: wait-postgresql
       securityContext:
         runAsNonRoot: true
