@@ -23,9 +23,16 @@ import (
 	"github.com/kubestellar/kubeflex/cmd/kflex/adopt"
 	"github.com/kubestellar/kubeflex/cmd/kflex/common"
 	"github.com/kubestellar/kubeflex/cmd/kflex/create"
+<<<<<<< HEAD
 	kflexCtx "github.com/kubestellar/kubeflex/cmd/kflex/ctx"
 	"github.com/kubestellar/kubeflex/cmd/kflex/delete"
 	kflexInit "github.com/kubestellar/kubeflex/cmd/kflex/init"
+=======
+	cont "github.com/kubestellar/kubeflex/cmd/kflex/ctx"
+	del "github.com/kubestellar/kubeflex/cmd/kflex/delete"
+	in "github.com/kubestellar/kubeflex/cmd/kflex/init"
+	cluster "github.com/kubestellar/kubeflex/cmd/kflex/init/cluster"
+>>>>>>> 8e64502 (ref: refactoring of cobra usage)
 	"github.com/kubestellar/kubeflex/cmd/kflex/list"
 	"github.com/kubestellar/kubeflex/cmd/kflex/version"
 	"github.com/spf13/cobra"
