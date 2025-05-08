@@ -17,18 +17,30 @@ limitations under the License.
 package list
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"time"
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
+	"github.com/kubestellar/kubeflex/cmd/kflex/common"
 	"github.com/kubestellar/kubeflex/pkg/client"
+	"github.com/spf13/cobra"
 )
 
-type CPList struct {
-	Ctx        context.Context
-	Kubeconfig string
+func Command() *cobra.Command {
+	return &cobra.Command{
+		Use:   "list",
+		Short: "List all control planes",
+		Long:  `List all control planes managed by KubeFlex`,
+		Args:  cobra.ExactArgs(0),
+		Run: func(cmd *cobra.Command, args []string) {
+			flagset := cmd.Flags()
+			kubeconfig, _ := flagset.GetString(common.KubeconfigFlag)
+			chattyStatus, _ := flagset.GetBool(common.ChattyStatusFlag)
+			cp := common.NewCP(kubeconfig)
+			execute(cp, chattyStatus)
+		},
+	}
 }
 
 func getAge(creationTime time.Time) string {
@@ -36,32 +48,34 @@ func getAge(creationTime time.Time) string {
 	return duration.Round(time.Second).String()
 }
 
-func (cp *CPList) List(chattyStatus bool) {
+// REFACTOR: the usage of the variable `cp` as *common.CP and then overshadowed by `cp` as tenancyv1alpha1.ControlPlane was tricky. Took a while to understand. Hence, `cps` and `cp` from tenancyv1alpha1 becomes `controlPlanes` and `controlPlane` and common.CP is referred by `cp`
+// REFACTOR? chattyStatus is unused
+func execute(cp common.CP, chattyStatus bool) {
 	client, err := client.GetClient(cp.Kubeconfig)
 	if err != nil {
 		fmt.Printf("Error getting client: %s\n", err)
 		os.Exit(1)
 	}
 
-	var cps tenancyv1alpha1.ControlPlaneList
-	if err := client.List(cp.Ctx, &cps); err != nil {
+	var controlPlanes tenancyv1alpha1.ControlPlaneList
+	if err := client.List(cp.Ctx, &controlPlanes); err != nil {
 		fmt.Printf("Error listing control planes: %s\n", err)
 		os.Exit(1)
 	}
 
-	if len(cps.Items) == 0 {
+	if len(controlPlanes.Items) == 0 {
 		fmt.Println("No control planes found.")
 		return
 	}
 
 	fmt.Println("Control Planes:")
 	fmt.Printf("%-20s %-10s %-10s %-10s %-10s\n", "NAME", "SYNCED", "READY", "TYPE", "AGE")
-	for _, cp := range cps.Items {
-		age := getAge(cp.CreationTimestamp.Time)
+	for _, controlPlane := range controlPlanes.Items {
+		age := getAge(controlPlane.CreationTimestamp.Time)
 		synced := "Unknown"
 		ready := "Unknown"
 
-		for _, condition := range cp.Status.Conditions {
+		for _, condition := range controlPlane.Status.Conditions {
 			if condition.Type == "Synced" {
 				synced = string(condition.Status)
 			}
@@ -70,6 +84,6 @@ func (cp *CPList) List(chattyStatus bool) {
 			}
 		}
 
-		fmt.Printf("%-20s %-10s %-10s %-10s %-10s\n", cp.Name, synced, ready, cp.Spec.Type, age)
+		fmt.Printf("%-20s %-10s %-10s %-10s %-10s\n", cp.Name, synced, ready, controlPlane.Spec.Type, age)
 	}
 }
