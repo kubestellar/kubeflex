@@ -39,8 +39,6 @@ const (
 	CTypeDefault         = string(tenancyv1alpha1.ControlPlaneTypeK8S) // REFACTOR? local to create or common
 	ControlPlaneTypeFlag = "type"
 	BackendTypeFlag      = "backend-type"
-
-	ChattyStatusFlag = "chatty-status"
 )
 
 // REFACTOR: removed variables such as `hookVars` as they are used by multiple commands (create and adopt...). It should be defined locally to each command package instead of pointing to the same variable defined in main avoiding extreme edge cases.
@@ -72,7 +70,7 @@ func Command() *cobra.Command {
 	// REFACTOR: same than CTypeDefault for BKTypeDefault
 	flagset.StringP(BackendTypeFlag, "b", BKTypeDefault, "backend DB sharing: shared|dedicated")
 	flagset.StringP(common.PostCreateHookFlag, "p", "", "name of post create hook to run")
-	flagset.BoolP(ChattyStatusFlag, "s", true, "chatty status indicator")
+	flagset.BoolP(common.ChattyStatusFlag, "s", true, "chatty status indicator")
 	flagset.StringArrayP(common.SetFlag, "e", []string{}, "set post create hook variables, in the form name=value ")
 	return command
 }
