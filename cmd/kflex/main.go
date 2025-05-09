@@ -19,28 +19,28 @@ package main
 import (
 	"fmt"
 	"os"
-	"strconv"
-	"sync"
 
 	"github.com/kubestellar/kubeflex/cmd/kflex/adopt"
 	"github.com/kubestellar/kubeflex/cmd/kflex/common"
 	"github.com/kubestellar/kubeflex/cmd/kflex/create"
 	cont "github.com/kubestellar/kubeflex/cmd/kflex/ctx"
 	"github.com/kubestellar/kubeflex/cmd/kflex/delete"
-	in "github.com/kubestellar/kubeflex/cmd/kflex/init"
-	cluster "github.com/kubestellar/kubeflex/cmd/kflex/init/cluster"
+	kflexInit "github.com/kubestellar/kubeflex/cmd/kflex/init"
 	"github.com/kubestellar/kubeflex/cmd/kflex/list"
-	"github.com/kubestellar/kubeflex/pkg/client"
 	"github.com/kubestellar/kubeflex/pkg/util"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+// Version injected by makefile:LDFLAGS
+var Version string
+
+// BuildDate injected by makefile:LDFLAGS
+var BuildDate string
+
 // REFACTOR: All global variables will disappear as each command package defines their own flags and retrieve then within cobra.Run function
 var createkind bool   // REFACTOR: to delete
 var kubeconfig string // REFACTOR: to delete
-var Version string    // REFACTOR: to delete
-var BuildDate string  // REFACTOR: to delete
 
 var Hook string                         // REFACTOR: to delete
 var domain string                       // REFACTOR: to delete
@@ -80,42 +80,6 @@ var versionCmd = &cobra.Command{
 }
 
 // REFACTOR: to move to its own package (see how create command is implemented)
-var initCmd = &cobra.Command{
-	Use:   "init",
-	Short: "Initialize kubeflex",
-	Long:  `Installs the default shared storage backend and the kubeflex operator`,
-	Args:  cobra.ExactArgs(0),
-	Run: func(cmd *cobra.Command, args []string) {
-		done := make(chan bool)
-		var wg sync.WaitGroup
-		var isOCP bool
-
-		util.PrintStatus("Checking if OpenShift cluster...", done, &wg, chattyStatus)
-		clientsetp, err := client.GetClientSet(kubeconfig)
-		if err == nil {
-			isOCP = util.IsOpenShift(*clientsetp)
-			if isOCP {
-				done <- true
-				util.PrintStatus("OpenShift cluster detected", done, &wg, chattyStatus)
-			}
-		}
-		done <- true
-
-		if createkind {
-			if isOCP {
-				fmt.Fprintf(os.Stderr, "OpenShift cluster detected on existing context\n")
-				fmt.Fprintf(os.Stdout, "Switch to a non-OpenShift context with `kubectl config use-context <context-name>` and retry.\n")
-				os.Exit(1)
-			}
-			cluster.CreateKindCluster(chattyStatus)
-		}
-
-		// REFACTOR: leverage CP struct to give Context and Kubeconfig
-		cp := common.NewCP(kubeconfig)
-		in.Init(cp.Ctx, cp.Kubeconfig, Version, BuildDate, domain, strconv.Itoa(externalPort), hostContainer, chattyStatus, isOCP)
-		wg.Wait()
-	},
-}
 
 // REFACTOR: to move to its own package (see how create command is implemented)
 // REFACTOR: remove cont.CPAdopt as common.CP is enough
@@ -184,10 +148,7 @@ func init() {
 	pflagset.IntP(common.VerbosityFlag, "v", 0, "log level") // TODO - figure out how to inject verbosity
 
 	// REFACTOR: to move to its own package (see how create command is implemented)
-	initCmd.Flags().BoolVarP(&createkind, "create-kind", "c", false, "Create and configure a kind cluster for installing Kubeflex")
-	initCmd.Flags().StringVarP(&domain, "domain", "d", "localtest.me", "domain for FQDN")
-	initCmd.Flags().StringVarP(&hostContainer, "hostContainerName", "n", "kubeflex-control-plane", "Name of the hosting cluster container (kind or k3d only)")
-	initCmd.Flags().IntVarP(&externalPort, "externalPort", "p", 9443, "external port used by ingress")
+
 	// REFACTOR: to move to its own package (see how create command is implemented)
 
 	// REFACTOR: to move to its own package (see how create command is implemented)
@@ -199,9 +160,9 @@ func init() {
 	ctxCmd.AddCommand(listCtxCmd)
 
 	rootCmd.AddCommand(versionCmd)
-	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(ctxCmd)
 	// REFACTOR: call command from their respective package
+	rootCmd.AddCommand(kflexInit.Command())
 	rootCmd.AddCommand(adopt.Command())
 	rootCmd.AddCommand(delete.Command())
 	rootCmd.AddCommand(create.Command())

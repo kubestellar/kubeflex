@@ -25,3 +25,9 @@ const (
 	PostCreateHookFlag = "postcreate-hook"
 	SetFlag            = "set"
 )
+
+// Version injected by makefile:LDFLAGS
+var Version string
+
+// BuildDate injected by makefile:LDFLAGS
+var BuildDate string
