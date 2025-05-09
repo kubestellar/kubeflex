@@ -46,12 +46,12 @@ func Command() *cobra.Command {
 			kubeconfig, _ := flagset.GetString(common.KubeconfigFlag)
 			chattyStatus, _ := flagset.GetBool(common.ChattyStatusFlag)
 			cp := common.NewCP(kubeconfig, common.WithName(args[0]))
-			execute(cp, chattyStatus)
+			ExecuteDelete(cp, chattyStatus)
 		},
 	}
 }
 
-func execute(cp common.CP, chattyStatus bool) {
+func ExecuteDelete(cp common.CP, chattyStatus bool) {
 	done := make(chan bool)
 	controlPlane := &tenancyv1alpha1.ControlPlane{
 		ObjectMeta: metav1.ObjectMeta{

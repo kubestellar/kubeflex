@@ -38,7 +38,7 @@ func Command() *cobra.Command {
 			kubeconfig, _ := flagset.GetString(common.KubeconfigFlag)
 			chattyStatus, _ := flagset.GetBool(common.ChattyStatusFlag)
 			cp := common.NewCP(kubeconfig)
-			execute(cp, chattyStatus)
+			ExecuteList(cp, chattyStatus)
 		},
 	}
 }
@@ -50,7 +50,7 @@ func getAge(creationTime time.Time) string {
 
 // REFACTOR: the usage of the variable `cp` as *common.CP and then overshadowed by `cp` as tenancyv1alpha1.ControlPlane was tricky. Took a while to understand. Hence, `cps` and `cp` from tenancyv1alpha1 becomes `controlPlanes` and `controlPlane` and common.CP is referred by `cp`
 // REFACTOR? chattyStatus is unused
-func execute(cp common.CP, chattyStatus bool) {
+func ExecuteList(cp common.CP, chattyStatus bool) {
 	client, err := client.GetClient(cp.Kubeconfig)
 	if err != nil {
 		fmt.Printf("Error getting client: %s\n", err)

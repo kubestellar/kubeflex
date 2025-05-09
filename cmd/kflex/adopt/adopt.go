@@ -84,7 +84,7 @@ func Command() *cobra.Command {
 				AdoptedURLOverride:            adoptedURLOverride,
 				AdoptedTokenExpirationSeconds: adoptedTokenExpirationSeconds,
 			}
-			execute(cp, postCreateHook, hookVars, chattyStatus)
+			ExecuteAdopt(cp, postCreateHook, hookVars, chattyStatus)
 		},
 	}
 	flagset := command.Flags()
@@ -99,11 +99,11 @@ func Command() *cobra.Command {
 }
 
 // Adopt a control plane from another cluster
-func execute(cp CPAdopt, hook string, hookVars []string, chattyStatus bool) {
+func ExecuteAdopt(cp CPAdopt, hook string, hookVars []string, chattyStatus bool) {
 	done := make(chan bool)
 	var wg sync.WaitGroup
 	cx := cont.CPCtx{}
-	cx.Context(chattyStatus, false, false, false)
+	cx.ExecuteCtx(chattyStatus, false, false, false)
 
 	controlPlaneType := tenancyv1alpha1.ControlPlaneTypeExternal
 	util.PrintStatus(fmt.Sprintf("Adopting control plane %s of type %s ...", cp.Name, controlPlaneType), done, &wg, chattyStatus)

@@ -18,13 +18,13 @@ func CommandGet() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			kubeconfig, _ := cmd.Flags().GetString(common.KubeconfigFlag)
 			cp := common.NewCP(kubeconfig)
-			GetCurrentContext(cp)
+			ExecuteCtxGet(cp)
 		},
 	}
 	return command
 }
 
-func GetCurrentContext(cp common.CP) {
+func ExecuteCtxGet(cp common.CP) {
 	currentContext, err := kubeconfig.GetCurrentContext(cp.Ctx)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error retrieving current context: %s\n", err)

@@ -34,12 +34,12 @@ func CommandList() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			kubeconfig, _ := cmd.Flags().GetString(common.KubeconfigFlag)
 			cp := common.NewCP(kubeconfig)
-			ListContexts(cp)
+			ExecuteCtxList(cp)
 		},
 	}
 }
 
-func ListContexts(cp common.CP) {
+func ExecuteCtxList(cp common.CP) {
 	config, err := clientcmd.LoadFromFile(cp.Kubeconfig)
 	if err != nil {
 		fmt.Printf("Error loading kubeconfig: %s\n", err)

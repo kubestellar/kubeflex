@@ -85,7 +85,7 @@ func Command() *cobra.Command {
 
 			// REFACTOR: leverage CP struct to give Context and Kubeconfig
 			cp := common.NewCP(kubeconfig)
-			execute(cp.Ctx, cp.Kubeconfig, common.Version, common.BuildDate, domain, strconv.Itoa(externalPort), hostContainer, chattyStatus, isOCP)
+			ExecuteInit(cp.Ctx, cp.Kubeconfig, common.Version, common.BuildDate, domain, strconv.Itoa(externalPort), hostContainer, chattyStatus, isOCP)
 			wg.Wait()
 		},
 	}
@@ -97,7 +97,7 @@ func Command() *cobra.Command {
 	return command
 }
 
-func execute(ctx context.Context, kubeconfig, version, buildDate string, domain, externalPort, hostContainer string, chattyStatus, isOCP bool) {
+func ExecuteInit(ctx context.Context, kubeconfig, version, buildDate string, domain, externalPort, hostContainer string, chattyStatus, isOCP bool) {
 	done := make(chan bool)
 	var wg sync.WaitGroup
 

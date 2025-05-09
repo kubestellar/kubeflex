@@ -67,7 +67,7 @@ func Command() *cobra.Command {
 			cp := CPCtx{
 				CP: common.NewCP(kubeconfig, common.WithName(cpName), common.WithAliasName(aliasName)),
 			}
-			cp.Context(chattyStatus, true, overwriteExistingCtx, setCurrentCtxAsHosting)
+			cp.ExecuteCtx(chattyStatus, true, overwriteExistingCtx, setCurrentCtxAsHosting)
 		},
 	}
 	flagset := command.Flags()
@@ -80,7 +80,7 @@ func Command() *cobra.Command {
 }
 
 // Context switch context in Kubeconfig
-func (c *CPCtx) Context(chattyStatus, failIfNone, overwriteExistingCtx, setCurrentCtxAsHosting bool) {
+func (c *CPCtx) ExecuteCtx(chattyStatus, failIfNone, overwriteExistingCtx, setCurrentCtxAsHosting bool) {
 	done := make(chan bool)
 	var wg sync.WaitGroup
 	kconf, err := kubeconfig.LoadKubeconfig(c.Ctx)
@@ -91,10 +91,10 @@ func (c *CPCtx) Context(chattyStatus, failIfNone, overwriteExistingCtx, setCurre
 
 	switch c.CP.Name {
 	case "get":
-		GetCurrentContext(c.CP)
+		ExecuteCtxGet(c.CP)
 		return
 	case "list":
-		ListContexts(c.CP)
+		ExecuteCtxList(c.CP)
 		return
 	case "":
 		if setCurrentCtxAsHosting { // set hosting cluster context unconditionally to the current context

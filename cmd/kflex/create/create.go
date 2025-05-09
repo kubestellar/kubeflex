@@ -60,7 +60,7 @@ func Command() *cobra.Command {
 			hookVars, _ := flagset.GetStringArray(common.SetFlag)
 			cp := common.NewCP(kubeconfig, common.WithName(args[0]))
 			// create passing the control plane type and backend type
-			execute(cp, cpType, backendType, postCreateHook, hookVars, chattyStatus)
+			ExecuteCreate(cp, cpType, backendType, postCreateHook, hookVars, chattyStatus)
 		},
 	}
 
@@ -76,11 +76,11 @@ func Command() *cobra.Command {
 }
 
 // Create a new control plane
-func execute(cp common.CP, controlPlaneType string, backendType string, hook string, hookVars []string, chattyStatus bool) {
+func ExecuteCreate(cp common.CP, controlPlaneType string, backendType string, hook string, hookVars []string, chattyStatus bool) {
 	done := make(chan bool)
 	var wg sync.WaitGroup
 	cx := cont.CPCtx{}
-	cx.Context(chattyStatus, false, false, false)
+	cx.ExecuteCtx(chattyStatus, false, false, false)
 
 	cl, err := kfclient.GetClient(cp.Kubeconfig)
 	if err != nil {

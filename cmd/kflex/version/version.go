@@ -18,13 +18,13 @@ func Command() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			flagset := cmd.Flags()
 			kubeconfig, _ := flagset.GetString(common.KubeconfigFlag)
-			execute(kubeconfig, common.Version, common.BuildDate)
+			ExecuteVersion(kubeconfig, common.Version, common.BuildDate)
 		},
 	}
 	return command
 }
 
-func execute(kubeconfig string, version string, buildDate string) {
+func ExecuteVersion(kubeconfig string, version string, buildDate string) {
 	fmt.Printf("Kubeflex version: %s %s\n", version, buildDate)
 	kubeVersionInfo, err := util.GetKubernetesClusterVersionInfo(kubeconfig)
 	if err != nil {
