@@ -27,7 +27,7 @@ import (
 	"github.com/kubestellar/kubeflex/cmd/kflex/delete"
 	kflexInit "github.com/kubestellar/kubeflex/cmd/kflex/init"
 	"github.com/kubestellar/kubeflex/cmd/kflex/list"
-	"github.com/kubestellar/kubeflex/pkg/util"
+	"github.com/kubestellar/kubeflex/cmd/kflex/version"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -39,21 +39,12 @@ var Version string
 var BuildDate string
 
 // REFACTOR: All global variables will disappear as each command package defines their own flags and retrieve then within cobra.Run function
-var createkind bool   // REFACTOR: to delete
 var kubeconfig string // REFACTOR: to delete
 
-var Hook string                         // REFACTOR: to delete
-var domain string                       // REFACTOR: to delete
-var externalPort int                    // REFACTOR: to delete
-var chattyStatus bool                   // REFACTOR: to delete
-var hookVars []string                   // REFACTOR: to delete
-var hostContainer string                // REFACTOR: to delete
-var overwriteExistingCtx bool           // REFACTOR: to delete
-var setCurrentCtxAsHosting bool         // REFACTOR: to delete
-var adoptedKubeconfig string            // REFACTOR: to delete
-var adoptedContext string               // REFACTOR: to delete
-var adoptedURLOverride string           // REFACTOR: to delete
-var adoptedTokenExpirationSeconds int64 // REFACTOR: to delete
+var Hook string                 // REFACTOR: to delete
+var chattyStatus bool           // REFACTOR: to delete
+var overwriteExistingCtx bool   // REFACTOR: to delete
+var setCurrentCtxAsHosting bool // REFACTOR: to delete
 
 var rootCmd = &cobra.Command{
 	Use:   "kflex",
@@ -63,21 +54,6 @@ var rootCmd = &cobra.Command{
 
 // REFACTOR: all commands of kflex (non root) are moving into their own command package
 // REFACTOR: to move to its own package (see how create command is implemented)
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Provide version info",
-	Long:  `Provide kubeflex version info for CLI`,
-	Args:  cobra.ExactArgs(0),
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("Kubeflex version: %s %s\n", Version, BuildDate)
-		kubeVersionInfo, err := util.GetKubernetesClusterVersionInfo(kubeconfig)
-		if err != nil {
-			fmt.Printf("Could not connect to a Kubernetes cluster: %s\n", err)
-			os.Exit(1)
-		}
-		fmt.Printf("Kubernetes version: %s\n", kubeVersionInfo)
-	},
-}
 
 // REFACTOR: to move to its own package (see how create command is implemented)
 
@@ -158,10 +134,9 @@ func init() {
 	// REFACTOR: to move to its own package (see how create command is implemented)
 	ctxCmd.AddCommand(ctxGetCmd)
 	ctxCmd.AddCommand(listCtxCmd)
-
-	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(ctxCmd)
 	// REFACTOR: call command from their respective package
+	rootCmd.AddCommand(version.Command())
 	rootCmd.AddCommand(kflexInit.Command())
 	rootCmd.AddCommand(adopt.Command())
 	rootCmd.AddCommand(delete.Command())
