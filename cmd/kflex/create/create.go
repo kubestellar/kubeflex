@@ -35,13 +35,11 @@ import (
 
 // defaults
 const (
-	BKTypeDefault        = string(tenancyv1alpha1.BackendDBTypeShared) // REFACTOR? local to create or common
-	CTypeDefault         = string(tenancyv1alpha1.ControlPlaneTypeK8S) // REFACTOR? local to create or common
+	BKTypeDefault        = string(tenancyv1alpha1.BackendDBTypeShared) 
+	CTypeDefault         = string(tenancyv1alpha1.ControlPlaneTypeK8S) 
 	ControlPlaneTypeFlag = "type"
 	BackendTypeFlag      = "backend-type"
 )
-
-// REFACTOR: removed variables such as `hookVars` as they are used by multiple commands (create and adopt...). It should be defined locally to each command package instead of pointing to the same variable defined in main avoiding extreme edge cases.
 
 func Command() *cobra.Command {
 	command := &cobra.Command{
@@ -65,9 +63,7 @@ func Command() *cobra.Command {
 	}
 
 	flagset := command.Flags()
-	// REFACTOR: putting CTypeDefault as default value, hence if empty string given to the flag, it picks up
 	flagset.StringP(ControlPlaneTypeFlag, "t", CTypeDefault, "type of control plane: k8s|ocm|vcluster")
-	// REFACTOR: same than CTypeDefault for BKTypeDefault
 	flagset.StringP(BackendTypeFlag, "b", BKTypeDefault, "backend DB sharing: shared|dedicated")
 	flagset.StringP(common.PostCreateHookFlag, "p", "", "name of post create hook to run")
 	flagset.BoolP(common.ChattyStatusFlag, "s", true, "chatty status indicator")

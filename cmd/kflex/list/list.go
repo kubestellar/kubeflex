@@ -36,9 +36,8 @@ func Command() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			flagset := cmd.Flags()
 			kubeconfig, _ := flagset.GetString(common.KubeconfigFlag)
-			chattyStatus, _ := flagset.GetBool(common.ChattyStatusFlag)
 			cp := common.NewCP(kubeconfig)
-			ExecuteList(cp, chattyStatus)
+			ExecuteList(cp)
 		},
 	}
 }
@@ -48,9 +47,7 @@ func getAge(creationTime time.Time) string {
 	return duration.Round(time.Second).String()
 }
 
-// REFACTOR: the usage of the variable `cp` as *common.CP and then overshadowed by `cp` as tenancyv1alpha1.ControlPlane was tricky. Took a while to understand. Hence, `cps` and `cp` from tenancyv1alpha1 becomes `controlPlanes` and `controlPlane` and common.CP is referred by `cp`
-// REFACTOR? chattyStatus is unused
-func ExecuteList(cp common.CP, chattyStatus bool) {
+func ExecuteList(cp common.CP) {
 	client, err := client.GetClient(cp.Kubeconfig)
 	if err != nil {
 		fmt.Printf("Error getting client: %s\n", err)
@@ -84,6 +81,6 @@ func ExecuteList(cp common.CP, chattyStatus bool) {
 			}
 		}
 
-		fmt.Printf("%-20s %-10s %-10s %-10s %-10s\n", cp.Name, synced, ready, controlPlane.Spec.Type, age)
+		fmt.Printf("%-20s %-10s %-10s %-10s %-10s\n", controlPlane.Name, synced, ready, controlPlane.Spec.Type, age)
 	}
 }

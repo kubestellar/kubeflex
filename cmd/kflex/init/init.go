@@ -40,8 +40,8 @@ import (
 const (
 	CreateKindFlag        = "create-kind"
 	DomainFlag            = "domain"
-	HostContainerNameFlag = "hostContainerName" // REFACTOR? replace with host-container-name?
-	ExternalPortFlag      = "externalPort"      // REFACTOR? replace with external-port?
+	HostContainerNameFlag = "host-container-name" // REFACTOR? replace with host-container-name?
+	ExternalPortFlag      = "external-port"        // REFACTOR? replace with external-port?
 )
 
 func Command() *cobra.Command {
@@ -83,7 +83,6 @@ func Command() *cobra.Command {
 				cluster.CreateKindCluster(chattyStatus)
 			}
 
-			// REFACTOR: leverage CP struct to give Context and Kubeconfig
 			cp := common.NewCP(kubeconfig)
 			ExecuteInit(cp.Ctx, cp.Kubeconfig, common.Version, common.BuildDate, domain, strconv.Itoa(externalPort), hostContainer, chattyStatus, isOCP)
 			wg.Wait()

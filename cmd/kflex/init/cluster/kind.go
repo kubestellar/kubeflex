@@ -19,7 +19,7 @@ package cluster
 import (
 	"bytes"
 	"fmt"
-	"log" // REFACTOR: why make use of log when using zap lib
+	"log"
 	"os"
 	"os/exec"
 	"strings"

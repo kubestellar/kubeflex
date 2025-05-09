@@ -77,14 +77,14 @@ func Command() *cobra.Command {
 			adoptedContext, _ := flagset.GetString(AdoptedContextFlag)
 			adoptedURLOverride, _ := flagset.GetString(URLOverrideFlag)
 			adoptedTokenExpirationSeconds, _ := flagset.GetInt64(ExpirationSecondsFlag)
-			cp := CPAdopt{
+			cpAdopt := CPAdopt{
 				CP:                            common.NewCP(kubeconfig, common.WithName(args[0])),
 				AdoptedKubeconfig:             adoptedKubeconfig,
 				AdoptedContext:                adoptedContext,
 				AdoptedURLOverride:            adoptedURLOverride,
 				AdoptedTokenExpirationSeconds: adoptedTokenExpirationSeconds,
 			}
-			ExecuteAdopt(cp, postCreateHook, hookVars, chattyStatus)
+			ExecuteAdopt(cpAdopt, postCreateHook, hookVars, chattyStatus)
 		},
 	}
 	flagset := command.Flags()
@@ -99,33 +99,33 @@ func Command() *cobra.Command {
 }
 
 // Adopt a control plane from another cluster
-func ExecuteAdopt(cp CPAdopt, hook string, hookVars []string, chattyStatus bool) {
+func ExecuteAdopt(cpAdopt CPAdopt, hook string, hookVars []string, chattyStatus bool) {
 	done := make(chan bool)
 	var wg sync.WaitGroup
 	cx := cont.CPCtx{}
 	cx.ExecuteCtx(chattyStatus, false, false, false)
 
 	controlPlaneType := tenancyv1alpha1.ControlPlaneTypeExternal
-	util.PrintStatus(fmt.Sprintf("Adopting control plane %s of type %s ...", cp.Name, controlPlaneType), done, &wg, chattyStatus)
+	util.PrintStatus(fmt.Sprintf("Adopting control plane %s of type %s ...", cpAdopt.Name, controlPlaneType), done, &wg, chattyStatus)
 
-	cl, err := kfclient.GetClient(cp.Kubeconfig)
+	cl, err := kfclient.GetClient(cpAdopt.Kubeconfig)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error getting kubeflex client: %v\n", err)
 		os.Exit(1)
 	}
 
-	clientsetp, err := kfclient.GetClientSet(cp.Kubeconfig)
+	clientsetp, err := kfclient.GetClientSet(cpAdopt.Kubeconfig)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error getting clientset: %v\n", err)
 		os.Exit(1)
 	}
 
-	if err := applyAdoptedBootstrapSecret(clientsetp, cp.Name, getBootstrapKubeconfig(cp), cp.AdoptedContext, cp.AdoptedURLOverride); err != nil {
+	if err := applyAdoptedBootstrapSecret(clientsetp, cpAdopt.Name, getBootstrapKubeconfig(cpAdopt), cpAdopt.AdoptedContext, cpAdopt.AdoptedURLOverride); err != nil {
 		fmt.Fprintf(os.Stderr, "error creating adopted cluster kubeconfig: %v\n", err)
 		os.Exit(1)
 	}
-	// REFACTOR? is cp being pointer of (*CPAdopt) make sense?
-	controlPlane, err := common.GenerateControlPlane(cp.Name, string(controlPlaneType), "", hook, hookVars, &cp.AdoptedTokenExpirationSeconds)
+	// REFACTOR? is cpAdopt being pointer of (*CPAdopt) make sense?
+	controlPlane, err := common.GenerateControlPlane(cpAdopt.Name, string(controlPlaneType), "", hook, hookVars, &cpAdopt.AdoptedTokenExpirationSeconds)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error generating control plane object: %v\n", err)
 		os.Exit(1)
@@ -277,13 +277,12 @@ func isValidServerURL(serverURL string) error {
 	return nil
 }
 
-// REFACTOR: no reason to be a pointer
-func getBootstrapKubeconfig(cp CPAdopt) string {
-	if cp.AdoptedKubeconfig != "" {
-		return cp.AdoptedKubeconfig
+func getBootstrapKubeconfig(cpAdopt CPAdopt) string {
+	if cpAdopt.AdoptedKubeconfig != "" {
+		return cpAdopt.AdoptedKubeconfig
 	}
-	if cp.Kubeconfig != "" {
-		return cp.Kubeconfig
+	if cpAdopt.Kubeconfig != "" {
+		return cpAdopt.Kubeconfig
 	}
 	return getKubeConfigFromEnv()
 }

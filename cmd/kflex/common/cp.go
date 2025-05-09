@@ -69,7 +69,7 @@ func createContext() context.Context {
 	return logr.NewContext(context.Background(), logger)
 }
 
-// REFACTOR: the usage of the variable `cp` as *common.CP and then overshadowed by `cp` as tenancyv1alpha1.ControlPlane was tricky. Took a while to understand. Hence, `cp` from tenancyv1alpha1 becomes `controlPlane` and common.CP is referred by `cp`
+// Generate a control plane based with a name
 func GenerateControlPlane(name, controlPlaneType, backendType, hook string, hookVars []string, tokenExpirationSeconds *int64) (*tenancyv1alpha1.ControlPlane, error) {
 	controlPlane := &tenancyv1alpha1.ControlPlane{
 		ObjectMeta: metav1.ObjectMeta{

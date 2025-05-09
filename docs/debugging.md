@@ -34,7 +34,7 @@ openssl x509 -noout -text -in certs/apiserver.crt
 ### Manually creating the configmap with KubeFlex defaults
 
 ```shell
-create configmap kubeflex-config -n kubeflex-system --from-literal=externalPort=9443 --from-literal=domain=localtest.me
+kubectl create configmap kubeflex-config -n kubeflex-system --from-literal=externalPort=9443 --from-literal=domain=localtest.me
 ```
 
 ### Get decoded value from secret
