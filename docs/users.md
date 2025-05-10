@@ -915,3 +915,19 @@ To list all available contexts in your kubeconfig file, use the following comman
 
 ```shell
 kflex ctx list
+```
+
+## PostCreateHook Template Variables
+
+PostCreateHooks support template variables with the following precedence:
+
+1. **System Variables** (highest priority)
+  - `Namespace`: Control plane namespace
+  - `ControlPlaneName`: Name of the control plane
+  - `HookName`: Name of the PostCreateHook
+
+2. **User Variables**  
+  Defined in `ControlPlane.spec.postCreateHookVars`
+
+3. **Default Variables**  
+  Defined in `PostCreateHook.spec.defaultVars`

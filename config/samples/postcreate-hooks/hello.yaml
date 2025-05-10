@@ -3,6 +3,9 @@ kind: PostCreateHook
 metadata:
   name: hello
 spec:
+  defaultVars:
+    - name: "MESSAGE"
+      value: "Hello from Defaults"
   templates:
   - apiVersion: batch/v1
     kind: Job
@@ -14,6 +17,6 @@ spec:
           containers:
           - name: hello
             image: public.ecr.aws/docker/library/busybox:1.36
-            command: ["echo",  "Hello", "World"]
+            command: ["echo", "{{.MESSAGE}}", "World"]
           restartPolicy: Never
       backoffLimit: 1
