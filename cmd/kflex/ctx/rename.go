@@ -28,9 +28,10 @@ import (
 )
 
 const (
-	SwitchCtxFlag = "--switch"
+	SwitchCtxFlag = "switch"
 )
 
+// Command kflex ctx rename
 func CommandRename() *cobra.Command {
 	command := &cobra.Command{
 		Use:   "rename CONTEXT NEW_CONTEXT",
@@ -38,42 +39,45 @@ func CommandRename() *cobra.Command {
 		Long:  `Rename a context in the kubeconfig file`,
 		Args:  cobra.ExactArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println("hey from ctx rename")
-			// kubeconfig, _ := cmd.Flags().GetString(common.KubeconfigFlag)
-			// toSwitch, _ := cmd.Flags().GetBool(SwitchCtxFlag)
-			// cp := common.NewCP(kubeconfig, common.WithName(args[0]))
-			// ExecuteCtxRename(cp, args[1], toSwitch)
+			kubeconfig, _ := cmd.Flags().GetString(common.KubeconfigFlag)
+			toSwitch, _ := cmd.Flags().GetBool(SwitchCtxFlag)
+			cp := common.NewCP(kubeconfig, common.WithName(args[0]))
+			ExecuteCtxRename(cp, args[1], toSwitch)
 		},
 	}
 	command.Flags().BoolP(SwitchCtxFlag, "S", false, "switch to context after renaming process")
 	return command
 }
 
+// Execute kflex ctx rename command
 func ExecuteCtxRename(cp common.CP, newName string, toSwitch bool) error {
 	kconf, err := kubeconfig.LoadKubeconfig(cp.Ctx)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "no kubeconfig context for %s was found, cannot load: %s\n", cp.Name, err)
 		return err
 	}
+	newClusterName := certs.GenerateClusterName(newName)
+	newAuthInfoAdminName := certs.GenerateAuthInfoAdminName(newName)
 	newCtxName := certs.GenerateContextName(newName)
-	// Load context from kubeconfig
-	kubeconfig.RenameKey(kconf.Clusters, certs.GenerateClusterName(cp.Name), certs.GenerateClusterName(newName))
-	kubeconfig.RenameKey(kconf.AuthInfos, certs.GenerateAuthInfoAdminName(cp.Name), certs.GenerateAuthInfoAdminName(newName))
-	kubeconfig.RenameKey(kconf.Contexts, certs.GenerateContextName(cp.Name), newCtxName)
 	kconf.Contexts[newCtxName] = &api.Context{
-		Cluster:  certs.GenerateClusterName(newName),
-		AuthInfo: certs.GenerateAuthInfoAdminName(newName),
+		Cluster:  newClusterName,
+		AuthInfo: newAuthInfoAdminName,
 	}
-	fmt.Fprintf(os.Stdout, "renaming context from %s to %s\n", cp.Name, newName)
-	// Switch context -- no call of kubeconfig.SwitchContext required
-	kconf.CurrentContext = newCtxName
-	// Create new context in kubeconfig
-
-	// Delete current context from kubeconfig
+	kubeconfig.RenameKey(kconf.Clusters, certs.GenerateClusterName(cp.Name), newClusterName)
+	kubeconfig.RenameKey(kconf.AuthInfos, certs.GenerateAuthInfoAdminName(cp.Name), newAuthInfoAdminName)
+	fmt.Fprintf(os.Stdout, "renaming context from %s to %s\n", cp.Name, newCtxName)
 	if err = kubeconfig.DeleteContext(kconf, cp.Name); err != nil {
-		fmt.Fprintf(os.Stderr, "no kubeconfig context for %s was found: %s\n", newName, err)
+		fmt.Fprintf(os.Stderr, "no kubeconfig context for %s was found: %s\n", cp.Name, err)
 		return err
 	}
 	fmt.Fprintf(os.Stdout, "context %s is deleted\n", cp.Name)
+	if toSwitch {
+		fmt.Fprintf(os.Stdout, "switching context to %s\n", newCtxName)
+		kconf.CurrentContext = newCtxName
+	}
+	if err = kubeconfig.WriteKubeconfig(cp.Ctx, kconf); err != nil {
+		fmt.Fprintf(os.Stderr, "Error writing kubeconfig: %s\n", err)
+		return err
+	}
 	return nil
 }

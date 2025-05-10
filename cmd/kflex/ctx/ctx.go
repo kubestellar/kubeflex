@@ -53,7 +53,6 @@ func Command() *cobra.Command {
 						that control plane. Use 'get' to retrieve the current context.`,
 		Args: cobra.MaximumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println("hey from ctx")
 			flagset := cmd.Flags()
 			kubeconfig, _ := flagset.GetString(common.KubeconfigFlag)
 			chattyStatus, _ := flagset.GetBool(common.ChattyStatusFlag)
