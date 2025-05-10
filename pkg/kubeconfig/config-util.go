@@ -66,7 +66,7 @@ func SwitchContext(config *clientcmdapi.Config, cpName string) error {
 	return nil
 }
 
-func DeleteContext(config *clientcmdapi.Config, cpName string) error {
+func DeleteAll(config *clientcmdapi.Config, cpName string) error {
 	ctxName := certs.GenerateContextName(cpName)
 	clusterName := certs.GenerateClusterName(cpName)
 	authName := certs.GenerateAuthInfoAdminName(cpName)

@@ -76,6 +76,7 @@ func Command() *cobra.Command {
 	flagset.String("alias", "", "Set an alias name as the context, user and cluster value instead of cp name")
 	command.AddCommand(CommandGet())
 	command.AddCommand(CommandList())
+	command.AddCommand(CommandDelete())
 	return command
 }
 
@@ -140,7 +141,7 @@ func (c *CPCtx) ExecuteCtx(chattyStatus, failIfNone, overwriteExistingCtx, setCu
 			// Create new context in kubeconfig
 
 			// Delete current context from kubeconfig
-			if err = kubeconfig.DeleteContext(kconf, c.Name); err != nil {
+			if err = kubeconfig.DeleteAll(kconf, c.Name); err != nil {
 				fmt.Fprintf(os.Stderr, "no kubeconfig context for %s was found: %s\n", c.AliasName, err)
 			}
 			fmt.Fprintf(os.Stdout, "context %s is deleted\n", c.Name)
@@ -149,7 +150,7 @@ func (c *CPCtx) ExecuteCtx(chattyStatus, failIfNone, overwriteExistingCtx, setCu
 		} else {
 			if overwriteExistingCtx {
 				util.PrintStatus("Overwriting existing context for control plane", done, &wg, chattyStatus)
-				if err = kubeconfig.DeleteContext(kconf, c.Name); err != nil {
+				if err = kubeconfig.DeleteAll(kconf, c.Name); err != nil {
 					fmt.Fprintf(os.Stderr, "no kubeconfig context for %s was found: %s\n", c.Name, err)
 				}
 				done <- true
