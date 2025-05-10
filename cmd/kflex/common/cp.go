@@ -21,8 +21,11 @@ import (
 	"fmt"
 	"strings"
 
+	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/go-logr/logr"
+	"github.com/go-logr/zapr"
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/util"
 )
@@ -31,10 +34,44 @@ type CP struct {
 	Ctx        context.Context
 	Kubeconfig string
 	Name       string
+	AliasName  string
 }
 
+type CPOption func(*CP)
+
+// New control plane with option design pattern
+func NewCP(kubeconfigPath string, options ...CPOption) CP {
+	cp := CP{Ctx: createContext(), Kubeconfig: kubeconfigPath}
+	for _, option := range options {
+		option(&cp)
+	}
+	return cp
+}
+
+// Make Name optional using option design pattern
+func WithName(name string) CPOption {
+	return func(cp *CP) {
+		cp.Name = name
+	}
+}
+
+// Make AliasName optional using option design pattern
+func WithAliasName(aliasName string) CPOption {
+	return func(cp *CP) {
+		cp.AliasName = aliasName
+	}
+}
+
+// Create a new system context with logger
+func createContext() context.Context {
+	zapLogger, _ := zap.NewDevelopment(zap.AddCaller())
+	logger := zapr.NewLoggerWithOptions(zapLogger)
+	return logr.NewContext(context.Background(), logger)
+}
+
+// Generate a control plane based with a name
 func GenerateControlPlane(name, controlPlaneType, backendType, hook string, hookVars []string, tokenExpirationSeconds *int64) (*tenancyv1alpha1.ControlPlane, error) {
-	cp := &tenancyv1alpha1.ControlPlane{
+	controlPlane := &tenancyv1alpha1.ControlPlane{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
@@ -45,21 +82,21 @@ func GenerateControlPlane(name, controlPlaneType, backendType, hook string, hook
 		},
 	}
 	if hook != "" {
-		cp.Spec.PostCreateHook = &hook
+		controlPlane.Spec.PostCreateHook = &hook
 		var err error
-		cp.Spec.PostCreateHookVars, err = convertToMap(hookVars)
+		controlPlane.Spec.PostCreateHookVars, err = convertToMap(hookVars)
 		if err != nil {
 			return nil, err
 		}
 	}
 	if controlPlaneType == string(tenancyv1alpha1.ControlPlaneTypeExternal) {
-		cp.Spec.BootstrapSecretRef = &tenancyv1alpha1.BootstrapSecretReference{
+		controlPlane.Spec.BootstrapSecretRef = &tenancyv1alpha1.BootstrapSecretReference{
 			Name:         util.GenerateBootstrapSecretName(name),
 			Namespace:    util.SystemNamespace,
 			InClusterKey: util.KubeconfigSecretKeyInCluster,
 		}
 	}
-	return cp, nil
+	return controlPlane, nil
 }
 
 func convertToMap(pairs []string) (map[string]string, error) {

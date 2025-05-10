@@ -79,7 +79,7 @@ helm install ingress-nginx ingress-nginx --set "controller.extraArgs.enable-ssl-
 
 
 ```shell
-kflex init --hostContainerName k3d-kubeflex-server-0
+kflex init --host-container-name k3d-kubeflex-server-0
 ```
 
 ### Installing on OpenShift

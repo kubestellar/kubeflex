@@ -29,9 +29,15 @@ import (
 	kfclient "github.com/kubestellar/kubeflex/pkg/client"
 	"github.com/kubestellar/kubeflex/pkg/kubeconfig"
 	"github.com/kubestellar/kubeflex/pkg/util"
+	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	OverwriteExistingContextFlag = "overwrite-existing-context"
+	SetCurrentForHostingFlag     = "set-current-for-hosting"
 )
 
 type CPCtx struct {
@@ -39,8 +45,42 @@ type CPCtx struct {
 	Type tenancyv1alpha1.ControlPlaneType
 }
 
+func Command() *cobra.Command {
+	command := &cobra.Command{
+		Use:   "ctx",
+		Short: "Switch or get kubeconfig context",
+		Long: `Running without an argument switches the context back to the hosting cluster context,
+						while providing the control plane name as argument switches the context to
+						that control plane. Use 'get' to retrieve the current context.`,
+		Args: cobra.MaximumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			flagset := cmd.Flags()
+			kubeconfig, _ := flagset.GetString(common.KubeconfigFlag)
+			chattyStatus, _ := flagset.GetBool(common.ChattyStatusFlag)
+			overwriteExistingCtx, _ := flagset.GetBool(OverwriteExistingContextFlag)
+			setCurrentCtxAsHosting, _ := flagset.GetBool(SetCurrentForHostingFlag)
+			aliasName, _ := flagset.GetString("alias")
+			cpName := ""
+			if len(args) == 1 {
+				cpName = args[0]
+			}
+			cp := CPCtx{
+				CP: common.NewCP(kubeconfig, common.WithName(cpName), common.WithAliasName(aliasName)),
+			}
+			cp.ExecuteCtx(chattyStatus, true, overwriteExistingCtx, setCurrentCtxAsHosting)
+		},
+	}
+	flagset := command.Flags()
+	flagset.BoolP(OverwriteExistingContextFlag, "o", false, "Overwrite of hosting cluster context with new control plane context")
+	flagset.BoolP(SetCurrentForHostingFlag, "c", false, "Set current context as hosting cluster context")
+	flagset.String("alias", "", "Set an alias name as the context, user and cluster value instead of cp name")
+	command.AddCommand(CommandGet())
+	command.AddCommand(CommandList())
+	return command
+}
+
 // Context switch context in Kubeconfig
-func (c *CPCtx) Context(chattyStatus, failIfNone, overwriteExistingCtx, setCurrentCtxAsHosting bool) {
+func (c *CPCtx) ExecuteCtx(chattyStatus, failIfNone, overwriteExistingCtx, setCurrentCtxAsHosting bool) {
 	done := make(chan bool)
 	var wg sync.WaitGroup
 	kconf, err := kubeconfig.LoadKubeconfig(c.Ctx)
@@ -51,15 +91,10 @@ func (c *CPCtx) Context(chattyStatus, failIfNone, overwriteExistingCtx, setCurre
 
 	switch c.CP.Name {
 	case "get":
-		currentContext, err := kubeconfig.GetCurrentContext(c.Ctx)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error retrieving current context: %s\n", err)
-			os.Exit(1)
-		}
-		fmt.Println(currentContext)
+		ExecuteCtxGet(c.CP)
 		return
 	case "list":
-		c.ListContexts()
+		ExecuteCtxList(c.CP)
 		return
 	case "":
 		if setCurrentCtxAsHosting { // set hosting cluster context unconditionally to the current context
@@ -88,42 +123,66 @@ func (c *CPCtx) Context(chattyStatus, failIfNone, overwriteExistingCtx, setCurre
 			done <- true
 		}
 	default:
-		ctxName := certs.GenerateContextName(c.Name)
-		if overwriteExistingCtx {
-			util.PrintStatus("Overwriting existing context for control plane", done, &wg, chattyStatus)
+		if c.AliasName != "" {
+			ctxName := certs.GenerateContextName(c.AliasName)
+			util.PrintStatus("Renaming context", done, &wg, chattyStatus)
+			// Load context from kubeconfig
+			kubeconfig.RenameKey(kconf.Clusters, certs.GenerateClusterName(c.Name), certs.GenerateClusterName(c.AliasName))
+			kubeconfig.RenameKey(kconf.AuthInfos, certs.GenerateAuthInfoAdminName(c.Name), certs.GenerateAuthInfoAdminName(c.AliasName))
+			kubeconfig.RenameKey(kconf.Contexts, certs.GenerateContextName(c.Name), ctxName)
+			kconf.Contexts[ctxName] = &api.Context{
+				Cluster:  certs.GenerateClusterName(c.AliasName),
+				AuthInfo: certs.GenerateAuthInfoAdminName(c.AliasName),
+			}
+			fmt.Fprintf(os.Stdout, "renaming context from %s to %s\n", c.Name, c.AliasName)
+			// Switch context -- no call of kubeconfig.SwitchContext required
+			kconf.CurrentContext = ctxName
+			// Create new context in kubeconfig
+
+			// Delete current context from kubeconfig
 			if err = kubeconfig.DeleteContext(kconf, c.Name); err != nil {
-				fmt.Fprintf(os.Stderr, "no kubeconfig context for %s was found: %s\n", c.Name, err)
+				fmt.Fprintf(os.Stderr, "no kubeconfig context for %s was found: %s\n", c.AliasName, err)
+			}
+			fmt.Fprintf(os.Stdout, "context %s is deleted\n", c.Name)
+			done <- true
+			// Exit
+		} else {
+			if overwriteExistingCtx {
+				util.PrintStatus("Overwriting existing context for control plane", done, &wg, chattyStatus)
+				if err = kubeconfig.DeleteContext(kconf, c.Name); err != nil {
+					fmt.Fprintf(os.Stderr, "no kubeconfig context for %s was found: %s\n", c.Name, err)
+				}
+				done <- true
+			}
+			// TODO continue the --alias
+			util.PrintStatus(fmt.Sprintf("Switching to context %s...", c.Name), done, &wg, chattyStatus)
+			if err = kubeconfig.SwitchContext(kconf, c.Name); err != nil {
+				if overwriteExistingCtx {
+					fmt.Fprintf(os.Stderr, "trying to load new context %s from server...\n", c.Name)
+				} else {
+					fmt.Fprintf(os.Stderr, "kubeconfig context %s not found (%s), trying to load from server...\n", c.Name, err)
+				}
+				if err := c.switchToHostingClusterContextAndWrite(kconf); err != nil {
+					fmt.Fprintf(os.Stderr, "Error switching back to hosting cluster context: %s\n", err)
+					os.Exit(1)
+				}
+				if err = c.loadAndMergeFromServer(kconf); err != nil {
+					fmt.Fprintf(os.Stderr, "Error loading kubeconfig context from server: %s\n", err)
+					os.Exit(1)
+				}
+				// context exists only for CPs that are not of type host
+				if c.Type != tenancyv1alpha1.ControlPlaneTypeHost {
+					if err = kubeconfig.SwitchContext(kconf, c.Name); err != nil {
+						fmt.Fprintf(os.Stderr, "Error switching kubeconfig context after loading from server: %s\n", err)
+						os.Exit(1)
+					}
+				} else {
+					fmt.Fprintf(os.Stderr, "control plane %s is of type 'host', using hosting cluster context (%s)\n", c.Name, kconf.CurrentContext)
+					os.Exit(0)
+				}
 			}
 			done <- true
 		}
-
-		util.PrintStatus(fmt.Sprintf("Switching to context %s...", ctxName), done, &wg, chattyStatus)
-		if err = kubeconfig.SwitchContext(kconf, c.Name); err != nil {
-			if overwriteExistingCtx {
-				fmt.Fprintf(os.Stderr, "trying to load new context %s from server...\n", c.Name)
-			} else {
-				fmt.Fprintf(os.Stderr, "kubeconfig context %s not found (%s), trying to load from server...\n", c.Name, err)
-			}
-			if err := c.switchToHostingClusterContextAndWrite(kconf); err != nil {
-				fmt.Fprintf(os.Stderr, "Error switching back to hosting cluster context: %s\n", err)
-				os.Exit(1)
-			}
-			if err = c.loadAndMergeFromServer(kconf); err != nil {
-				fmt.Fprintf(os.Stderr, "Error loading kubeconfig context from server: %s\n", err)
-				os.Exit(1)
-			}
-			// context exists only for CPs that are not of type host
-			if c.Type != tenancyv1alpha1.ControlPlaneTypeHost {
-				if err = kubeconfig.SwitchContext(kconf, c.Name); err != nil {
-					fmt.Fprintf(os.Stderr, "Error switching kubeconfig context after loading from server: %s\n", err)
-					os.Exit(1)
-				}
-			} else {
-				fmt.Fprintf(os.Stderr, "control plane %s is of type 'host', using hosting cluster context (%s)\n", c.Name, kconf.CurrentContext)
-				os.Exit(0)
-			}
-		}
-		done <- true
 	}
 
 	if err = kubeconfig.WriteKubeconfig(c.Ctx, kconf); err != nil {
@@ -190,36 +249,4 @@ func (c *CPCtx) isCurrentContextHostingClusterContext() bool {
 	}
 	clientset := *clientsetp
 	return util.CheckResourceExists(clientset, "tenancy.kflex.kubestellar.org", "v1alpha1", "controlplanes")
-}
-
-func (c *CPCtx) GetCurrentContext() {
-	currentContext, err := kubeconfig.GetCurrentContext(c.Ctx)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error retrieving current context: %s\n", err)
-		os.Exit(1)
-	}
-	fmt.Println(currentContext)
-}
-
-func (c *CPCtx) ListContexts() {
-	kconf, err := kubeconfig.LoadKubeconfig(c.Ctx)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading kubeconfig: %s\n", err)
-		os.Exit(1)
-	}
-
-	if len(kconf.Contexts) == 0 {
-		fmt.Println("No contexts found in kubeconfig")
-		return
-	}
-
-	currentContext := kconf.CurrentContext
-	fmt.Println("Available Contexts:")
-	for name := range kconf.Contexts {
-		prefix := " "
-		if name == currentContext {
-			prefix = "*"
-		}
-		fmt.Printf("%s %s\n", prefix, name)
-	}
 }

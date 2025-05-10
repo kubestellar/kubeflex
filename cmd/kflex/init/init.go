@@ -28,13 +28,75 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/kubestellar/kubeflex/cmd/kflex/common"
+	"github.com/kubestellar/kubeflex/cmd/kflex/init/cluster"
 	"github.com/kubestellar/kubeflex/pkg/client"
 	"github.com/kubestellar/kubeflex/pkg/helm"
 	kcfg "github.com/kubestellar/kubeflex/pkg/kubeconfig"
 	"github.com/kubestellar/kubeflex/pkg/util"
+	"github.com/spf13/cobra"
 )
 
-func Init(ctx context.Context, kubeconfig, version, buildDate string, domain, externalPort, hostContainer string, chattyStatus, isOCP bool) {
+const (
+	CreateKindFlag        = "create-kind"
+	DomainFlag            = "domain"
+	HostContainerNameFlag = "host-container-name" // REFACTOR? replace with host-container-name?
+	ExternalPortFlag      = "external-port"        // REFACTOR? replace with external-port?
+)
+
+func Command() *cobra.Command {
+	command := &cobra.Command{
+		Use:   "init",
+		Short: "Initialize kubeflex",
+		Long:  `Installs the default shared storage backend and the kubeflex operator`,
+		Args:  cobra.ExactArgs(0),
+		Run: func(cmd *cobra.Command, args []string) {
+
+			flagset := cmd.Flags()
+			kubeconfig, _ := flagset.GetString(common.KubeconfigFlag)
+			chattyStatus, _ := flagset.GetBool(common.ChattyStatusFlag)
+			createkind, _ := flagset.GetBool(CreateKindFlag)
+			domain, _ := flagset.GetString(DomainFlag)
+			externalPort, _ := flagset.GetInt(ExternalPortFlag)
+			hostContainer, _ := flagset.GetString(HostContainerNameFlag)
+			done := make(chan bool)
+			var wg sync.WaitGroup
+			var isOCP bool
+
+			util.PrintStatus("Checking if OpenShift cluster...", done, &wg, chattyStatus)
+			clientsetp, err := client.GetClientSet(kubeconfig)
+			if err == nil {
+				isOCP = util.IsOpenShift(*clientsetp)
+				if isOCP {
+					done <- true
+					util.PrintStatus("OpenShift cluster detected", done, &wg, chattyStatus)
+				}
+			}
+			done <- true
+
+			if createkind {
+				if isOCP {
+					fmt.Fprintf(os.Stderr, "OpenShift cluster detected on existing context\n")
+					fmt.Fprintf(os.Stdout, "Switch to a non-OpenShift context with `kubectl config use-context <context-name>` and retry.\n")
+					os.Exit(1)
+				}
+				cluster.CreateKindCluster(chattyStatus)
+			}
+
+			cp := common.NewCP(kubeconfig)
+			ExecuteInit(cp.Ctx, cp.Kubeconfig, common.Version, common.BuildDate, domain, strconv.Itoa(externalPort), hostContainer, chattyStatus, isOCP)
+			wg.Wait()
+		},
+	}
+	flagset := command.Flags()
+	flagset.BoolP(CreateKindFlag, "c", false, "Create and configure a kind cluster for installing Kubeflex")
+	flagset.StringP(DomainFlag, "d", "localtest.me", "domain for FQDN")
+	flagset.StringP(HostContainerNameFlag, "n", "kubeflex-control-plane", "Name of the hosting cluster container (kind or k3d only)")
+	flagset.IntP(ExternalPortFlag, "p", 9443, "external port used by ingress")
+	return command
+}
+
+func ExecuteInit(ctx context.Context, kubeconfig, version, buildDate string, domain, externalPort, hostContainer string, chattyStatus, isOCP bool) {
 	done := make(chan bool)
 	var wg sync.WaitGroup
 

@@ -47,8 +47,8 @@ GIT_VERSION := $(shell go mod edit -json | jq '.Require[] | select(.Path == "k8s
 BUILD_DATE := $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 MAIN_VERSION := $(shell git tag -l --sort=-v:refname | head -n1)
 LDFLAGS := \
-	-X main.Version=${MAIN_VERSION}.${GIT_COMMIT} \
-	-X main.BuildDate=${BUILD_DATE} \
+	-X github.com/kubestellar/kubeflex/cmd/kflex/common.Version=${MAIN_VERSION}.${GIT_COMMIT} \
+	-X github.com/kubestellar/kubeflex/cmd/kflex/common.BuildDate=${BUILD_DATE} \
 	-X k8s.io/client-go/pkg/version.gitCommit=${GIT_COMMIT} \
 	-X k8s.io/client-go/pkg/version.gitTreeState=${GIT_DIRTY} \
 	-X k8s.io/client-go/pkg/version.gitVersion=${GIT_VERSION} \
