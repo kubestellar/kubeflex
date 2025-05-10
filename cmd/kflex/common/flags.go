@@ -19,11 +19,11 @@ package common
 import "k8s.io/client-go/tools/clientcmd"
 
 const (
-	KubeconfigFlag     = clientcmd.RecommendedConfigPathFlag
-	ChattyStatusFlag   = "chatty-status"
-	VerbosityFlag      = "verbosity"
-	PostCreateHookFlag = "postcreate-hook"
-	SetFlag            = "set"
+	KubeconfigFlag     = clientcmd.RecommendedConfigPathFlag // String flag
+	ChattyStatusFlag   = "chatty-status"                     // Boolean flag
+	VerbosityFlag      = "verbosity"                         // Int flag
+	PostCreateHookFlag = "postcreate-hook"                   // String flag
+	SetFlag            = "set"                               // []String flag
 )
 
 // Version injected by makefile:LDFLAGS
@@ -31,3 +31,9 @@ var Version string
 
 // BuildDate injected by makefile:LDFLAGS
 var BuildDate string
+
+type KflexGlobalOptions interface {
+	WithChattyStatus(chattyStatus bool)
+	WithVerbosity(verbosity int)
+	WithKubeconfig(kubeconfig string)
+}
