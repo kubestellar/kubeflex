@@ -67,7 +67,7 @@ func ExecuteDelete(cp common.CP, chattyStatus bool) {
 		os.Exit(1)
 	}
 
-	if err = kubeconfig.SwitchToHostingClusterContext(kconf, false); err != nil {
+	if err = kubeconfig.SwitchToHostingClusterContext(kconf, true); err != nil {
 		fmt.Fprintf(os.Stderr, "error switching to hosting cluster kubeconfig context: %s\n", err)
 		os.Exit(1)
 	}
@@ -84,12 +84,12 @@ func ExecuteDelete(cp common.CP, chattyStatus bool) {
 	}
 
 	if err := kfcClient.Get(context.TODO(), client.ObjectKeyFromObject(controlPlane), controlPlane, &client.GetOptions{}); err != nil {
-		fmt.Fprintf(os.Stderr, "control plane not found on server: %s", err)
-	}
-
-	if err := kfcClient.Delete(context.TODO(), controlPlane, &client.DeleteOptions{}); err != nil {
-		fmt.Fprintf(os.Stderr, "Error deleting instance: %s\n", err)
-		os.Exit(1)
+		fmt.Fprintf(os.Stderr, "Control plane %s not found: %s\n", cp.Name, err)
+	} else {
+		if err := kfcClient.Delete(context.TODO(), controlPlane, &client.DeleteOptions{}); err != nil {
+			fmt.Fprintf(os.Stderr, "Error deleting instance: %s\n", err)
+			os.Exit(1)
+		}
 	}
 	done <- true
 
@@ -102,17 +102,13 @@ func ExecuteDelete(cp common.CP, chattyStatus bool) {
 	util.PrintStatus(fmt.Sprintf("Waiting for control plane %s to be deleted...", cp.Name), done, &wg, chattyStatus)
 	util.WaitForNamespaceDeletion(clientset, util.GenerateNamespaceFromControlPlaneName(cp.Name))
 
-	if controlPlane.Spec.Type != tenancyv1alpha1.ControlPlaneTypeHost &&
-		controlPlane.Spec.Type != tenancyv1alpha1.ControlPlaneTypeExternal {
-		if err := kubeconfig.DeleteContext(kconf, cp.Name); err != nil {
-			fmt.Fprintf(os.Stderr, "no kubeconfig context for %s was found: %s\n", cp.Name, err)
-			os.Exit(1)
-		}
+	if err := kubeconfig.DeleteContext(kconf, cp.Name); err != nil {
+		fmt.Fprintf(os.Stderr, "Error removing kubeconfig context: %s\n", err)
+	}
 
-		if err := kubeconfig.WriteKubeconfig(cp.Ctx, kconf); err != nil {
-			fmt.Fprintf(os.Stderr, "Error writing kubeconfig: %s\n", err)
-			os.Exit(1)
-		}
+	if err := kubeconfig.WriteKubeconfig(cp.Ctx, kconf); err != nil {
+		fmt.Fprintf(os.Stderr, "Error writing kubeconfig: %s\n", err)
+		os.Exit(1)
 	}
 
 	done <- true

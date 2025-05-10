@@ -34,6 +34,11 @@ jobs:
 
       - name: Run test
         run: |
+          make install
+          kubectl apply -f config/samples/tenancy_v1alpha1_controlplane.yaml
+          
+          kubectl create namespace kubeflex-system --dry-run=client -o yaml | kubectl apply -f -
+          
           test/e2e/run.sh
 
       - name: Show kubeconfig contexts
