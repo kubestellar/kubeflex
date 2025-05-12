@@ -13,14 +13,27 @@ Make sure that `${HOME}/go/bin` is in your `$PATH`.
 
 ## How to build kubeflex from source
 
-Clone the repo, build the binaries and add them to your path:
+Clone the repo, set up upstream remote, fetch tags, build the binaries and add them to your path:
 
 ```shell
-git clone https://github.com/kubestellar/kubeflex.git
+# Clone your fork – command only shown for HTTPS; adjust the URL if you prefer SSH
+git clone https://github.com/<your-username>/kubeflex.git
 cd kubeflex
+
+# Add the upstream repository as a remote (adjust the URL if you prefer SSH)
+git remote add upstream https://github.com/kubestellar/kubeflex.git
+
+# Fetch all tags from upstream
+git fetch upstream --tags
+
+# Build the binaries
 make build-all
+
+# Add binaries to your path
 export PATH=$(pwd)/bin:$PATH
 ```
+
+> **Note:** Fetching tags from upstream is important as the version information for KubeFlex binaries is derived from git tags. Without the tags, commands like `kflex init -c` (which initializes KubeFlex and creates a kind cluster) will not work correctly.
 
 ## Setting Up a Testing Cluster for KubeFlex
 
