@@ -21,9 +21,16 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
+// Var defines a name/value pair for template variables
+type Var struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
 // PostCreateHookSpec defines the desired state of PostCreateHook
 type PostCreateHookSpec struct {
 	Templates []Manifest `json:"templates,omitempty"`
+	DefaultVars []Var      `json:"defaultVars,omitempty"`
 }
 
 // PostCreateHookStatus defines the observed state of PostCreateHook
