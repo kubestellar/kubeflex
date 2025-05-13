@@ -80,7 +80,7 @@ func Command() *cobra.Command {
 func (cpCtx *CPCtx) ExecuteCtx(chattyStatus, failIfNone, overwriteExistingCtx, setCurrentCtxAsHosting bool) {
 	done := make(chan bool)
 	var wg sync.WaitGroup
-	kconf, err := kubeconfig.LoadKubeconfig(cpCtx.Ctx)
+	kconf, err := kubeconfig.LoadKubeconfig(cpCtx.Kubeconfig)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error loading kubeconfig: %s\n", err)
 		os.Exit(1)
@@ -150,7 +150,7 @@ func (cpCtx *CPCtx) ExecuteCtx(chattyStatus, failIfNone, overwriteExistingCtx, s
 		done <- true
 	}
 
-	if err = kubeconfig.WriteKubeconfig(cpCtx.Ctx, kconf); err != nil {
+	if err = kubeconfig.WriteKubeconfig(cpCtx.Kubeconfig, kconf); err != nil {
 		fmt.Fprintf(os.Stderr, "Error writing kubeconfig: %s\n", err)
 		os.Exit(1)
 	}
@@ -199,7 +199,7 @@ func (cpCtx *CPCtx) switchToHostingClusterContextAndWrite(kconf *api.Config) err
 		if err := kubeconfig.SwitchToHostingClusterContext(kconf, false); err != nil {
 			return err
 		}
-		if err := kubeconfig.WriteKubeconfig(cpCtx.Ctx, kconf); err != nil {
+		if err := kubeconfig.WriteKubeconfig(cpCtx.Kubeconfig, kconf); err != nil {
 			return err
 		}
 	}
