@@ -71,7 +71,6 @@ func Command() *cobra.Command {
 	flagset := command.Flags()
 	flagset.BoolP(OverwriteExistingContextFlag, "o", false, "Overwrite of hosting cluster context with new control plane context")
 	flagset.BoolP(SetCurrentForHostingFlag, "c", false, "Set current context as hosting cluster context")
-	flagset.String("alias", "", "Set an alias name as the context, user and cluster value instead of cp name")
 	command.AddCommand(CommandGet(), CommandList(), CommandRename())
 	return command
 }

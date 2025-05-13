@@ -34,7 +34,6 @@ type CP struct {
 	Ctx        context.Context
 	Kubeconfig string
 	Name       string
-	AliasName  string
 }
 
 type CPOption func(*CP)
@@ -52,13 +51,6 @@ func NewCP(kubeconfigPath string, options ...CPOption) CP {
 func WithName(name string) CPOption {
 	return func(cp *CP) {
 		cp.Name = name
-	}
-}
-
-// Make AliasName optional using option design pattern
-func WithAliasName(aliasName string) CPOption {
-	return func(cp *CP) {
-		cp.AliasName = aliasName
 	}
 }
 
