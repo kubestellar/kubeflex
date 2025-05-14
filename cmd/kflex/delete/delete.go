@@ -61,7 +61,7 @@ func ExecuteDelete(cp common.CP, chattyStatus bool) {
 	var wg sync.WaitGroup
 
 	util.PrintStatus(fmt.Sprintf("Deleting control plane %s...", cp.Name), done, &wg, chattyStatus)
-	kconf, err := kubeconfig.LoadKubeconfig(cp.Ctx)
+	kconf, err := kubeconfig.LoadKubeconfig(cp.Kubeconfig)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error loading kubeconfig: %s\n", err)
 		os.Exit(1)
@@ -72,7 +72,7 @@ func ExecuteDelete(cp common.CP, chattyStatus bool) {
 		os.Exit(1)
 	}
 
-	if err := kubeconfig.WriteKubeconfig(cp.Ctx, kconf); err != nil {
+	if err := kubeconfig.WriteKubeconfig(cp.Kubeconfig, kconf); err != nil {
 		fmt.Fprintf(os.Stderr, "Error writing kubeconfig: %s\n", err)
 		os.Exit(1)
 	}
@@ -109,7 +109,7 @@ func ExecuteDelete(cp common.CP, chattyStatus bool) {
 			os.Exit(1)
 		}
 
-		if err := kubeconfig.WriteKubeconfig(cp.Ctx, kconf); err != nil {
+		if err := kubeconfig.WriteKubeconfig(cp.Kubeconfig, kconf); err != nil {
 			fmt.Fprintf(os.Stderr, "Error writing kubeconfig: %s\n", err)
 			os.Exit(1)
 		}

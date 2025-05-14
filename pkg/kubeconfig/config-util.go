@@ -76,12 +76,29 @@ func DeleteContext(config *clientcmdapi.Config, cpName string) error {
 		return fmt.Errorf("context %s not found for control plane %s", ctxName, cpName)
 	}
 	delete(config.Contexts, ctxName)
-
 	delete(config.Clusters, clusterName)
-
 	delete(config.AuthInfos, authName)
-
 	return nil
+}
+
+func GetHostingClusterContext(config *clientcmdapi.Config) (string, error) {
+	cm, err := unMarshallCM(config.Preferences.Extensions[ConfigExtensionName])
+	if err != nil {
+		return "", fmt.Errorf("error unmarshaling config map %s", err)
+	}
+
+	contextData, ok := cm.Data[InitialContextName]
+	if !ok {
+		return "", fmt.Errorf("hosting cluster preference context data not set")
+	}
+
+	// make sure that context set in extension is a valid context
+	_, ok = config.Contexts[contextData]
+	if !ok {
+		return "", fmt.Errorf("hosting cluster preference context data is set to a non-existing context")
+	}
+
+	return contextData, nil
 }
 
 func SwitchToHostingClusterContext(config *clientcmdapi.Config, removeExtension bool) error {
@@ -91,23 +108,11 @@ func SwitchToHostingClusterContext(config *clientcmdapi.Config, removeExtension 
 
 	// found that the only way to unmarshal the runtime.Object into a ConfigMap
 	// was to use the unMarshallCM() function based on json marshal/unmarshal
-	cm, err := unMarshallCM(config.Preferences.Extensions[ConfigExtensionName])
+	hostingClusterContextName, err := GetHostingClusterContext(config)
 	if err != nil {
-		return fmt.Errorf("error unmarshaling config map %s", err)
+		return err
 	}
-
-	contextData, ok := cm.Data[InitialContextName]
-	if !ok {
-		return fmt.Errorf("hosting cluster preference context data not set")
-	}
-
-	// make sure that context set in extension is a valid context
-	_, ok = config.Contexts[contextData]
-	if !ok {
-		return fmt.Errorf("hosting cluster preference context data is set to a non-existing context")
-	}
-
-	config.CurrentContext = contextData
+	config.CurrentContext = hostingClusterContextName
 
 	// remove the extensions
 	if removeExtension {
@@ -148,12 +153,14 @@ func IsHostingClusterContextPreferenceSet(config *clientcmdapi.Config) bool {
 }
 
 func SaveHostingClusterContextPreference(ctx context.Context) error {
-	kconfig, err := LoadKubeconfig(ctx)
+	// TODO replace context parameter
+	kconfig, err := LoadKubeconfig("")
 	if err != nil {
 		return fmt.Errorf("setHostingClusterContextPreference: error loading kubeconfig %s", err)
 	}
 	SetHostingClusterContextPreference(kconfig, nil)
-	return WriteKubeconfig(ctx, kconfig)
+	// TODO replace context parameter
+	return WriteKubeconfig("", kconfig)
 }
 
 func unMarshallCM(obj runtime.Object) (*corev1.ConfigMap, error) {

@@ -642,7 +642,7 @@ docker inspect ext1-control-plane | jq '.[].NetworkSettings.Networks | keys[]'
 docker inspect kubeflex-control-plane | jq '.[].NetworkSettings.Networks | keys[]'
 ```
 
-### Adopting the external cluster
+## Adopting the external cluster
 
 To set up the external cluster ext1 as a control plane named cpe, use the following command:
 
@@ -664,6 +664,41 @@ Explanation of command parameters:
 ### External clusters with reachable network address
 
 If the network address of the external cluster's API server in the bootstrap Kubeconfig is accessible by the controllers operating within the KubeFlex hosting cluster, there is no need to specify a `url-override`.
+
+## Manipulate contexts
+
+Kubeflex offers the ability to manipulate context through `kflex ctx`. The available commands are:
+
+### `kflex ctx` 
+
+Switch to the hosting cluster context (default name `*-kubeflex`)
+
+### `kflex ctx CONTEXT` 
+
+Switch context to the one provided `CONTEXT`
+
+### `kflex ctx get` 
+
+Return the current context (alias command of `kubectl config current-context`)
+
+### `kflex ctx rename OLD_CONTEXT NEW_CONTEXT`
+
+Rename a context within your kubeconfig file. By default, when creating a control plane `mycp`, the context, user, and cluster name are named as such:
+
+```
+context: mycp
+cluster: mycp-cluster
+user: mycp-admin
+```
+
+Therefore, applying the context rename command `kflex ctx rename mycp mycp-renamed` will change these 3 values as follow:
+
+```
+context: mycp-renamed
+cluster: mycp-renamed-cluster
+user: mycp-renamed-admin
+```
+
 
 ## Post-create hooks
 

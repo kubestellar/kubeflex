@@ -37,7 +37,8 @@ import (
 )
 
 func LoadAndMerge(ctx context.Context, client kubernetes.Clientset, name, controlPlaneType string) error {
-	konfig, err := LoadKubeconfig(ctx)
+	// TODO add a kubeconfig parameter
+	konfig, err := LoadKubeconfig("")
 	if err != nil {
 		return err
 	}
@@ -59,8 +60,8 @@ func LoadAndMerge(ctx context.Context, client kubernetes.Clientset, name, contro
 			return err
 		}
 	}
-
-	return WriteKubeconfig(ctx, konfig)
+	// TODO add a kubeconfig parameter
+	return WriteKubeconfig("", konfig)
 }
 
 // LoadAndMergeNoWrite: works as LoadAndMerge but on supplied konfig from file and does not write it back
@@ -101,13 +102,19 @@ func loadControlPlaneKubeconfig(ctx context.Context, client kubernetes.Clientset
 	return clientcmd.Load(ks.Data[key])
 }
 
-func LoadKubeconfig(ctx context.Context) (*clientcmdapi.Config, error) {
-	kubeconfig := clientcmd.NewDefaultPathOptions().GetDefaultFilename()
+// Load config from provided kubeconfig file
+func LoadKubeconfig(kubeconfig string) (*clientcmdapi.Config, error) {
+	if kubeconfig == "" {
+		kubeconfig = clientcmd.NewDefaultPathOptions().GetDefaultFilename()
+	}
 	return clientcmd.LoadFromFile(kubeconfig)
 }
 
-func WriteKubeconfig(ctx context.Context, config *clientcmdapi.Config) error {
-	kubeconfig := clientcmd.NewDefaultPathOptions().GetDefaultFilename()
+// Write config into provided kubeconfig file
+func WriteKubeconfig(kubeconfig string, config *clientcmdapi.Config) error {
+	if kubeconfig == "" {
+		kubeconfig = clientcmd.NewDefaultPathOptions().GetDefaultFilename()
+	}
 	return clientcmd.WriteToFile(*config, kubeconfig)
 }
 
@@ -197,6 +204,7 @@ func adjustConfigKeys(config *clientcmdapi.Config, cpName, controlPlaneType stri
 	}
 }
 
+// TODO currently buggy -- its usage is not working as expected
 func RenameKey(m interface{}, oldKey string, newKey string) interface{} {
 	switch v := m.(type) {
 	case map[string]*clientcmdapi.Cluster:
@@ -221,7 +229,7 @@ func RenameKey(m interface{}, oldKey string, newKey string) interface{} {
 }
 
 func GetCurrentContext(ctx context.Context) (string, error) {
-	config, err := LoadKubeconfig(ctx)
+	config, err := LoadKubeconfig("")
 	if err != nil {
 		return "", err
 	}
@@ -229,7 +237,7 @@ func GetCurrentContext(ctx context.Context) (string, error) {
 }
 
 func ListContexts(ctx context.Context) ([]string, error) {
-	config, err := LoadKubeconfig(ctx)
+	config, err := LoadKubeconfig("")
 	if err != nil {
 		return nil, err
 	}
