@@ -90,7 +90,10 @@ func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp 
 
     // Apply the hook templates
     if err := applyPostCreateHook(ctx, r.ClientSet, r.DynamicClient, hook, vars, hcp); err != nil {
-        return fmt.Errorf("failed to apply post-create hook: %w", err)
+        if util.IsTransientError(err) {
+            return fmt.Errorf("failed to apply post-create hook: %w", err) // Retry
+        }
+        logger.Error(err, "Failed to apply post-create hook", "hook", *hcp.Spec.PostCreateHook)
     }
 
     // Update status if hook was successfully applied

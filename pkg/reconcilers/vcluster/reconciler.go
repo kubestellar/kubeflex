@@ -69,11 +69,17 @@ func (r *VClusterReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1
 	}
 
 	if err := r.BaseReconciler.ReconcileNamespace(ctx, hcp); err != nil {
+		if util.IsTransientError(err) {
+            return ctrl.Result{}, err
+        }
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
 	if cfg.IsOpenShift {
 		if err = r.ReconcileAPIServerRoute(ctx, hcp, ServiceName, shared.SecurePort, cfg.Domain); err != nil {
+			if util.IsTransientError(err) {
+				return ctrl.Result{}, err
+			}
 			return r.UpdateStatusForSyncingError(hcp, err)
 		}
 		routeURL, err = r.GetAPIServerRouteURL(ctx, hcp)
@@ -87,31 +93,52 @@ func (r *VClusterReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1
 		cfg.ExternalURL = routeURL
 	} else {
 		if err := r.ReconcileAPIServerIngress(ctx, hcp, ServiceName, ServicePort, cfg.Domain); err != nil {
+			if util.IsTransientError(err) {
+				return ctrl.Result{}, err
+			}
 			return r.UpdateStatusForSyncingError(hcp, err)
 		}
 	}
 
 	if err := r.ReconcileChart(ctx, hcp, cfg); err != nil {
+		if util.IsTransientError(err) {
+			return ctrl.Result{}, err
+		}
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
 	if err := r.ReconcileNodePortService(ctx, hcp); err != nil {
+		if util.IsTransientError(err) {
+			return ctrl.Result{}, err
+		}
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
 	if err := r.addOwnerReference(ctx, hcp); err != nil {
+		if util.IsTransientError(err) {
+			return ctrl.Result{}, err
+		}
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
 	if err := r.ReconcileUpdateClusterInfoJobRole(ctx, hcp); err != nil {
+		if util.IsTransientError(err) {
+			return ctrl.Result{}, err
+		}
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
 	if err := r.ReconcileUpdateClusterInfoJobRoleBinding(ctx, hcp); err != nil {
+		if util.IsTransientError(err) {
+			return ctrl.Result{}, err
+		}
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
 	if err := r.ReconcileUpdateClusterInfoJob(ctx, hcp, cfg, r.Version); err != nil {
+		if util.IsTransientError(err) {
+			return ctrl.Result{}, err
+		}
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
@@ -121,6 +148,9 @@ func (r *VClusterReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1
 	if hcp.Spec.PostCreateHook != nil &&
 		tenancyv1alpha1.HasConditionAvailable(hcp.Status.Conditions) {
 		if err := r.ReconcileUpdatePostCreateHook(ctx, hcp); err != nil {
+			if util.IsTransientError(err) {
+				return ctrl.Result{}, err
+			}
 			return r.UpdateStatusForSyncingError(hcp, err)
 		}
 	}
@@ -128,6 +158,9 @@ func (r *VClusterReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1
 	// update kubeconfig secret to add the incluster config
 	if tenancyv1alpha1.HasConditionAvailable(hcp.Status.Conditions) {
 		if err := r.ReconcileKubeconfigSecret(ctx, hcp); err != nil {
+			if util.IsTransientError(err) {
+				return ctrl.Result{}, err
+			}
 			return r.UpdateStatusForSyncingError(hcp, err)
 		}
 	}
