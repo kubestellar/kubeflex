@@ -96,7 +96,7 @@ func ExecuteDelete(cp common.CP, chattyStatus bool) error {
 
 	if controlPlane.Spec.Type != tenancyv1alpha1.ControlPlaneTypeHost &&
 		controlPlane.Spec.Type != tenancyv1alpha1.ControlPlaneTypeExternal {
-		if err := kubeconfig.DeleteContext(kconf, cp.Name); err != nil {
+		if err := kubeconfig.DeleteAll(kconf, cp.Name); err != nil {
 			return fmt.Errorf("no kubeconfig context for %s was found: %s", cp.Name, err)
 		}
 
