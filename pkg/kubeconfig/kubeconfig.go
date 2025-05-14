@@ -204,6 +204,7 @@ func adjustConfigKeys(config *clientcmdapi.Config, cpName, controlPlaneType stri
 	}
 }
 
+// TODO currently buggy -- its usage is not working as expected
 func RenameKey(m interface{}, oldKey string, newKey string) interface{} {
 	switch v := m.(type) {
 	case map[string]*clientcmdapi.Cluster:
