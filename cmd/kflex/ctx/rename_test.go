@@ -18,47 +18,36 @@ package ctx
 
 import (
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/kubestellar/kubeflex/cmd/kflex/common"
 	"github.com/kubestellar/kubeflex/pkg/certs"
 	"github.com/kubestellar/kubeflex/pkg/kubeconfig"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 )
 
-var kubeconfigPath string = clientcmd.RecommendedHomeFile
+var kubeconfigPath string = "./testconfig"
+var hostingClusterContextMock = "default"
 
 func setupMockContext(kubeconfigPath string, ctxName string) error {
-	kconf, err := kubeconfig.LoadKubeconfig(kubeconfigPath)
-	if err != nil {
-		return fmt.Errorf("no kubeconfig context for %s was found, cannot load: %v", ctxName, err)
-	}
+	kconf := api.NewConfig()
 	kconf.Contexts[certs.GenerateContextName(ctxName)] = &api.Context{
 		Cluster:  certs.GenerateClusterName(ctxName),
 		AuthInfo: certs.GenerateAuthInfoAdminName(ctxName),
 	}
-	if err = kubeconfig.WriteKubeconfig(kubeconfigPath, kconf); err != nil {
+	kconf.Clusters[certs.GenerateClusterName(ctxName)] = api.NewCluster()
+	kconf.AuthInfos[certs.GenerateAuthInfoAdminName(ctxName)] = api.NewAuthInfo()
+	kconf.CurrentContext = hostingClusterContextMock
+	kubeconfig.SetHostingClusterContextPreference(kconf, nil)
+	if err := kubeconfig.WriteKubeconfig(kubeconfigPath, kconf); err != nil {
 		return fmt.Errorf("error writing kubeconfig: %v", err)
 	}
 	return nil
 }
 
-func teardown(kubeconfigPath string, ctxName string) error {
-	kconf, err := kubeconfig.LoadKubeconfig(kubeconfigPath)
-	if err != nil {
-		return fmt.Errorf("no kubeconfig context for %s was found, cannot load: %v", ctxName, err)
-	}
-	if err = kubeconfig.DeleteContext(kconf, ctxName); err != nil {
-		return fmt.Errorf("cannot delete context %s from kubeconfig: %v", ctxName, err)
-	}
-	kconf.CurrentContext, err = kubeconfig.GetHostingClusterContext(kconf)
-	if err != nil {
-		return err
-	}
-	if err = kubeconfig.WriteKubeconfig(kubeconfigPath, kconf); err != nil {
-		return fmt.Errorf("error writing kubeconfig: %v", err)
-	}
+func teardown(kubeconfigPath string) error {
+	os.Remove(kubeconfigPath)
 	return nil
 }
 
@@ -67,7 +56,7 @@ func TestRenameOk(t *testing.T) {
 	ctxName := "testcp"
 	expected := "testcp-renamed"
 	setupMockContext(kubeconfigPath, ctxName)
-	defer teardown(kubeconfigPath, expected)
+	defer teardown(kubeconfigPath)
 
 	// Start test
 	cp := common.NewCP(kubeconfigPath, common.WithName(ctxName))
@@ -91,8 +80,8 @@ func TestRenameOk(t *testing.T) {
 	}
 	fmt.Printf("Current context is %s\n", kconf.CurrentContext)
 	// Check current context
-	if hostingClusterCtx, err := kubeconfig.GetHostingClusterContext(kconf); err != nil || kconf.CurrentContext != hostingClusterCtx {
-		t.Errorf("control plane current context must be '%s' not '%s'", hostingClusterCtx, kconf.CurrentContext)
+	if kconf.CurrentContext != hostingClusterContextMock {
+		t.Errorf("control plane current context must be '%s' not '%s': %v", hostingClusterContextMock, kconf.CurrentContext, err)
 	}
 }
 
@@ -101,7 +90,7 @@ func TestRenameThenSwitchOk(t *testing.T) {
 	ctxName := "testcp"
 	expected := "testcp-renamed"
 	setupMockContext(kubeconfigPath, ctxName)
-	defer teardown(kubeconfigPath, expected)
+	defer teardown(kubeconfigPath)
 
 	// Start test
 	cp := common.NewCP(kubeconfigPath, common.WithName(ctxName))
@@ -132,7 +121,8 @@ func TestRenameNonExistentContext(t *testing.T) {
 	// Mock data
 	ctxName := "nonexistent"
 	expected := "testcp-renamed"
-
+	setupMockContext(kubeconfigPath, "random")
+	defer teardown(kubeconfigPath)
 	// Start test
 	cp := common.NewCP(kubeconfigPath, common.WithName(ctxName))
 	err := ExecuteCtxRename(cp, ctxName, expected, false)
