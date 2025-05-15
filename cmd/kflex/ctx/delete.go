@@ -18,10 +18,13 @@ package ctx
 
 import (
 	"fmt"
+	"sync"
+
 	// "sync"
 
 	"github.com/kubestellar/kubeflex/cmd/kflex/common"
 	"github.com/kubestellar/kubeflex/pkg/kubeconfig"
+	"github.com/kubestellar/kubeflex/pkg/util"
 	"github.com/spf13/cobra"
 )
 
@@ -43,6 +46,9 @@ func CommandDelete() *cobra.Command {
 
 // Execute kflex ctx delete
 func ExecuteCtxDelete(cp common.CP, ctxName string, chattyStatus bool) error {
+	var wg sync.WaitGroup
+	done := make(chan bool)
+	util.PrintStatus("Deleting context", done, &wg, chattyStatus)
 	kconf, err := kubeconfig.LoadKubeconfig(cp.Kubeconfig)
 	if err != nil {
 		return fmt.Errorf("error loading kubeconfig: %v", err)
@@ -57,5 +63,7 @@ func ExecuteCtxDelete(cp common.CP, ctxName string, chattyStatus bool) error {
 	if err = kubeconfig.WriteKubeconfig(cp.Kubeconfig, kconf); err != nil {
 		return fmt.Errorf("error writing kubeconfig: %v", err)
 	}
+	done <- true
+	wg.Wait()
 	return nil
 }
