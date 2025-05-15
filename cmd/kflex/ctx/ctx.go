@@ -71,7 +71,7 @@ func Command() *cobra.Command {
 	flagset := command.Flags()
 	flagset.BoolP(OverwriteExistingContextFlag, "o", false, "Overwrite of hosting cluster context with new control plane context")
 	flagset.BoolP(SetCurrentForHostingFlag, "c", false, "Set current context as hosting cluster context")
-	command.AddCommand(CommandGet(), CommandList(), CommandRename())
+	command.AddCommand(CommandGet(), CommandList(), CommandRename(), CommandDelete())
 	return command
 }
 
@@ -115,7 +115,7 @@ func (cpCtx *CPCtx) ExecuteCtx(chattyStatus, failIfNone, overwriteExistingCtx, s
 		// Switch to given context
 		if overwriteExistingCtx {
 			util.PrintStatus("Overwriting existing context for control plane", done, &wg, chattyStatus)
-			if err = kubeconfig.DeleteContext(kconf, cpCtx.Name); err != nil {
+			if err = kubeconfig.DeleteAll(kconf, cpCtx.Name); err != nil {
 				fmt.Fprintf(os.Stderr, "no kubeconfig context for %s was found: %s\n", cpCtx.Name, err)
 			}
 			done <- true

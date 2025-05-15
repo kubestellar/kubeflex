@@ -19,17 +19,16 @@ package delete
 import (
 	"context"
 	"fmt"
-	"os"
 	"sync"
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	clientK8s "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kubestellar/kubeflex/cmd/kflex/common"
-	kfclient "github.com/kubestellar/kubeflex/pkg/client"
+	clientKubeflex "github.com/kubestellar/kubeflex/pkg/client"
 	"github.com/kubestellar/kubeflex/pkg/kubeconfig"
 	"github.com/kubestellar/kubeflex/pkg/util"
 )
@@ -38,20 +37,20 @@ func Command() *cobra.Command {
 	return &cobra.Command{
 		Use:   "delete <name>",
 		Short: "Delete a control plane instance",
-		Long: `Delete a control plane instance and switches the context back to
-				the hosting cluster context`,
-		Args: cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
+		Long:  `Delete a control plane instance and switches the context back to the hosting cluster context`,
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.SilenceUsage = true
 			flagset := cmd.Flags()
 			kubeconfig, _ := flagset.GetString(common.KubeconfigFlag)
 			chattyStatus, _ := flagset.GetBool(common.ChattyStatusFlag)
 			cp := common.NewCP(kubeconfig, common.WithName(args[0]))
-			ExecuteDelete(cp, chattyStatus)
+			return ExecuteDelete(cp, chattyStatus)
 		},
 	}
 }
 
-func ExecuteDelete(cp common.CP, chattyStatus bool) {
+func ExecuteDelete(cp common.CP, chattyStatus bool) error {
 	done := make(chan bool)
 	controlPlane := &tenancyv1alpha1.ControlPlane{
 		ObjectMeta: metav1.ObjectMeta{
@@ -63,58 +62,50 @@ func ExecuteDelete(cp common.CP, chattyStatus bool) {
 	util.PrintStatus(fmt.Sprintf("Deleting control plane %s...", cp.Name), done, &wg, chattyStatus)
 	kconf, err := kubeconfig.LoadKubeconfig(cp.Kubeconfig)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading kubeconfig: %s\n", err)
-		os.Exit(1)
+		return fmt.Errorf("error loading kubeconfig: %v", err)
 	}
 
 	if err = kubeconfig.SwitchToHostingClusterContext(kconf, false); err != nil {
-		fmt.Fprintf(os.Stderr, "error switching to hosting cluster kubeconfig context: %s\n", err)
-		os.Exit(1)
+		return fmt.Errorf("error switching to hosting cluster kubeconfig context: %v", err)
 	}
 
 	if err := kubeconfig.WriteKubeconfig(cp.Kubeconfig, kconf); err != nil {
-		fmt.Fprintf(os.Stderr, "Error writing kubeconfig: %s\n", err)
-		os.Exit(1)
+		return fmt.Errorf("error writing kubeconfig: %v", err)
 	}
 
-	kfcClient, err := kfclient.GetClient(cp.Kubeconfig)
+	clientKflex, err := clientKubeflex.GetClient(cp.Kubeconfig)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error getting kf client: %s\n", err)
-		os.Exit(1)
+		return fmt.Errorf("error getting kubeflex client: %v", err)
 	}
 
-	if err := kfcClient.Get(context.TODO(), client.ObjectKeyFromObject(controlPlane), controlPlane, &client.GetOptions{}); err != nil {
-		fmt.Fprintf(os.Stderr, "control plane not found on server: %s", err)
+	if err := clientKflex.Get(context.TODO(), clientK8s.ObjectKeyFromObject(controlPlane), controlPlane, &clientK8s.GetOptions{}); err != nil {
+		return fmt.Errorf("control plane not found on server: %v", err)
 	}
 
-	if err := kfcClient.Delete(context.TODO(), controlPlane, &client.DeleteOptions{}); err != nil {
-		fmt.Fprintf(os.Stderr, "Error deleting instance: %s\n", err)
-		os.Exit(1)
+	if err := clientKflex.Delete(context.TODO(), controlPlane, &clientK8s.DeleteOptions{}); err != nil {
+		return fmt.Errorf("error deleting instance: %v", err)
 	}
 	done <- true
 
-	clientsetp, err := kfclient.GetClientSet(cp.Kubeconfig)
+	clientsetKflex, err := clientKubeflex.GetClientSet(cp.Kubeconfig)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error getting kf client: %s\n", err)
-		os.Exit(1)
+		return fmt.Errorf("error getting kf client: %v", err)
 	}
-	clientset := *clientsetp
 	util.PrintStatus(fmt.Sprintf("Waiting for control plane %s to be deleted...", cp.Name), done, &wg, chattyStatus)
-	util.WaitForNamespaceDeletion(clientset, util.GenerateNamespaceFromControlPlaneName(cp.Name))
+	util.WaitForNamespaceDeletion(*clientsetKflex, util.GenerateNamespaceFromControlPlaneName(cp.Name))
 
 	if controlPlane.Spec.Type != tenancyv1alpha1.ControlPlaneTypeHost &&
 		controlPlane.Spec.Type != tenancyv1alpha1.ControlPlaneTypeExternal {
-		if err := kubeconfig.DeleteContext(kconf, cp.Name); err != nil {
-			fmt.Fprintf(os.Stderr, "no kubeconfig context for %s was found: %s\n", cp.Name, err)
-			os.Exit(1)
+		if err := kubeconfig.DeleteAll(kconf, cp.Name); err != nil {
+			return fmt.Errorf("no kubeconfig context for %s was found: %s", cp.Name, err)
 		}
 
 		if err := kubeconfig.WriteKubeconfig(cp.Kubeconfig, kconf); err != nil {
-			fmt.Fprintf(os.Stderr, "Error writing kubeconfig: %s\n", err)
-			os.Exit(1)
+			return fmt.Errorf("error writing kubeconfig: %v", err)
 		}
 	}
 
 	done <- true
 	wg.Wait()
+	return nil
 }
