@@ -6,14 +6,11 @@ import (
 )
 
 func IsTransientError(err error) bool {
-    if apierrors.IsInternalError(err) ||
+    return apierrors.IsInternalError(err) ||
         apierrors.IsServiceUnavailable(err) ||
         apierrors.IsTimeout(err) ||
         apierrors.IsServerTimeout(err) ||
         apierrors.IsTooManyRequests(err) ||
         apierrors.IsUnexpectedServerError(err) ||
-        utilnet.IsConnectionRefused(err) {
-        return true
-    }
-    return false
+        utilnet.IsConnectionRefused(err) 
 }
