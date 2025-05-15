@@ -18,11 +18,10 @@ package ctx
 
 import (
 	"fmt"
-	"sync"
+	// "sync"
 
 	"github.com/kubestellar/kubeflex/cmd/kflex/common"
 	"github.com/kubestellar/kubeflex/pkg/kubeconfig"
-	"github.com/kubestellar/kubeflex/pkg/util"
 	"github.com/spf13/cobra"
 )
 
@@ -36,28 +35,27 @@ func CommandDelete() *cobra.Command {
 			cmd.SilenceUsage = true
 			kubeconfig, _ := cmd.Flags().GetString(common.KubeconfigFlag)
 			chattyStatus, _ := cmd.Flags().GetBool(common.ChattyStatusFlag)
-			cp := common.NewCP(kubeconfig, common.WithName(args[0]))
-			return ExecuteCtxDelete(cp, chattyStatus)
+			cp := common.NewCP(kubeconfig)
+			return ExecuteCtxDelete(cp, args[0], chattyStatus)
 		},
 	}
 }
 
 // Execute kflex ctx delete
-func ExecuteCtxDelete(cp common.CP, chattyStatus bool) error {
-	var wg sync.WaitGroup
-	done := make(chan bool)
-	util.PrintStatus("Deleting context", done, &wg, chattyStatus)
+func ExecuteCtxDelete(cp common.CP, ctxName string, chattyStatus bool) error {
 	kconf, err := kubeconfig.LoadKubeconfig(cp.Kubeconfig)
 	if err != nil {
 		return fmt.Errorf("error loading kubeconfig: %v", err)
 	}
-	if err = kubeconfig.DeleteAll(kconf, cp.Name); err != nil {
-		return fmt.Errorf("error deleting context %s from kubeconfig: %v", cp.Name, err)
+	if err = kubeconfig.DeleteAll(kconf, ctxName); err != nil {
+		return fmt.Errorf("error deleting context %s from kubeconfig: %v", ctxName, err)
+	}
+	if kconf.CurrentContext == ctxName {
+		fmt.Printf("prepare the switch to hosting cluster context")
+		kubeconfig.SwitchToHostingClusterContext(kconf, false)
 	}
 	if err = kubeconfig.WriteKubeconfig(cp.Kubeconfig, kconf); err != nil {
 		return fmt.Errorf("error writing kubeconfig: %v", err)
 	}
-	done <- true
-	wg.Wait()
 	return nil
 }

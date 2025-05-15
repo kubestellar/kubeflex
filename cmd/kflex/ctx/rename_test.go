@@ -18,38 +18,12 @@ package ctx
 
 import (
 	"fmt"
-	"os"
 	"testing"
 
 	"github.com/kubestellar/kubeflex/cmd/kflex/common"
 	"github.com/kubestellar/kubeflex/pkg/certs"
 	"github.com/kubestellar/kubeflex/pkg/kubeconfig"
-	"k8s.io/client-go/tools/clientcmd/api"
 )
-
-var kubeconfigPath string = "./testconfig"
-var hostingClusterContextMock = "default"
-
-func setupMockContext(kubeconfigPath string, ctxName string) error {
-	kconf := api.NewConfig()
-	kconf.Contexts[certs.GenerateContextName(ctxName)] = &api.Context{
-		Cluster:  certs.GenerateClusterName(ctxName),
-		AuthInfo: certs.GenerateAuthInfoAdminName(ctxName),
-	}
-	kconf.Clusters[certs.GenerateClusterName(ctxName)] = api.NewCluster()
-	kconf.AuthInfos[certs.GenerateAuthInfoAdminName(ctxName)] = api.NewAuthInfo()
-	kconf.CurrentContext = hostingClusterContextMock
-	kubeconfig.SetHostingClusterContextPreference(kconf, nil)
-	if err := kubeconfig.WriteKubeconfig(kubeconfigPath, kconf); err != nil {
-		return fmt.Errorf("error writing kubeconfig: %v", err)
-	}
-	return nil
-}
-
-func teardown(kubeconfigPath string) error {
-	os.Remove(kubeconfigPath)
-	return nil
-}
 
 func TestRenameOk(t *testing.T) {
 	// Mock data

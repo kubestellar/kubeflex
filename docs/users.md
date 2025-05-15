@@ -699,6 +699,9 @@ cluster: mycp-renamed-cluster
 user: mycp-renamed-admin
 ```
 
+### `kflex ctx delete CONTEXT`
+
+Delete a context within your kubeconfig file. If the context deleted is your current context, `kflex` automatically switch your current context to the hosting cluster.
 
 ## Post-create hooks
 

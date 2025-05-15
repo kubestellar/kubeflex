@@ -47,3 +47,16 @@ NEW_CTX_NAME="cp-renamed"
 [[ $(kubectl config view | grep -c "name: $NEW_CTX_NAME") -ne 3 ]] && exit 1
 [[ $(kubectl config view | grep -c "name: $CTX_NAME") -ne 0 ]] && exit 1
 echo "TEST: kflex ctx rename PASSED"
+
+:
+: -------------------------------------------------------------------------
+: Delete context $NEW_CTX_NAME and verify it is removed from kubeconfig file
+:
+./bin/kflex ctx delete ${NEW_CTX_NAME}
+
+:
+: -------------------------------------------------------------------------
+: Check $NEW_CTX_NAME is removed from kubeconfig file
+:
+[[ $(kubectl config view | grep -c "name: $NEW_CTX_NAME") -ne 0 ]] && exit 1
+echo "TEST: kflex ctx delete PASSED"

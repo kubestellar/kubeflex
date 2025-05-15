@@ -76,8 +76,6 @@ func ExecuteCtxRename(cp common.CP, ctxName string, newCtxName string, toSwitch 
 		newAuthInfo := *authInfo
 		kconf.AuthInfos[newAuthInfoAdminName] = &newAuthInfo
 	}
-	fmt.Printf("kconf-clusters: %v\n", kconf.Clusters)
-	fmt.Printf("kconf-auths: %v\n", kconf.AuthInfos)
 	fmt.Fprintf(os.Stdout, "renaming context from %s to %s\n", ctxName, newCtxName)
 	if err = kubeconfig.DeleteAll(kconf, ctxName); err != nil {
 		return fmt.Errorf("cannot delete context %s from kubeconfig: %v", ctxName, err)
