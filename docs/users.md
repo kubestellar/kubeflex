@@ -30,7 +30,7 @@ If you have [Homebrew](https://brew.sh), use the following commands to install k
 
 ```shell
 brew tap kubestellar/kubeflex https://github.com/kubestellar/kubeflex
-brew install kubeflex
+brew install kflex
 ```
 
 ## Starting Kubeflex
@@ -128,7 +128,7 @@ helm upgrade --install kubeflex-operator oci://ghcr.io/kubestellar/kubeflex/char
 
 ## Upgrading Kubeflex
 
-The KubeFlex CLI can be upgraded with `brew upgrade kubeflex` (for brew installs). For linux
+The KubeFlex CLI can be upgraded with `brew upgrade kflex` (for brew installs). For linux
 systems, manually download and update the binary. To upgrade the KubeFlex controller, just
 upgrade the helm chart according to the instructions for [kubernetes](#installing-kubeflex-with-helm)
 or for [OpenShift](#installing-kubeflex-with-helm-on-openshift).

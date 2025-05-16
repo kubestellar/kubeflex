@@ -56,7 +56,7 @@ release:
   prerelease: auto
   mode: keep-existing
 brews:
-  - name: kubeflex
+  - name: Kflex
     homepage: "https://github.com/kubestellar/kubeflex"
     repository:
       owner: kubestellar
