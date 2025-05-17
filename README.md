@@ -21,6 +21,55 @@ A flexible and scalable platform for running Kubernetes control plane APIs.
 - Single binary CLI for improved user experience:
     - initialize, install operator, manage lifecycle of control planes and contexts.
 
+
+## Prerequisites
+Before you begin, ensure you have the following tools installed and configured:
+
+- **[kind](https://kind.sigs.k8s.io)**: Required for the default hosting cluster setup.
+- **[kubectl](https://kubernetes.io/docs/tasks/tools/)**: Required for interacting with Kubernetes clusters.
+- **`sudo` command**: The installation script for the `kubeflex` CLI uses `sudo`.
+    - **Linux/macOS**: `sudo` is typically pre-installed.
+    - **Windows**: Windows does not have `sudo` natively. You can use a `sudo` equivalent like gsudo.
+        You can install `gsudo` using one of the following package managers:
+        - **Chocolatey**: `choco install gsudo`
+        - **Scoop**: `scoop install gsudo`
+        - **WinGet**: `winget install gerardog.gsudo`
+        After installing `gsudo`, you can typically use `gsudo` in place of `sudo` in the commands.
+        Alternatively, if you are using Windows Subsystem for Linux (WSL), `sudo` will be available within your WSL distribution.
+
+        **Note**: The `kflex init --create-kind` command relies on Docker to run `kind`. Ensure Docker Desktop (or another Docker provider compatible with `kind`) is installed and running.
+
+    - The `kflex init --create-kind` command uses `kind` to set up a local Kubernetes cluster for hosting KubeFlex.
+- **kubectl**: Required for interacting with Kubernetes clusters.
+    - You'll use `kubectl` to manage resources in your KubeFlex control planes and the hosting cluster.
+- **Elevated Privileges (`sudo` or `gsudo` on Windows)**: Some installation methods for the `kflex` CLI require elevated privileges to place the binary in a system-wide directory (e.g., `/usr/local/bin`).
+    - **Linux/macOS**: The `sudo` command is typically pre-installed and used for this.
+    - **Windows**: Windows does not have a native `sudo` command. `gsudo` is a common alternative.
+        - **Installing `gsudo` on Windows:**
+            - **Using Chocolatey:**
+                1.  If you don't have Chocolatey installed, follow the instructions on the Chocolatey website.
+                2.  Once Chocolatey is installed, open PowerShell as an administrator and run:
+                    ```powershell
+                    choco install gsudo
+                    ```
+            - **Using Scoop:**
+                1.  If you don't have Scoop installed, follow the instructions on the Scoop website.
+                2.  Once Scoop is installed, open PowerShell and run:
+                    ```powershell
+                    scoop install gsudo
+                    ```
+            - **Using WinGet:**
+                1.  WinGet is typically included with modern versions of Windows.
+                2.  Open PowerShell and run:
+                    ```powershell
+                    winget install gerardog.gsudo
+                    ```
+        - **Windows Subsystem for Linux (WSL)**: If you are operating within a WSL environment, `sudo` is available, and Linux-oriented installation scripts can often be used directly.
+
+**Important Note on Docker**: The `kflex init --create-kind` command relies on `kind`, which in turn requires **Docker** (or a compatible container runtime) to be installed and running. Ensure Docker Desktop (for Windows/macOS) or Docker Engine (for Linux) is operational.
+
+
+
 ## Installation
 
 [kind](https://kind.sigs.k8s.io) and [kubectl](https://kubernetes.io/docs/tasks/tools/) are
