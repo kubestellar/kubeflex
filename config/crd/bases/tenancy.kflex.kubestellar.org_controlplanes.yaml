@@ -83,12 +83,19 @@ spec:
                 - name
                 - namespace
                 type: object
-              postCreateHook:
-                type: string
-              postCreateHookVars:
-                additionalProperties:
-                  type: string
-                type: object
+              postCreateHooks:
+                items:
+                  properties:
+                    hookName:
+                      type: string
+                    vars:
+                      additionalProperties:
+                        type: string
+                      type: object
+                  required:
+                  - hookName
+                  type: object
+                type: array
               tokenExpirationSeconds:
                 default: 31536000
                 description: tokenExpirationSeconds is the expiration time for generated

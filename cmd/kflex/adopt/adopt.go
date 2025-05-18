@@ -23,6 +23,7 @@ import (
 	"net/url"
 	"os"
 	"sync"
+	"strings"
 
 	"path/filepath"
 
@@ -124,8 +125,30 @@ func ExecuteAdopt(cpAdopt CPAdopt, hook string, hookVars []string, chattyStatus 
 		fmt.Fprintf(os.Stderr, "error creating adopted cluster kubeconfig: %v\n", err)
 		os.Exit(1)
 	}
-	// REFACTOR? is cpAdopt being pointer of (*CPAdopt) make sense?
-	controlPlane, err := common.GenerateControlPlane(cpAdopt.Name, string(controlPlaneType), "", hook, hookVars, &cpAdopt.AdoptedTokenExpirationSeconds)
+
+	// Convert hook parameters to new structure
+	var hooks []tenancyv1alpha1.PostCreateHookUse
+	if hook != "" {
+		vars, err := convertToMap(hookVars)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error parsing hook variables: %v\n", err)
+			os.Exit(1)
+		}
+		hooks = []tenancyv1alpha1.PostCreateHookUse{
+			{
+				HookName: &hook,
+				Vars:     vars,
+			},
+		}
+	}
+
+	controlPlane, err := common.GenerateControlPlane(
+		cpAdopt.Name,
+		string(controlPlaneType),
+		"", // backendType
+		hooks,
+		&cpAdopt.AdoptedTokenExpirationSeconds,
+	)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error generating control plane object: %v\n", err)
 		os.Exit(1)
@@ -138,6 +161,26 @@ func ExecuteAdopt(cpAdopt CPAdopt, hook string, hookVars []string, chattyStatus 
 
 	done <- true
 	wg.Wait()
+}
+
+func convertToMap(pairs []string) (map[string]string, error) {
+	params := make(map[string]string)
+	for _, pair := range pairs {
+		if pair == "" {
+			continue
+		}
+		split := strings.SplitN(pair, "=", 2)
+		if len(split) != 2 {
+			return nil, fmt.Errorf("unexpected expression %q. Must be in the form 'key=value'", pair)
+		}
+		key := strings.TrimSpace(split[0])
+		value := strings.TrimSpace(split[1])
+		if key == "" {
+			return nil, fmt.Errorf("invalid key in expression %q", pair)
+		}
+		params[key] = value
+	}
+	return params, nil
 }
 
 func applyAdoptedBootstrapSecret(clientset *kubernetes.Clientset, cpName, bootstrapKubeconfig, contextName, adoptedURLOverride string) error {

@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
@@ -54,25 +55,56 @@ func Command() *cobra.Command {
 			chattyStatus, _ := flagset.GetBool(common.ChattyStatusFlag)
 			cpType, _ := flagset.GetString(ControlPlaneTypeFlag)
 			backendType, _ := flagset.GetString(BackendTypeFlag)
-			postCreateHook, _ := flagset.GetString(common.PostCreateHookFlag)
+			postCreateHooks, _ := flagset.GetStringArray(common.PostCreateHookFlag)
 			hookVars, _ := flagset.GetStringArray(common.SetFlag)
 			cp := common.NewCP(kubeconfig, common.WithName(args[0]))
-			// create passing the control plane type and backend type
-			ExecuteCreate(cp, cpType, backendType, postCreateHook, hookVars, chattyStatus)
+			
+			hooks := parseHooksAndVars(postCreateHooks, hookVars)
+			ExecuteCreate(cp, cpType, backendType, hooks, chattyStatus)
 		},
 	}
 
 	flagset := command.Flags()
 	flagset.StringP(ControlPlaneTypeFlag, "t", CTypeDefault, "type of control plane: k8s|ocm|vcluster")
 	flagset.StringP(BackendTypeFlag, "b", BKTypeDefault, "backend DB sharing: shared|dedicated")
-	flagset.StringP(common.PostCreateHookFlag, "p", "", "name of post create hook to run")
+	flagset.StringArrayP(common.PostCreateHookFlag, "p", []string{}, "name of post create hook to run")
 	flagset.BoolP(common.ChattyStatusFlag, "s", true, "chatty status indicator")
-	flagset.StringArrayP(common.SetFlag, "e", []string{}, "set post create hook variables, in the form name=value ")
+	flagset.StringArrayP(common.SetFlag, "e", []string{}, "set post create hook variables in format hookName.key=value")
 	return command
 }
 
+func parseHooksAndVars(hookNames []string, varArgs []string) []tenancyv1alpha1.PostCreateHookUse {
+	varsByHook := make(map[string]map[string]string)
+	
+	for _, arg := range varArgs {
+		parts := strings.SplitN(arg, ".", 2)
+		if len(parts) != 2 {
+			continue // handle error
+		}
+		hookName := parts[0]
+		keyVal := strings.SplitN(parts[1], "=", 2)
+		if len(keyVal) != 2 {
+			continue // handle error
+		}
+		if varsByHook[hookName] == nil {
+			varsByHook[hookName] = make(map[string]string)
+		}
+		varsByHook[hookName][keyVal[0]] = keyVal[1]
+	}
+	
+	var hooks []tenancyv1alpha1.PostCreateHookUse
+	for _, name := range hookNames {
+		vars := varsByHook[name]
+		hooks = append(hooks, tenancyv1alpha1.PostCreateHookUse{
+			HookName: &name,
+			Vars:     vars,
+		})
+	}
+	return hooks
+}
+
 // Create a new control plane
-func ExecuteCreate(cp common.CP, controlPlaneType string, backendType string, hook string, hookVars []string, chattyStatus bool) {
+func ExecuteCreate(cp common.CP, controlPlaneType string, backendType string, hooks []tenancyv1alpha1.PostCreateHookUse, chattyStatus bool) {
 	done := make(chan bool)
 	var wg sync.WaitGroup
 	cx := cont.CPCtx{}
@@ -84,7 +116,8 @@ func ExecuteCreate(cp common.CP, controlPlaneType string, backendType string, ho
 		os.Exit(1)
 	}
 
-	controlPlane, err := common.GenerateControlPlane(cp.Name, controlPlaneType, backendType, hook, hookVars, nil)
+	// Pass hooks as required by the new function signature
+	controlPlane, err := common.GenerateControlPlane(cp.Name, controlPlaneType, backendType, hooks, nil)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error generating control plane object: %v\n", err)
 		os.Exit(1)

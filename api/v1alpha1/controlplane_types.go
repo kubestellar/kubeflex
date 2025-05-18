@@ -31,9 +31,15 @@ type ControlPlaneSpec struct {
 	// tokenExpirationSeconds is the expiration time for generated auth token
 	// +optional
 	// +kubebuilder:default:=31536000
-	TokenExpirationSeconds *int64            `json:"tokenExpirationSeconds,omitempty"`
-	PostCreateHook         *string           `json:"postCreateHook,omitempty"`
-	PostCreateHookVars     map[string]string `json:"postCreateHookVars,omitempty"`
+	TokenExpirationSeconds *int64             `json:"tokenExpirationSeconds,omitempty"`
+	PostCreateHooks        []PostCreateHookUse `json:"postCreateHooks,omitempty"`
+}
+
+type PostCreateHookUse struct {
+	// +kubebuilder:validation:Required
+	HookName *string           `json:"hookName"`
+	// +optional
+	Vars     map[string]string `json:"vars,omitempty"`
 }
 
 // ControlPlaneStatus defines the observed state of ControlPlane

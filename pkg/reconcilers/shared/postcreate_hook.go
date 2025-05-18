@@ -42,76 +42,61 @@ type Vars struct {
 }
 
 func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp *v1alpha1.ControlPlane) error {
-    logger := clog.FromContext(ctx)
-    namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
-    
-    if hcp.Spec.PostCreateHook == nil {
-        return nil
-    }
+	logger := clog.FromContext(ctx)
+	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
 
-    // Hook is only applied once after CP creation
-    _, ok := hcp.Status.PostCreateHooks[*hcp.Spec.PostCreateHook]
-    if ok {
-        return nil
-    }
+	for _, hookUse := range hcp.Spec.PostCreateHooks {
+		if hookUse.HookName == nil {
+			continue
+		}
 
-    logger.Info("Running ReconcileUpdatePostCreateHook", "post-create-hook", *hcp.Spec.PostCreateHook)
+		hookName := *hookUse.HookName
+		if hcp.Status.PostCreateHooks != nil && hcp.Status.PostCreateHooks[hookName] {
+			continue
+		}
 
-    // Get the post create hook
-    hook := &v1alpha1.PostCreateHook{
-        ObjectMeta: metav1.ObjectMeta{
-            Name: *hcp.Spec.PostCreateHook,
-        },
-    }
-    if err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(hook), hook, &client.GetOptions{}); err != nil {
-        return fmt.Errorf("error retrieving post create hook %s: %w", *hcp.Spec.PostCreateHook, err)
-    }
+		logger.Info("Processing post-create hook", "hook", hookName)
 
-    // Build variables with proper precedence:
-    // 1. Default vars from PostCreateHook
-    // 2. User-provided vars from ControlPlane (override defaults)
-    // 3. Built-in system vars (highest priority)
-    vars := make(map[string]interface{})
-    
-    // Add default variables from hook spec
-    for _, dv := range hook.Spec.DefaultVars {
-        vars[dv.Name] = dv.Value
-    }
-    
-    // Override with user-provided variables from control plane
-    for key, val := range hcp.Spec.PostCreateHookVars {
-        vars[key] = val
-    }
-    
-    // Add system variables (highest priority)
-    vars["Namespace"] = namespace
-    vars["ControlPlaneName"] = hcp.Name
-    vars["HookName"] = *hcp.Spec.PostCreateHook
+		hook := &v1alpha1.PostCreateHook{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: hookName,
+			},
+		}
+		if err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(hook), hook); err != nil {
+			return fmt.Errorf("error retrieving post create hook %s: %w", hookName, err)
+		}
 
-    // Apply the hook templates
-    if err := applyPostCreateHook(ctx, r.ClientSet, r.DynamicClient, hook, vars, hcp); err != nil {
-        if util.IsTransientError(err) {
-            return fmt.Errorf("failed to apply post-create hook: %w", err) // Retry
-        }
-        logger.Error(err, "Failed to apply post-create hook", "hook", *hcp.Spec.PostCreateHook)
-    }
+		// Merge variables
+		vars := make(map[string]interface{})
+		for _, dv := range hook.Spec.DefaultVars {
+			vars[dv.Name] = dv.Value
+		}
+		for k, v := range hookUse.Vars {
+			vars[k] = v
+		}
+		vars["Namespace"] = namespace
+		vars["ControlPlaneName"] = hcp.Name
+		vars["HookName"] = hookName
 
-    // Update status if hook was successfully applied
-    if hcp.Status.PostCreateHooks == nil {
-        hcp.Status.PostCreateHooks = make(map[string]bool)
-    }
-    hcp.Status.PostCreateHooks[*hcp.Spec.PostCreateHook] = true
-    
-    if err := r.Client.Status().Update(context.TODO(), hcp, &client.SubResourceUpdateOptions{}); err != nil {
-        return fmt.Errorf("failed to update control plane status: %w", err)
-    }
+		if err := applyPostCreateHook(ctx, r.ClientSet, r.DynamicClient, hook, vars, hcp); err != nil {
+			if util.IsTransientError(err) {
+				return fmt.Errorf("failed to apply post-create hook %s: %w", hookName, err)
+			}
+			logger.Error(err, "Failed to apply post-create hook", "hook", hookName)
+			continue
+		}
 
-    // Propagate labels from hook to control plane
-    if err := propagateLabels(hook, hcp, r.Client); err != nil {
-        return fmt.Errorf("failed to propagate labels: %w", err)
-    }
+		if hcp.Status.PostCreateHooks == nil {
+			hcp.Status.PostCreateHooks = make(map[string]bool)
+		}
+		hcp.Status.PostCreateHooks[hookName] = true
+	}
 
-    return nil
+	if err := r.Client.Status().Update(context.TODO(), hcp); err != nil {
+		return fmt.Errorf("failed to update control plane status: %w", err)
+	}
+
+	return nil
 }
 
 func applyPostCreateHook(ctx context.Context, clientSet *kubernetes.Clientset, dynamicClient *dynamic.DynamicClient, hook *v1alpha1.PostCreateHook, vars map[string]interface{}, hcp *v1alpha1.ControlPlane) error {

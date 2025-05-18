@@ -62,7 +62,13 @@ func createContext() context.Context {
 }
 
 // Generate a control plane based with a name
-func GenerateControlPlane(name, controlPlaneType, backendType, hook string, hookVars []string, tokenExpirationSeconds *int64) (*tenancyv1alpha1.ControlPlane, error) {
+func GenerateControlPlane(
+	name string,
+	controlPlaneType string,
+	backendType string,
+	hooks []tenancyv1alpha1.PostCreateHookUse,
+	tokenExpirationSeconds *int64,
+) (*tenancyv1alpha1.ControlPlane, error) {
 	controlPlane := &tenancyv1alpha1.ControlPlane{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
@@ -71,15 +77,8 @@ func GenerateControlPlane(name, controlPlaneType, backendType, hook string, hook
 			Type:                   tenancyv1alpha1.ControlPlaneType(controlPlaneType),
 			Backend:                tenancyv1alpha1.BackendDBType(backendType),
 			TokenExpirationSeconds: tokenExpirationSeconds,
+			PostCreateHooks:        hooks,
 		},
-	}
-	if hook != "" {
-		controlPlane.Spec.PostCreateHook = &hook
-		var err error
-		controlPlane.Spec.PostCreateHookVars, err = convertToMap(hookVars)
-		if err != nil {
-			return nil, err
-		}
 	}
 	if controlPlaneType == string(tenancyv1alpha1.ControlPlaneTypeExternal) {
 		controlPlane.Spec.BootstrapSecretRef = &tenancyv1alpha1.BootstrapSecretReference{
