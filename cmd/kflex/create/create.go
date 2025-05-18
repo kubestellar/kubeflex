@@ -36,8 +36,8 @@ import (
 
 // defaults
 const (
-	BKTypeDefault        = string(tenancyv1alpha1.BackendDBTypeShared) 
-	CTypeDefault         = string(tenancyv1alpha1.ControlPlaneTypeK8S) 
+	BKTypeDefault        = string(tenancyv1alpha1.BackendDBTypeShared)
+	CTypeDefault         = string(tenancyv1alpha1.ControlPlaneTypeK8S)
 	ControlPlaneTypeFlag = "type"
 	BackendTypeFlag      = "backend-type"
 )
@@ -197,7 +197,7 @@ func ExecuteCreate(cp common.CP, controlPlaneType string, backendType string, ho
 
 	done <- true
 
-	if err := kubeconfig.LoadAndMerge(cp.Ctx, clientset, cp.Name, controlPlaneType); err != nil {
+	if err := kubeconfig.LoadAndMerge(cp.Kubeconfig, cp.Ctx, clientset, cp.Name, controlPlaneType); err != nil {
 		fmt.Fprintf(os.Stderr, "Error loading and merging kubeconfig: %s\n", err)
 		os.Exit(1)
 	}
