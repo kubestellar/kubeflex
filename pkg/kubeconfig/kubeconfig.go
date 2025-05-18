@@ -80,11 +80,11 @@ func adjustConfigKeys(config *clientcmdapi.Config, cpName, controlPlaneType stri
 	}
 }
 
-func loadControlPlaneKubeconfig(ctx context.Context, client kubernetes.Clientset, name, controlPlaneType string) (*clientcmdapi.Config, error) {
-	namespace := util.GenerateNamespaceFromControlPlaneName(name)
-
+// Load kubeconfig from the control plane (server-side)
+func loadKubeconfigFromControlPlane(ctx context.Context, client kubernetes.Clientset, name, controlPlaneType string) (*clientcmdapi.Config, error) {
 	var kubeconfigSecret *corev1.Secret
 	var errGet error
+	namespace := util.GenerateNamespaceFromControlPlaneName(name)
 	err := wait.PollUntilContextTimeout(ctx, 1*time.Second, 15*time.Minute, false, func(ctx context.Context) (bool, error) {
 		kubeconfigSecret, errGet = client.CoreV1().Secrets(namespace).Get(ctx,
 			util.GetKubeconfSecretNameByControlPlaneType(controlPlaneType),
@@ -102,25 +102,26 @@ func loadControlPlaneKubeconfig(ctx context.Context, client kubernetes.Clientset
 	return clientcmd.Load(kubeconfigSecret.Data[key])
 }
 
-func merge(existing, new *clientcmdapi.Config) error {
-	for k, v := range new.Clusters {
-		existing.Clusters[k] = v
+// Merge target configuration into base configuration
+func merge(base, target *clientcmdapi.Config) error {
+	for k, v := range target.Clusters {
+		base.Clusters[k] = v
 	}
 
-	for k, v := range new.AuthInfos {
-		existing.AuthInfos[k] = v
+	for k, v := range target.AuthInfos {
+		base.AuthInfos[k] = v
 	}
 
-	for k, v := range new.Contexts {
-		existing.Contexts[k] = v
+	for k, v := range target.Contexts {
+		base.Contexts[k] = v
 	}
 
-	if !IsHostingClusterContextPreferenceSet(existing) {
-		SetHostingClusterContextPreference(existing, nil)
+	if !IsHostingClusterContextPreferenceSet(base) {
+		SetHostingClusterContextPreference(base, nil)
 	}
 
 	// set the current context to the nex context
-	existing.CurrentContext = new.CurrentContext
+	base.CurrentContext = target.CurrentContext
 	return nil
 }
 
@@ -198,47 +199,31 @@ func ListContexts(kubeconfig string) ([]string, error) {
 	return contexts, nil
 }
 
-func LoadAndMerge(kubeconfig string, ctx context.Context, client kubernetes.Clientset, name, controlPlaneType string) error {
-	// TODO add a kubeconfig parameter
-	konfig, err := LoadKubeconfig(kubeconfig)
+// Load kubeconfig file (client) and merge it with control plane kubeconfig (server-side)
+// CHANGES: do not write in kubeconfig anymore, instead return updated config
+func LoadAndMergeClientServerKubeconfig(ctx context.Context, kubeconfig string, client kubernetes.Clientset, name string, controlPlaneType string) (*clientcmdapi.Config, error) {
+	kconf, err := LoadKubeconfig(kubeconfig)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
 	if controlPlaneType != string(tenancyv1alpha1.ControlPlaneTypeHost) {
-		cpKonfig, err := loadControlPlaneKubeconfig(ctx, client, name, controlPlaneType)
-		if err != nil {
-			return err
-		}
-		adjustConfigKeys(cpKonfig, name, controlPlaneType)
-
-		err = merge(konfig, cpKonfig)
-		if err != nil {
-			return err
-		}
-	} else {
-		err = SwitchToHostingClusterContext(konfig, false)
-		if err != nil {
-			return err
-		}
+		// Updates kconf
+		err = LoadServerKubeconfigAndMergeIn(ctx, kconf, client, name, controlPlaneType)
 	}
-	// TODO add a kubeconfig parameter
-	return WriteKubeconfig(kubeconfig, konfig)
+	return kconf, err
 }
 
-// LoadAndMergeNoWrite: works as LoadAndMerge but on supplied konfig from file and does not write it back
-func LoadAndMergeNoWrite(ctx context.Context, client kubernetes.Clientset, name, controlPlaneType string, konfig *clientcmdapi.Config) error {
-	cpKonfig, err := loadControlPlaneKubeconfig(ctx, client, name, controlPlaneType)
+// Load control plane config (server-side) and merge it in the provided kconf
+func LoadServerKubeconfigAndMergeIn(ctx context.Context, kconf *clientcmdapi.Config, client kubernetes.Clientset, name string, controlPlaneType string) error {
+	cpKconf, err := loadKubeconfigFromControlPlane(ctx, client, name, controlPlaneType)
 	if err != nil {
 		return err
 	}
-	adjustConfigKeys(cpKonfig, name, controlPlaneType)
-
-	err = merge(konfig, cpKonfig)
+	adjustConfigKeys(cpKconf, name, controlPlaneType)
+	err = merge(kconf, cpKconf)
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
 

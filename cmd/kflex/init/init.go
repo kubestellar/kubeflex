@@ -41,7 +41,7 @@ const (
 	CreateKindFlag        = "create-kind"
 	DomainFlag            = "domain"
 	HostContainerNameFlag = "host-container-name" // REFACTOR? replace with host-container-name?
-	ExternalPortFlag      = "external-port"        // REFACTOR? replace with external-port?
+	ExternalPortFlag      = "external-port"       // REFACTOR? replace with external-port?
 )
 
 func Command() *cobra.Command {
@@ -111,7 +111,7 @@ func ExecuteInit(ctx context.Context, kubeconfig, version, buildDate string, dom
 	done <- true
 
 	util.PrintStatus("Setting hosting cluster preference in kubeconfig", done, &wg, chattyStatus)
-	err = kcfg.SaveHostingClusterContextPreference(ctx)
+	err = kcfg.SaveHostingClusterContextPreference(kubeconfig)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error setting hosting cluster context preference: %v\n", err)
 		os.Exit(1)
