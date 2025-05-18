@@ -19,7 +19,6 @@ package create
 import (
 	"context"
 	"fmt"
-	"os"
 	"sync"
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
@@ -28,6 +27,7 @@ import (
 
 	"github.com/kubestellar/kubeflex/cmd/kflex/common"
 	cont "github.com/kubestellar/kubeflex/cmd/kflex/ctx"
+	"github.com/kubestellar/kubeflex/pkg/certs"
 	kfclient "github.com/kubestellar/kubeflex/pkg/client"
 	"github.com/kubestellar/kubeflex/pkg/kubeconfig"
 	"github.com/kubestellar/kubeflex/pkg/util"
@@ -48,7 +48,7 @@ func Command() *cobra.Command {
 		Long: `Create a control plane instance and switches the Kubeconfig context to
 	        the current instance`,
 		Args: cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			flagset := cmd.Flags()
 			kubeconfig, _ := flagset.GetString(common.KubeconfigFlag)
 			chattyStatus, _ := flagset.GetBool(common.ChattyStatusFlag)
@@ -58,7 +58,7 @@ func Command() *cobra.Command {
 			hookVars, _ := flagset.GetStringArray(common.SetFlag)
 			cp := common.NewCP(kubeconfig, common.WithName(args[0]))
 			// create passing the control plane type and backend type
-			ExecuteCreate(cp, cpType, backendType, postCreateHook, hookVars, chattyStatus)
+			return ExecuteCreate(cp, cpType, backendType, postCreateHook, hookVars, chattyStatus)
 		},
 	}
 
@@ -72,35 +72,33 @@ func Command() *cobra.Command {
 }
 
 // Create a new control plane
-func ExecuteCreate(cp common.CP, controlPlaneType string, backendType string, hook string, hookVars []string, chattyStatus bool) {
+// TODO: each CLI command should be independant to each other
+// replace the use of cx.ExecuteCtx by another mean
+func ExecuteCreate(cp common.CP, controlPlaneType string, backendType string, hook string, hookVars []string, chattyStatus bool) error {
 	done := make(chan bool)
 	var wg sync.WaitGroup
-	cx := cont.CPCtx{}
-	cx.ExecuteCtx(chattyStatus, false, false, false)
+	cx := cont.CPCtx{}                               // this is always undefined control plane, hence
+	cx.ExecuteCtx(chattyStatus, false, false, false) // TODO replace by switch to hosting cluster
 
 	cl, err := kfclient.GetClient(cp.Kubeconfig)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error getting client: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("error getting client: %v", err)
 	}
 
 	controlPlane, err := common.GenerateControlPlane(cp.Name, controlPlaneType, backendType, hook, hookVars, nil)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error generating control plane object: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("error generating control plane object: %v", err)
 	}
 
 	util.PrintStatus(fmt.Sprintf("Creating new control plane %s of type %s ...", cp.Name, controlPlaneType), done, &wg, chattyStatus)
 	if err := cl.Create(context.TODO(), controlPlane, &client.CreateOptions{}); err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating instance: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("error creating instance: %v", err)
 	}
 	done <- true
 
 	clientsetp, err := kfclient.GetClientSet(cp.Kubeconfig)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error getting clientset: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("error getting clientset: %v", err)
 	}
 	clientset := *clientsetp
 
@@ -115,28 +113,28 @@ func ExecuteCreate(cp common.CP, controlPlaneType string, backendType string, ho
 			util.GetAPIServerDeploymentNameByControlPlaneType(controlPlaneType),
 			util.GenerateNamespaceFromControlPlaneName(controlPlane.Name)); err != nil {
 
-			fmt.Fprintf(os.Stderr, "Error waiting for stateful set to become ready: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("error waiting for stateful set to become ready: %v", err)
 		}
 	case string(tenancyv1alpha1.ControlPlaneTypeK8S), string(tenancyv1alpha1.ControlPlaneTypeOCM):
 		if err := util.WaitForDeploymentReady(clientset,
 			util.GetAPIServerDeploymentNameByControlPlaneType(controlPlaneType),
 			util.GenerateNamespaceFromControlPlaneName(controlPlane.Name)); err != nil {
 
-			fmt.Fprintf(os.Stderr, "Error waiting for deployment to become ready: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("error waiting for deployment to become ready: %v", err)
 		}
 	default:
-		fmt.Fprintf(os.Stderr, "unknown control plane type: %s\n", controlPlaneType)
-		os.Exit(1)
+		return fmt.Errorf("unknown control plane type: %s", controlPlaneType)
 	}
 
 	done <- true
-
-	if err := kubeconfig.LoadAndMerge(cp.Kubeconfig, cp.Ctx, clientset, cp.Name, controlPlaneType); err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading and merging kubeconfig: %s\n", err)
-		os.Exit(1)
+	kconf, err := kubeconfig.LoadAndMergeClientServerKubeconfig(cp.Ctx, cp.Kubeconfig, clientset, cp.Name, controlPlaneType)
+	if err != nil {
+		return fmt.Errorf("error loading and merging kubeconfig: %v", err)
 	}
-
+	if err = kubeconfig.AssignControlPlaneToContext(kconf, cp.Name, certs.GenerateContextName(cp.Name)); err != nil {
+		return fmt.Errorf("error assigning control plane to context as kubeconfig extension: %v", err)
+	}
+	kubeconfig.WriteKubeconfig(cp.Kubeconfig, kconf)
 	wg.Wait()
+	return nil
 }

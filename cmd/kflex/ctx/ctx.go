@@ -30,6 +30,7 @@ import (
 	"github.com/kubestellar/kubeflex/pkg/util"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -52,7 +53,7 @@ func Command() *cobra.Command {
 						while providing the control plane name as argument switches the context to
 						that control plane. Use 'get' to retrieve the current context.`,
 		Args: cobra.MaximumNArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			flagset := cmd.Flags()
 			kubeconfig, _ := flagset.GetString(common.KubeconfigFlag)
 			chattyStatus, _ := flagset.GetBool(common.ChattyStatusFlag)
@@ -65,7 +66,7 @@ func Command() *cobra.Command {
 			cp := CPCtx{
 				CP: common.NewCP(kubeconfig, common.WithName(cpName)),
 			}
-			cp.ExecuteCtx(chattyStatus, true, overwriteExistingCtx, setCurrentCtxAsHosting)
+			return cp.ExecuteCtx(chattyStatus, true, overwriteExistingCtx, setCurrentCtxAsHosting)
 		},
 	}
 	flagset := command.Flags()
@@ -76,13 +77,13 @@ func Command() *cobra.Command {
 }
 
 // Context switch context in Kubeconfig
-func (cpCtx *CPCtx) ExecuteCtx(chattyStatus, failIfNone, overwriteExistingCtx, setCurrentCtxAsHosting bool) {
+func (cpCtx *CPCtx) ExecuteCtx(chattyStatus, failIfNone, overwriteExistingCtx, setCurrentCtxAsHosting bool) error {
 	done := make(chan bool)
 	var wg sync.WaitGroup
 	kconf, err := kubeconfig.LoadKubeconfig(cpCtx.Kubeconfig)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading kubeconfig: %s\n", err)
-		os.Exit(1)
+		return fmt.Errorf("error loading kubeconfig: %v", err)
+
 	}
 	if cpCtx.Name == "" {
 		// Switch to hosting cluster context when no context is provided
@@ -95,17 +96,21 @@ func (cpCtx *CPCtx) ExecuteCtx(chattyStatus, failIfNone, overwriteExistingCtx, s
 		if kubeconfig.IsHostingClusterContextPreferenceSet(kconf) {
 			util.PrintStatus("Switching to hosting cluster context...", done, &wg, chattyStatus)
 			if err = kubeconfig.SwitchToHostingClusterContext(kconf, false); err != nil {
-				fmt.Fprintf(os.Stderr, "Error switching kubeconfig to hosting cluster context: %s\n", err)
-				os.Exit(1)
+				return fmt.Errorf("error switching kubeconfig to hosting cluster context: %v", err)
+
 			}
 			done <- true
 		} else if failIfNone {
-			if !cpCtx.isCurrentContextHostingClusterContext() {
-				fmt.Fprintln(os.Stderr, "The hosting cluster context is not known!\n"+
-					"You can make it known to kflex by doing `kubectl config use-context` \n"+
-					"to set the current context to the hosting cluster context and then using \n"+
+			pclientset, err := kfclient.GetClientSet(cpCtx.Kubeconfig)
+			if err != nil {
+				return fmt.Errorf("error getting clientset: %v", err)
+			}
+			if !cpCtx.isCurrentContextHostingClusterContext(*pclientset) {
+				return fmt.Errorf("the hosting cluster context is not known!\n" +
+					"you can make it known to kflex by doing `kubectl config use-context` \n" +
+					"to set the current context to the hosting cluster context and then using \n" +
 					"`kflex ctx --set-current-for-hosting` to restore the needed kubeconfig extension.")
-				os.Exit(1)
+
 			}
 			util.PrintStatus("Hosting cluster context not set, setting it to current context", done, &wg, chattyStatus)
 			kubeconfig.SetHostingClusterContextPreference(kconf, nil)
@@ -128,39 +133,37 @@ func (cpCtx *CPCtx) ExecuteCtx(chattyStatus, failIfNone, overwriteExistingCtx, s
 				fmt.Fprintf(os.Stderr, "kubeconfig context %s not found (%s), trying to load from server...\n", cpCtx.Name, err)
 			}
 			if err := cpCtx.switchToHostingClusterContextAndWrite(kconf); err != nil {
-				fmt.Fprintf(os.Stderr, "Error switching back to hosting cluster context: %s\n", err)
-				os.Exit(1)
+				return fmt.Errorf("error switching back to hosting cluster context: %v", err)
+
 			}
 			if err = cpCtx.loadAndMergeFromServer(kconf); err != nil {
-				fmt.Fprintf(os.Stderr, "Error loading kubeconfig context from server: %s\n", err)
-				os.Exit(1)
+				return fmt.Errorf("error loading kubeconfig context from server: %v", err)
+
 			}
 			// context exists only for CPs that are not of type host
 			if cpCtx.Type != tenancyv1alpha1.ControlPlaneTypeHost {
 				if err = kubeconfig.SwitchContext(kconf, cpCtx.Name); err != nil {
-					fmt.Fprintf(os.Stderr, "Error switching kubeconfig context after loading from server: %s\n", err)
-					os.Exit(1)
+					return fmt.Errorf("error switching kubeconfig context after loading from server: %v", err)
+
 				}
 			} else {
 				fmt.Fprintf(os.Stderr, "control plane %s is of type 'host', using hosting cluster context (%s)\n", cpCtx.Name, kconf.CurrentContext)
-				os.Exit(0)
 			}
 		}
 		done <- true
 	}
-
 	if err = kubeconfig.WriteKubeconfig(cpCtx.Kubeconfig, kconf); err != nil {
-		fmt.Fprintf(os.Stderr, "Error writing kubeconfig: %s\n", err)
-		os.Exit(1)
+		return fmt.Errorf("error writing kubeconfig: %s", err)
 	}
 	wg.Wait()
+	return nil
 }
 
 func (cpCtx *CPCtx) loadAndMergeFromServer(kconfig *api.Config) error {
 	kfcClient, err := kfclient.GetClient(cpCtx.Kubeconfig)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error getting kf client: %s\n", err)
-		os.Exit(1)
+		return fmt.Errorf("error getting kf client: %s", err)
+
 	}
 
 	cp := &tenancyv1alpha1.ControlPlane{
@@ -181,14 +184,14 @@ func (cpCtx *CPCtx) loadAndMergeFromServer(kconfig *api.Config) error {
 	// for all other control planes need to get secret with off-cluster kubeconfig
 	clientsetp, err := kfclient.GetClientSet(cpCtx.Kubeconfig)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error getting clientset: %s\n", err)
-		os.Exit(1)
+		return fmt.Errorf("error getting clientset: %s", err)
+
 	}
 	clientset := *clientsetp
 
-	if err := kubeconfig.LoadAndMergeNoWrite(cpCtx.Ctx, clientset, cpCtx.Name, string(cp.Spec.Type), kconfig); err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading and merging kubeconfig: %v\n", err)
-		os.Exit(1)
+	if err := kubeconfig.LoadServerKubeconfigAndMergeIn(cpCtx.Ctx, kconfig, clientset, cpCtx.Name, string(cp.Spec.Type)); err != nil {
+		return fmt.Errorf("error loading and merging kubeconfig: %v", err)
+
 	}
 	return nil
 }
@@ -205,12 +208,6 @@ func (cpCtx *CPCtx) switchToHostingClusterContextAndWrite(kconf *api.Config) err
 	return nil
 }
 
-func (cpCtx *CPCtx) isCurrentContextHostingClusterContext() bool {
-	clientsetp, err := kfclient.GetClientSet(cpCtx.Kubeconfig)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error getting clientset: %s\n", err)
-		os.Exit(1)
-	}
-	clientset := *clientsetp
+func (cpCtx *CPCtx) isCurrentContextHostingClusterContext(clientset kubernetes.Clientset) bool {
 	return util.CheckResourceExists(clientset, "tenancy.kflex.kubestellar.org", "v1alpha1", "controlplanes")
 }

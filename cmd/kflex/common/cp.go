@@ -55,10 +55,12 @@ func WithName(name string) CPOption {
 }
 
 // Create a new system context with logger
+// DISCUSSION: replace the usage of 2 logging library zap + logr
+// by zerolog which natively integrate the usage of context
+// see https://github.com/rs/zerolog?tab=readme-ov-file#contextcontext-integration
 func createContext() context.Context {
 	zapLogger, _ := zap.NewDevelopment(zap.AddCaller())
-	logger := zapr.NewLoggerWithOptions(zapLogger)
-	return logr.NewContext(context.Background(), logger)
+	return logr.NewContext(context.Background(), zapr.NewLoggerWithOptions(zapLogger))
 }
 
 // Generate a control plane based with a name
