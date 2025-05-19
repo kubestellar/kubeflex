@@ -25,7 +25,7 @@ func CommandGet() *cobra.Command {
 }
 
 func ExecuteCtxGet(cp common.CP) {
-	currentContext, err := kubeconfig.GetCurrentContext(cp.Ctx)
+	currentContext, err := kubeconfig.GetCurrentContext(cp.Kubeconfig)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error retrieving current context: %s\n", err)
 		os.Exit(1)
