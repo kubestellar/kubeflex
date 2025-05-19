@@ -36,6 +36,9 @@ jobs:
         run: |
           test/e2e/run.sh
 
+      - name: Examine GitHub rate limit
+        run: curl https://api.github.com/rate_limit
+
       - name: Show kubeconfig contexts
         if: always()
         run: kubectl config get-contexts
