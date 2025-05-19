@@ -49,6 +49,7 @@ func Command() *cobra.Command {
 	        the current instance`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.SilenceUsage = true
 			flagset := cmd.Flags()
 			kubeconfig, _ := flagset.GetString(common.KubeconfigFlag)
 			chattyStatus, _ := flagset.GetBool(common.ChattyStatusFlag)
