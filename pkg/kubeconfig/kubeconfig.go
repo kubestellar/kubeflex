@@ -28,7 +28,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -39,8 +38,11 @@ import (
 )
 
 const (
-	ConfigExtensionName             = "kflex-config-extension-name"
-	InitialContextName              = "kflex-initial-ctx-name"
+	ExtensionConfigName             = "kflex-config-extension-name"
+	ExtensionInitialContextName     = "kflex-initial-ctx-name"
+	ExtensionControlPlaneName       = "kflex-controlplane-name"
+	ExtensionKubeflexKey            = "kubeflex"
+	ExtensionLabelManageByKubeflex  = "kubeflex.dev/is-managed"
 	ControlPlaneTypeOCMDefault      = "multicluster-controlplane"
 	ControlPlaneTypeVClusterDefault = "my-vcluster"
 )
@@ -125,6 +127,33 @@ func merge(base, target *clientcmdapi.Config) error {
 	return nil
 }
 
+// Assign a control plane to a context
+// NOTE: function names starts with 'Assign' to have the freedom of WHERE to
+// set control plane information. As of now, it is locally under 'contexts' but
+// it can be set globally in the feature. We abstract that from the end-user
+func AssignControlPlaneToContext(config *clientcmdapi.Config, cpName string, ctxName string) error {
+	if ctx, ok := config.Contexts[ctxName]; ok {
+		ctx.Namespace = ""
+		ctx.Extensions = map[string]runtime.Object{
+			ExtensionKubeflexKey: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					// Name: ExtensionControlPlaneName,
+					// Labels: map[string]string{
+					// 	ExtensionLabelManageByKubeflex: "true",
+					// },
+					CreationTimestamp: metav1.NewTime(time.Now()),
+				},
+				Data: map[string]string{
+					ExtensionControlPlaneName:   cpName,
+					ExtensionInitialContextName: ctxName,
+				},
+			},
+		}
+		return nil
+	}
+	return fmt.Errorf("error context %s does not exist in config", ctxName)
+}
+
 // Delete cluster, user and context of a given control plane
 // DISCUSSION: should we restrict the usage of `kflex ctx`
 // to ONLY controlplane managed by kflex ??
@@ -157,12 +186,12 @@ func GetCurrentContext(kubeconfig string) (string, error) {
 
 // Get hosting cluster context value set in extensions
 func GetHostingClusterContext(config *clientcmdapi.Config) (string, error) {
-	cm, err := unMarshallCM(config.Preferences.Extensions[ConfigExtensionName])
+	cm, err := unMarshallCM(config.Preferences.Extensions[ExtensionConfigName])
 	if err != nil {
 		return "", fmt.Errorf("error unmarshaling config map %s", err)
 	}
 
-	contextData, ok := cm.Data[InitialContextName]
+	contextData, ok := cm.Data[ExtensionInitialContextName]
 	if !ok {
 		return "", fmt.Errorf("hosting cluster preference context data not set")
 	}
@@ -178,7 +207,7 @@ func GetHostingClusterContext(config *clientcmdapi.Config) (string, error) {
 
 func IsHostingClusterContextPreferenceSet(config *clientcmdapi.Config) bool {
 	if config.Preferences.Extensions != nil {
-		_, ok := config.Preferences.Extensions[ConfigExtensionName]
+		_, ok := config.Preferences.Extensions[ExtensionConfigName]
 		if ok {
 			return true
 		}
@@ -279,33 +308,18 @@ func SetHostingClusterContextPreference(config *clientcmdapi.Config, userSupplie
 		hostingContext = *userSuppliedContext
 	}
 	runtimeObjects := make(map[string]runtime.Object)
-	runtimeObjects[ConfigExtensionName] = &corev1.ConfigMap{
+	runtimeObjects[ExtensionConfigName] = &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: ConfigExtensionName,
+			Name: ExtensionConfigName,
 		},
 		Data: map[string]string{
-			InitialContextName: hostingContext,
+			ExtensionInitialContextName: hostingContext,
 		},
 	}
 
 	config.Preferences = clientcmdapi.Preferences{
 		Extensions: runtimeObjects,
 	}
-}
-
-// Assign a control plane to a context
-// NOTE: function names starts with 'Assign' to have the freedom of WHERE to
-// set control plane information. As of now, it is locally under 'contexts' but
-// it can be set globally in the feature. We abstract that from the end-user
-func AssignControlPlaneToContext(config *clientcmdapi.Config, cpName string, ctxName string) error {
-	extensionDataStructure := fmt.Sprintf(`{"name": %s}`, ctxName)
-	extensionData := &unstructured.Unstructured{}
-	err := json.Unmarshal([]byte(extensionDataStructure), extensionData)
-	if err != nil {
-		return err
-	}
-	config.Contexts[ctxName].Extensions["controlplane"] = extensionData
-	return nil
 }
 
 // Switch context
@@ -335,7 +349,7 @@ func SwitchToHostingClusterContext(config *clientcmdapi.Config, removeExtension 
 
 	// remove the extensions
 	if removeExtension {
-		delete(config.Preferences.Extensions, ConfigExtensionName)
+		delete(config.Preferences.Extensions, ExtensionConfigName)
 	}
 	return nil
 }
