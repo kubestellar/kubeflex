@@ -48,14 +48,14 @@ func getAge(creationTime time.Time) string {
 }
 
 func ExecuteList(cp common.CP) {
-	client, err := client.GetClient(cp.Kubeconfig)
+	c, err := client.GetClient(cp.Kubeconfig)
 	if err != nil {
 		fmt.Printf("Error getting client: %s\n", err)
 		os.Exit(1)
 	}
 
 	var controlPlanes tenancyv1alpha1.ControlPlaneList
-	if err := client.List(cp.Ctx, &controlPlanes); err != nil {
+	if err := c.List(cp.Ctx, &controlPlanes); err != nil {
 		fmt.Printf("Error listing control planes: %s\n", err)
 		os.Exit(1)
 	}
