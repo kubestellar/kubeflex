@@ -31,7 +31,9 @@ NEW_CTX_NAME="cp-renamed"
 : -------------------------------------------------------------------------
 : Check that $CTX_NAME context, user and cluster entries are present
 :
-[[ $(kubectl config view | grep -c "name: $CTX_NAME") -ne 3 ]] && exit 1
+[[ $(kubectl config get-contexts -o=name | grep -c "$CTX_NAME") -ne 1 ]] && exit 1
+[[ $(kubectl config get-users | grep -c "$CTX_NAME") -ne 1 ]] && exit 1
+[[ $(kubectl config get-clusters | grep -c "$CTX_NAME") -ne 1 ]] && exit 1
 
 :
 : -------------------------------------------------------------------------
@@ -44,8 +46,12 @@ NEW_CTX_NAME="cp-renamed"
 : Check that $CTX_NAME context, user and cluster entries are deleted
 : and verify $NEW_CTX_NAME entries are inserted
 :
-[[ $(kubectl config view | grep -c "name: $NEW_CTX_NAME") -ne 3 ]] && exit 1
-[[ $(kubectl config view | grep -c "name: $CTX_NAME") -ne 0 ]] && exit 1
+[[ $(kubectl config get-contexts -o=name | grep -c "$NEW_CTX_NAME") -ne 1 ]] && exit 1
+[[ $(kubectl config get-users | grep -c "$NEW_CTX_NAME") -ne 1 ]] && exit 1
+[[ $(kubectl config get-clusters | grep -c "$NEW_CTX_NAME") -ne 1 ]] && exit 1
+[[ $(kubectl config get-contexts -o=name | grep -c "$CTX_NAME") -ne 0 ]] && exit 1
+[[ $(kubectl config get-users | grep -c "$CTX_NAME") -ne 0 ]] && exit 1
+[[ $(kubectl config get-clusters | grep -c "$CTX_NAME") -ne 0 ]] && exit 1
 echo "TEST: kflex ctx rename PASSED"
 
 :
@@ -58,5 +64,7 @@ echo "TEST: kflex ctx rename PASSED"
 : -------------------------------------------------------------------------
 : Check $NEW_CTX_NAME is removed from kubeconfig file
 :
-[[ $(kubectl config view | grep -c "name: $NEW_CTX_NAME") -ne 0 ]] && exit 1
+[[ $(kubectl config get-contexts -o=name | grep -c "$NEW_CTX_NAME") -ne 0 ]] && exit 1
+[[ $(kubectl config get-users | grep -c "$NEW_CTX_NAME") -ne 0 ]] && exit 1
+[[ $(kubectl config get-clusters | grep -c "$NEW_CTX_NAME") -ne 0 ]] && exit 1
 echo "TEST: kflex ctx delete PASSED"

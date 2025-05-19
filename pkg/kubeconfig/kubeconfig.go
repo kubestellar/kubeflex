@@ -38,13 +38,14 @@ import (
 )
 
 const (
-	ExtensionConfigName             = "kflex-config-extension-name"
-	ExtensionInitialContextName     = "kflex-initial-ctx-name"
-	ExtensionControlPlaneName       = "kflex-controlplane-name"
-	ExtensionKubeflexKey            = "kubeflex"
-	ExtensionLabelManageByKubeflex  = "kubeflex.dev/is-managed"
-	ControlPlaneTypeOCMDefault      = "multicluster-controlplane"
-	ControlPlaneTypeVClusterDefault = "my-vcluster"
+	ExtensionConfigName                = "kflex-config-extension-name" // Unchanged otherwise breaking change
+	ExtensionHostingClusterContextName = "kflex-initial-ctx-name"      // Unchanged otherwise breaking change
+	ExtensionInitialContextName        = "first-context-name"
+	ExtensionControlPlaneName          = "controlplane-name"
+	ExtensionKubeflexKey               = "kubeflex"
+	ExtensionLabelManageByKubeflex     = "kubeflex.dev/is-managed"
+	ControlPlaneTypeOCMDefault         = "multicluster-controlplane"
+	ControlPlaneTypeVClusterDefault    = "my-vcluster"
 )
 
 func unMarshallCM(obj runtime.Object) (*corev1.ConfigMap, error) {
