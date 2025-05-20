@@ -56,15 +56,17 @@ spec:
             description: PostCreateHookSpec defines the desired state of PostCreateHook
             properties:
               defaultVars:
-                description: Default values for user-defined template variables
                 items:
-                  type: object
-                  required: [name, value]
+                  description: Var defines a name/value pair for template variables
                   properties:
                     name:
                       type: string
                     value:
                       type: string
+                  required:
+                  - name
+                  - value
+                  type: object
                 type: array
               templates:
                 items:

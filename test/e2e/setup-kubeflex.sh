@@ -24,6 +24,29 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
 :
 
 kind create cluster --name kubeflex --config ${SCRIPT_DIR}/kind-config.yaml
+
+# Install Helm if not available
+if ! command -v helm &> /dev/null; then
+    curl -fsSL -o /tmp/get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+    chmod 700 /tmp/get_helm.sh
+    /tmp/get_helm.sh
+fi
+
+# Install ingress-nginx using Helm
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+helm install ingress-nginx ingress-nginx/ingress-nginx \
+  --namespace ingress-nginx \
+  --create-namespace \
+  --version 4.10.0 \
+  --set controller.service.type=NodePort \
+  --set controller.hostPort.enabled=true
+
+# Wait for ingress controller to be ready
+kubectl wait --namespace ingress-nginx \
+  --for=condition=ready pod \
+  --selector=app.kubernetes.io/component=controller \
+  --timeout=90s
+
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/refs/tags/controller-v1.12.1/deploy/static/provider/kind/deploy.yaml
 kubectl -n ingress-nginx patch deployment/ingress-nginx-controller --patch-file=${SCRIPT_DIR}/nginx-patch.yaml
 
