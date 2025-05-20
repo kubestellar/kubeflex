@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
@@ -42,33 +43,96 @@ const (
 )
 
 func Command() *cobra.Command {
-	command := &cobra.Command{
-		Use:   "create <name>",
-		Short: "Create a control plane instance",
-		Long: `Create a control plane instance and switches the Kubeconfig context to
-	        the current instance`,
-		Args: cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
-			flagset := cmd.Flags()
-			kubeconfig, _ := flagset.GetString(common.KubeconfigFlag)
-			chattyStatus, _ := flagset.GetBool(common.ChattyStatusFlag)
-			cpType, _ := flagset.GetString(ControlPlaneTypeFlag)
-			backendType, _ := flagset.GetString(BackendTypeFlag)
+    command := &cobra.Command{
+        Use:   "create <name>",
+        Short: "Create a control plane instance",
+        Long: `Create a control plane instance and switches the Kubeconfig context to
+            the current instance`,
+        Args: cobra.ExactArgs(1),
+        Run: func(cmd *cobra.Command, args []string) {
+            flagset := cmd.Flags()
+            kubeconfig, _ := flagset.GetString(common.KubeconfigFlag)
+            chattyStatus, _ := flagset.GetBool(common.ChattyStatusFlag)
+            cpType, _ := flagset.GetString(ControlPlaneTypeFlag)
+            backendType, _ := flagset.GetString(BackendTypeFlag)
 			postCreateHook, _ := flagset.GetString(common.PostCreateHookFlag)
+			postCreateHooks, _ := flagset.GetStringArray("post-create-hook")
 			hookVars, _ := flagset.GetStringArray(common.SetFlag)
-			cp := common.NewCP(kubeconfig, common.WithName(args[0]))
-			// create passing the control plane type and backend type
-			ExecuteCreate(cp, cpType, backendType, postCreateHook, hookVars, chattyStatus)
-		},
-	}
+            cp := common.NewCP(kubeconfig, common.WithName(args[0]))
+            
+            // Convert legacy parameters to new format
+			hooks := parseHooks(postCreateHooks, postCreateHook, hookVars)
+			
+			// For backward compatibility, use the legacy single hook and vars
+			var hookName string
+			var hookVarsForLegacy []string
+			if len(hooks) > 0 && hooks[0].HookName != nil {
+				hookName = *hooks[0].HookName
+				for k, v := range hooks[0].Vars {
+					hookVarsForLegacy = append(hookVarsForLegacy, fmt.Sprintf("%s=%s", k, v))
+				}
+			}
+			ExecuteCreate(cp, cpType, backendType, hookName, hookVarsForLegacy, chattyStatus)
+        },
+    }
 
-	flagset := command.Flags()
-	flagset.StringP(ControlPlaneTypeFlag, "t", CTypeDefault, "type of control plane: k8s|ocm|vcluster")
-	flagset.StringP(BackendTypeFlag, "b", BKTypeDefault, "backend DB sharing: shared|dedicated")
-	flagset.StringP(common.PostCreateHookFlag, "p", "", "name of post create hook to run")
-	flagset.BoolP(common.ChattyStatusFlag, "s", true, "chatty status indicator")
-	flagset.StringArrayP(common.SetFlag, "e", []string{}, "set post create hook variables, in the form name=value ")
-	return command
+    flagset := command.Flags()
+    flagset.StringP(ControlPlaneTypeFlag, "t", CTypeDefault, "type of control plane: k8s|ocm|vcluster")
+    flagset.StringP(BackendTypeFlag, "b", BKTypeDefault, "backend DB sharing: shared|dedicated")
+    flagset.StringP(common.PostCreateHookFlag, "p", "", "name of post create hook to run (deprecated)")
+	flagset.StringArrayP("post-create-hook", "hook", []string{}, "names of post create hooks to run")
+    flagset.BoolP(common.ChattyStatusFlag, "s", true, "chatty status indicator")
+    flagset.StringArrayP(common.SetFlag, "e", []string{}, "set post create hook variables (format: hookName.key=value)")
+    return command
+}
+
+func parseHooks(newHooks []string, legacyHook string, vars []string) []tenancyv1alpha1.PostCreateHookUse {
+    var hooks []tenancyv1alpha1.PostCreateHookUse
+    
+    // Handle legacy hook
+    if legacyHook != "" {
+        varsMap := parseVars(vars)
+        hooks = append(hooks, tenancyv1alpha1.PostCreateHookUse{
+            HookName: &legacyHook,
+            Vars:     varsMap,
+        })
+    }
+    
+    // Handle new hooks
+    for _, name := range newHooks {
+        hooks = append(hooks, tenancyv1alpha1.PostCreateHookUse{
+            HookName: &name,
+            Vars:     parseVarsForHook(name, vars),
+        })
+    }
+    
+    return hooks
+}
+
+func parseVarsForHook(hookName string, vars []string) map[string]string {
+	result := make(map[string]string)
+	for _, pair := range vars {
+		parts := strings.SplitN(pair, ".", 2)
+		if len(parts) == 2 && parts[0] == hookName {
+			keyVal := strings.SplitN(parts[1], "=", 2)
+			if len(keyVal) == 2 {
+				result[keyVal[0]] = keyVal[1]
+			}
+		}
+	}
+	return result
+}
+
+// parseVars parses legacy hook variables in the format key=value.
+func parseVars(vars []string) map[string]string {
+	result := make(map[string]string)
+	for _, pair := range vars {
+		keyVal := strings.SplitN(pair, "=", 2)
+		if len(keyVal) == 2 {
+			result[keyVal[0]] = keyVal[1]
+		}
+	}
+	return result
 }
 
 // Create a new control plane

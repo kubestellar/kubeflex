@@ -84,11 +84,26 @@ spec:
                 - namespace
                 type: object
               postCreateHook:
+                description: 'Deprecated: Use PostCreateHooks instead'
                 type: string
               postCreateHookVars:
                 additionalProperties:
                   type: string
+                description: 'Deprecated: Use PostCreateHooks instead'
                 type: object
+              postCreateHooks:
+                items:
+                  properties:
+                    hookName:
+                      type: string
+                    vars:
+                      additionalProperties:
+                        type: string
+                      type: object
+                  required:
+                  - hookName
+                  type: object
+                type: array
               tokenExpirationSeconds:
                 default: 31536000
                 description: tokenExpirationSeconds is the expiration time for generated
