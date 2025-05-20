@@ -19,6 +19,7 @@ package shared
 import (
 	"context"
 	"fmt"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -29,6 +30,8 @@ import (
 
 	"github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/util"
+	batchv1 "k8s.io/api/batch/v1"
+    "k8s.io/apimachinery/pkg/util/wait"
 )
 
 const (
@@ -96,6 +99,11 @@ func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp 
         logger.Error(err, "Failed to apply post-create hook", "hook", *hcp.Spec.PostCreateHook)
     }
 
+	// Create and monitor Jobs
+    if err := createAndMonitorJobs(ctx, r.ClientSet, hook, vars, hcp); err != nil {
+    	return fmt.Errorf("failed to process jobs: %w", err)
+   	}
+
     // Update status if hook was successfully applied
     if hcp.Status.PostCreateHooks == nil {
         hcp.Status.PostCreateHooks = make(map[string]bool)
@@ -111,6 +119,50 @@ func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp 
         return fmt.Errorf("failed to propagate labels: %w", err)
     }
 
+    return nil
+}
+
+func createAndMonitorJobs(ctx context.Context, clientset *kubernetes.Clientset, hook *v1alpha1.PostCreateHook, vars map[string]interface{}, hcp *v1alpha1.ControlPlane) error {
+    namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
+
+    for _, jobTemplate := range hook.Spec.Jobs {
+        // Render job template with variables
+        job := &batchv1.Job{
+            ObjectMeta: metav1.ObjectMeta{
+                Name:      jobTemplate.ObjectMeta.Name,
+                Namespace: namespace,
+               Labels:    jobTemplate.ObjectMeta.Labels,
+            },
+            Spec: jobTemplate.Spec,
+        }
+
+        // Create the Job
+        _, err := clientset.BatchV1().Jobs(namespace).Create(ctx, job, metav1.CreateOptions{})
+        if err != nil {
+            return fmt.Errorf("failed to create job %s: %w", job.Name, err)
+        }
+
+        // Monitor job completion
+       err = wait.PollUntilContextTimeout(ctx, 5*time.Second, 10*time.Minute, true, 
+            func(ctx context.Context) (bool, error) {
+                currentJob, err := clientset.BatchV1().Jobs(namespace).Get(ctx, job.Name, metav1.GetOptions{})
+                if err != nil {
+                    return false, err
+               }
+
+                if currentJob.Status.Succeeded > 0 {
+                    return true, nil
+               }
+                if currentJob.Status.Failed > *currentJob.Spec.BackoffLimit {
+                    return false, fmt.Errorf("job %s failed", job.Name)
+                }
+                return false, nil
+            })
+
+        if err != nil {
+            return fmt.Errorf("job %s failed: %w", job.Name, err)
+        }
+    }
     return nil
 }
 

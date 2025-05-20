@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	batchv1 "k8s.io/api/batch/v1"
 )
 
 // Var defines a name/value pair for template variables
@@ -27,10 +28,21 @@ type Var struct {
 	Value string `json:"value"`
 }
 
+// JobTemplate defines a Job specification with metadata
+type JobTemplate struct {
+	// Standard object's metadata
+	// +optional
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	// Specification of the desired behavior of the job
+	Spec batchv1.JobSpec `json:"spec"`
+}
+
 // PostCreateHookSpec defines the desired state of PostCreateHook
 type PostCreateHookSpec struct {
 	Templates []Manifest `json:"templates,omitempty"`
 	DefaultVars []Var      `json:"defaultVars,omitempty"`
+	Jobs []JobTemplate `json:"jobs,omitempty"`
 }
 
 // PostCreateHookStatus defines the observed state of PostCreateHook
@@ -39,6 +51,8 @@ type PostCreateHookStatus struct {
 	ObservedGeneration int64                   `json:"observedGeneration"`
 	// SecretRef contains a referece to the secret containing the Kubeconfig for the control plane
 	SecretRef *SecretReference `json:"secretRef,omitempty"`
+	// JobStatuses tracks the status of Jobs created by this hook
+	JobStatuses []batchv1.JobStatus `json:"jobStatuses,omitempty"`
 }
 
 // PostCreateHook is the Schema for the controlplanes API
