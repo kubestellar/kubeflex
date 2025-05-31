@@ -37,16 +37,6 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
-const (
-	ExtensionConfigName                = "kflex-config-extension-name" // Unchanged otherwise breaking change
-	ExtensionHostingClusterContextName = "kflex-initial-ctx-name"      // Unchanged otherwise breaking change
-	ExtensionInitialContextName        = "first-context-name"
-	ExtensionControlPlaneName          = "controlplane-name"
-	ExtensionKubeflexKey               = "kubeflex"
-	ExtensionLabelManageByKubeflex     = "kubeflex.dev/is-managed"
-	ControlPlaneTypeOCMDefault         = "multicluster-controlplane"
-	ControlPlaneTypeVClusterDefault    = "my-vcluster"
-)
 
 func unMarshallCM(obj runtime.Object) (*corev1.ConfigMap, error) {
 	jsonData, err := json.Marshal(obj)
