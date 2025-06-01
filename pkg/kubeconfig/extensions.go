@@ -116,14 +116,51 @@ type KubeflexExtensioner interface {
 	ParseToRuntimeKubefleExtensionData() (parsed RuntimeKubeflexExtensionData, err error)
 }
 
-type KubeflexConfig struct {
+type commonKubeflexExtensioner struct {
 	kconf      clientcmdapi.Config
-	Extensions KubeflexExtensions // under `extensions.kubeflex`
-	// runtimeExtension RuntimeKubeflexExtension
+	extensions any
 }
 
+type KubeflexConfig struct {
+	Extensions KubeflexExtensions // under `extensions.kubeflex`
+	commonKubeflexExtensioner
+}
+
+type KubeflexContextConfig struct {
+	ContextName string
+	Extensions  KubeflexContextExtensions // under `contexts[].extensions.kubeflex`
+	commonKubeflexExtensioner
+}
+
+// Parse Extensions into RuntimeKubeflexExtensionData
+func (commonKflexConfig commonKubeflexExtensioner) ParseToRuntimeKubefleExtensionData() (parsed RuntimeKubeflexExtensionData, err error) {
+	data, err := json.Marshal(commonKflexConfig.extensions)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(data, &parsed)
+	if err != nil {
+		return nil, err
+	}
+	return parsed, err
+}
+
+// Parse Extensions into Kubeconfig Extensions
+func (commonKflexConfig commonKubeflexExtensioner) ParseToKubeconfigExtensions() (map[string]runtime.Object, error) {
+	runtimeExtensionData, err := commonKflexConfig.ParseToRuntimeKubefleExtensionData()
+	if err != nil {
+		return nil, err
+	}
+	runtimeExtension := NewRuntimeKubeflexExtension()
+	runtimeExtension.Data = runtimeExtensionData
+	return map[string]runtime.Object{ExtensionKubeflexKey: &runtimeExtension}, nil
+}
+
+// New kubeflex config global to a kubeconfig
 func NewKubeflexConfig(kconf clientcmdapi.Config) (*KubeflexConfig, error) {
-	kflexConfig := KubeflexConfig{kconf: kconf, Extensions: KubeflexExtensions{}}
+	extensions := KubeflexExtensions{}
+	kflexConfig := KubeflexConfig{commonKubeflexExtensioner: commonKubeflexExtensioner{kconf: kconf, extensions: &extensions}, Extensions: extensions}
+
 	if runtimeObj, ok := kconf.Extensions[ExtensionKubeflexKey]; ok {
 		runtimeExtension := RuntimeKubeflexExtension{}
 		err := ConvertRuntimeObjectToRuntimeKubeflexExtension(runtimeObj, runtimeExtension)
@@ -136,9 +173,23 @@ func NewKubeflexConfig(kconf clientcmdapi.Config) (*KubeflexConfig, error) {
 	return &kflexConfig, nil
 }
 
-// func NewKubeflexContextConfig() *KubeflexContextConfig {
-// 	return
-// }
+// New kubeflex config local to a context in a kubeconfig
+func NewKubeflexContextConfig(kconf clientcmdapi.Config, contextName string) (*KubeflexContextConfig, error) {
+	extensions := KubeflexContextExtensions{}
+	kflexContextConfig := KubeflexContextConfig{commonKubeflexExtensioner: commonKubeflexExtensioner{kconf: kconf, extensions: &extensions}, ContextName: contextName, Extensions: extensions}
+	ctx, hasCtx := kconf.Contexts[contextName]
+	if runtimeObj, ok := ctx.Extensions[ExtensionKubeflexKey]; hasCtx && ok {
+		runtimeExtension := RuntimeKubeflexExtension{}
+		err := ConvertRuntimeObjectToRuntimeKubeflexExtension(runtimeObj, runtimeExtension)
+		if err != nil {
+			return nil, err
+		}
+		kflexContextConfig.Extensions.ControlPlaneName = runtimeExtension.GetControlPlaneName()
+		kflexContextConfig.Extensions.InitialContextName = runtimeExtension.GetInitialContextName()
+		kflexContextConfig.Extensions.LabelManageByKubeflex = runtimeExtension.GetLabelManageByKubeflex()
+	}
+	return &kflexContextConfig, nil
+}
 
 // Unmarshal runtime.Object into RuntimeKubeflexExtension
 func ConvertRuntimeObjectToRuntimeKubeflexExtension(data runtime.Object, receiver RuntimeKubeflexExtension) error {
@@ -151,34 +202,4 @@ func ConvertRuntimeObjectToRuntimeKubeflexExtension(data runtime.Object, receive
 		return err
 	}
 	return nil
-}
-
-// Parse KubeflexExtensions into RuntimeKubeflexExtensionData
-func (kflexConfig KubeflexConfig) ParseToRuntimeKubefleExtensionData() (parsed RuntimeKubeflexExtensionData, err error) {
-	data, err := json.Marshal(kflexConfig.Extensions)
-	if err != nil {
-		return nil, err
-	}
-	err = json.Unmarshal(data, &parsed)
-	if err != nil {
-		return nil, err
-	}
-	return parsed, err
-}
-
-// Parse KubeflexExtensions into Kubeconfig Extensions
-func (kflexConfig KubeflexConfig) ParseToKubeconfigExtensions() (map[string]runtime.Object, error) {
-	runtimeExtensionData, err := kflexConfig.ParseToRuntimeKubefleExtensionData()
-	if err != nil {
-		return nil, err
-	}
-	runtimeExtension := NewRuntimeKubeflexExtension()
-	runtimeExtension.Data = runtimeExtensionData
-	return map[string]runtime.Object{ExtensionKubeflexKey: &runtimeExtension}, nil
-}
-
-type KubeflexContextConfig struct {
-	kconf             clientcmdapi.Config
-	Context           string
-	ContextExtensions KubeflexContextExtensions
 }
