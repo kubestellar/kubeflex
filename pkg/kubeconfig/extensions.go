@@ -18,11 +18,11 @@ package kubeconfig
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
@@ -33,7 +33,6 @@ const (
 	ExtensionInitialContextName        = "first-context-name"
 	ExtensionControlPlaneName          = "controlplane-name"
 	ExtensionKubeflexKey               = "kubeflex"
-	ExtensionLabelManageByKubeflex     = "kubeflex.dev/is-managed"
 	ControlPlaneTypeOCMDefault         = "multicluster-controlplane"
 	ControlPlaneTypeVClusterDefault    = "my-vcluster"
 	TypeExtensionDefault               = "extensions"
@@ -43,161 +42,156 @@ const (
 // Internal structure of Kubeflex global extension in a Kubeconfig file
 type KubeflexExtensions struct {
 	// Must change --> BREAKING CHANGE
-	ConfigName string // `json:"kflex-config-extension-name,omitempty"`
+	ConfigName string `json:"kflex-config-extension-name,omitempty"`
 	// Should change --> BREAKING CHANGE
-	HostingClusterContextName string // `json:"kflex-initial-ctx-name,omitempty"`
+	HostingClusterContextName string `json:"kflex-initial-ctx-name,omitempty"`
+}
+
+func (kflexExtensions KubeflexExtensions) String() string {
+	return fmt.Sprintf("KubeflexExtensions: ConfigName=%s; HostingClusterContextName=%s;", kflexExtensions.ConfigName, kflexExtensions.HostingClusterContextName)
 }
 
 // Internal structure of Kubeflex extension local to a context in a Kubeconfig file
 type KubeflexContextExtensions struct {
-	InitialContextName    string // `json:"first-context-name,omitempty"`
-	ControlPlaneName      string // `json:"controlplane-name,omitempty"`
-	LabelManageByKubeflex string // `json:"kubeflex.dev/is-managed,omitempty"`
+	InitialContextName string `json:"first-context-name,omitempty"`
+	ControlPlaneName   string `json:"controlplane-name,omitempty"`
 }
 
-type RuntimeKubeflexExtension struct {
-	corev1.ConfigMap
+func (kflexContextExtensions KubeflexContextExtensions) String() string {
+	return fmt.Sprintf("KubeflexContextExtensions: InitialContextName=%s; ControlPlaneName=%s;", kflexContextExtensions.InitialContextName, kflexContextExtensions.ControlPlaneName)
 }
 
+type RuntimeKubeflexExtension = corev1.ConfigMap
 type RuntimeKubeflexExtensionData = map[string]string
 
-func NewRuntimeKubeflexExtension() RuntimeKubeflexExtension {
-	r := RuntimeKubeflexExtension{}
+func NewRuntimeKubeflexExtension() *RuntimeKubeflexExtension {
+	r := &RuntimeKubeflexExtension{}
 	r.ObjectMeta = metav1.ObjectMeta{
 		Name:              ExtensionKubeflexKey,
-		CreationTimestamp: v1.NewTime(time.Now()),
+		CreationTimestamp: metav1.NewTime(time.Now()),
 	}
 	r.Data = make(RuntimeKubeflexExtensionData)
 	return r
 }
 
-func (runtimeKflex RuntimeKubeflexExtension) SetKubeflexConfigName(v string) {
-	runtimeKflex.Data[ExtensionConfigName] = v
-}
-
-func (runtimeKflex RuntimeKubeflexExtension) GetKubeflexConfigName() string {
-	return runtimeKflex.Data[ExtensionConfigName]
-}
-
-func (runtimeKflex RuntimeKubeflexExtension) SetInitialContextName(v string) {
-	runtimeKflex.Data[ExtensionInitialContextName] = v
-}
-
-func (runtimeKflex RuntimeKubeflexExtension) GetInitialContextName() string {
-	return runtimeKflex.Data[ExtensionInitialContextName]
-}
-
-func (runtimeKflex RuntimeKubeflexExtension) SetControlPlaneName(v string) {
-	runtimeKflex.Data[ExtensionControlPlaneName] = v
-}
-
-func (runtimeKflex RuntimeKubeflexExtension) GetControlPlaneName() string {
-	return runtimeKflex.Data[ExtensionControlPlaneName]
-}
-
-func (runtimeKflex RuntimeKubeflexExtension) SetLabelManageByKubeflex(v string) {
-	runtimeKflex.Data[ExtensionLabelManageByKubeflex] = v
-}
-
-func (runtimeKflex RuntimeKubeflexExtension) GetLabelManageByKubeflex() string {
-	return runtimeKflex.Data[ExtensionLabelManageByKubeflex]
-}
-
-func (runtimeKflex RuntimeKubeflexExtension) SetKubeflexHostingClusterContextName(v string) {
-	runtimeKflex.Data[ExtensionHostingClusterContextName] = v
-}
-
-func (runtimeKflex RuntimeKubeflexExtension) GetKubeflexHostingClusterContextName() string {
-	return runtimeKflex.Data[ExtensionHostingClusterContextName]
-}
-
-type KubeflexExtensioner interface {
-	ParseToKubeconfigExtensions() (map[string]runtime.Object, error)
-	ParseToRuntimeKubefleExtensionData() (parsed RuntimeKubeflexExtensionData, err error)
-}
-
-type commonKubeflexExtensioner struct {
-	kconf      clientcmdapi.Config
-	extensions any
+type KubeflexConfiger interface {
+	ConvertExtensionsToRuntimeExtension(receiver *RuntimeKubeflexExtension) error
+	ConvertRuntimeExtensionToExtensions(producer *RuntimeKubeflexExtension) error
 }
 
 type KubeflexConfig struct {
-	Extensions KubeflexExtensions // under `extensions.kubeflex`
-	commonKubeflexExtensioner
-}
-
-type KubeflexContextConfig struct {
-	ContextName string
-	Extensions  KubeflexContextExtensions // under `contexts[].extensions.kubeflex`
-	commonKubeflexExtensioner
-}
-
-// Parse Extensions into RuntimeKubeflexExtensionData
-func (commonKflexConfig commonKubeflexExtensioner) ParseToRuntimeKubefleExtensionData() (parsed RuntimeKubeflexExtensionData, err error) {
-	data, err := json.Marshal(commonKflexConfig.extensions)
-	if err != nil {
-		return nil, err
-	}
-	err = json.Unmarshal(data, &parsed)
-	if err != nil {
-		return nil, err
-	}
-	return parsed, err
-}
-
-// Parse Extensions into Kubeconfig Extensions
-func (commonKflexConfig commonKubeflexExtensioner) ParseToKubeconfigExtensions() (map[string]runtime.Object, error) {
-	runtimeExtensionData, err := commonKflexConfig.ParseToRuntimeKubefleExtensionData()
-	if err != nil {
-		return nil, err
-	}
-	runtimeExtension := NewRuntimeKubeflexExtension()
-	runtimeExtension.Data = runtimeExtensionData
-	return map[string]runtime.Object{ExtensionKubeflexKey: &runtimeExtension}, nil
+	Extensions *KubeflexExtensions // under `extensions.kubeflex`
+	kconf      clientcmdapi.Config
 }
 
 // New kubeflex config global to a kubeconfig
+// Initialise `extensions.kubeflex` if there is none
 func NewKubeflexConfig(kconf clientcmdapi.Config) (*KubeflexConfig, error) {
-	extensions := KubeflexExtensions{}
-	kflexConfig := KubeflexConfig{commonKubeflexExtensioner: commonKubeflexExtensioner{kconf: kconf, extensions: &extensions}, Extensions: extensions}
-
+	kflexConfig := KubeflexConfig{kconf: kconf, Extensions: &KubeflexExtensions{}}
 	if runtimeObj, ok := kconf.Extensions[ExtensionKubeflexKey]; ok {
-		runtimeExtension := RuntimeKubeflexExtension{}
-		err := ConvertRuntimeObjectToRuntimeKubeflexExtension(runtimeObj, runtimeExtension)
-		if err != nil {
+		// Load existent kubeflex config
+		runtimeExtension := &RuntimeKubeflexExtension{}
+		if err := ConvertRuntimeObjectToRuntimeExtension(runtimeObj, runtimeExtension); err != nil {
 			return nil, err
 		}
-		kflexConfig.Extensions.ConfigName = runtimeExtension.GetKubeflexConfigName()
-		kflexConfig.Extensions.HostingClusterContextName = runtimeExtension.GetKubeflexHostingClusterContextName()
+		if err := kflexConfig.ConvertRuntimeExtensionToExtensions(runtimeExtension); err != nil {
+			return nil, err
+		}
 	}
 	return &kflexConfig, nil
 }
 
+func (kflexConfig *KubeflexConfig) ConvertExtensionsToRuntimeExtension(receiver *RuntimeKubeflexExtension) error {
+	// Convert to JSON
+	dataJson, err := json.Marshal(kflexConfig.Extensions)
+	if err != nil {
+		return fmt.Errorf("json marshal of kflex config extensions failed: %v", err)
+	}
+	// Convert to RuntimeObject
+	if err = json.Unmarshal(dataJson, &receiver.Data); err != nil {
+		return fmt.Errorf("json unmarshal of kflex config extensions failed: %v", err)
+	}
+	return nil
+}
+
+func (kflexConfig *KubeflexConfig) ConvertRuntimeExtensionToExtensions(producer *RuntimeKubeflexExtension) error {
+	// Convert to JSON
+	dataJson, err := json.Marshal(producer.Data)
+	if err != nil {
+		return fmt.Errorf("json marshal of producer data failed: %v", err)
+	}
+	// Convert to KubeflexExtensions
+	if err = json.Unmarshal(dataJson, kflexConfig.Extensions); err != nil {
+		return fmt.Errorf("json unmarshal of producer data failed: %v", err)
+	}
+	return nil
+}
+
+func (kflexConfig *KubeflexConfig) String() string {
+	return fmt.Sprintf("extensions=%s", kflexConfig.Extensions)
+}
+
+type KubeflexContextConfig struct {
+	ContextName string
+	Extensions  *KubeflexContextExtensions // under `contexts[].extensions.kubeflex`
+	kconf       clientcmdapi.Config
+}
+
 // New kubeflex config local to a context in a kubeconfig
 func NewKubeflexContextConfig(kconf clientcmdapi.Config, contextName string) (*KubeflexContextConfig, error) {
-	extensions := KubeflexContextExtensions{}
-	kflexContextConfig := KubeflexContextConfig{commonKubeflexExtensioner: commonKubeflexExtensioner{kconf: kconf, extensions: &extensions}, ContextName: contextName, Extensions: extensions}
+	kflexContextConfig := KubeflexContextConfig{kconf: kconf, Extensions: &KubeflexContextExtensions{}, ContextName: contextName}
 	ctx, hasCtx := kconf.Contexts[contextName]
 	if runtimeObj, ok := ctx.Extensions[ExtensionKubeflexKey]; hasCtx && ok {
-		runtimeExtension := RuntimeKubeflexExtension{}
-		err := ConvertRuntimeObjectToRuntimeKubeflexExtension(runtimeObj, runtimeExtension)
-		if err != nil {
+		runtimeExtension := &RuntimeKubeflexExtension{}
+		if err := ConvertRuntimeObjectToRuntimeExtension(runtimeObj, runtimeExtension); err != nil {
 			return nil, err
 		}
-		kflexContextConfig.Extensions.ControlPlaneName = runtimeExtension.GetControlPlaneName()
-		kflexContextConfig.Extensions.InitialContextName = runtimeExtension.GetInitialContextName()
-		kflexContextConfig.Extensions.LabelManageByKubeflex = runtimeExtension.GetLabelManageByKubeflex()
+		if err := kflexContextConfig.ConvertRuntimeExtensionToExtensions(runtimeExtension); err != nil {
+			return nil, err
+		}
 	}
 	return &kflexContextConfig, nil
 }
 
+func (kflexConfig *KubeflexContextConfig) ConvertExtensionsToRuntimeExtension(receiver *RuntimeKubeflexExtension) error {
+	// Convert to JSON
+	dataJson, err := json.Marshal(kflexConfig.Extensions)
+	if err != nil {
+		return fmt.Errorf("json marshal of kflex config extensions failed: %v", err)
+	}
+	// Convert to RuntimeExtension
+	if err = json.Unmarshal(dataJson, &receiver.Data); err != nil {
+		return fmt.Errorf("json unmarshal of kflex config extensions failed: %v", err)
+	}
+	return nil
+}
+
+func (kflexConfig *KubeflexContextConfig) ConvertRuntimeExtensionToExtensions(producer *RuntimeKubeflexExtension) error {
+	// Convert to JSON
+	dataJson, err := json.Marshal(producer.Data)
+	if err != nil {
+		return fmt.Errorf("json marshal of producer data failed: %v", err)
+	}
+	// Convert to KubeflexExtensions
+	if err = json.Unmarshal(dataJson, kflexConfig.Extensions); err != nil {
+		return fmt.Errorf("json unmarshal of producer data failed: %v", err)
+	}
+	return nil
+}
+
+func (kflexConfig *KubeflexContextConfig) String() string {
+	return fmt.Sprintf("contextname=%s; extensions=%s", kflexConfig.ContextName, kflexConfig.Extensions)
+}
+
 // Unmarshal runtime.Object into RuntimeKubeflexExtension
-func ConvertRuntimeObjectToRuntimeKubeflexExtension(data runtime.Object, receiver RuntimeKubeflexExtension) error {
+func ConvertRuntimeObjectToRuntimeExtension(data runtime.Object, receiver *RuntimeKubeflexExtension) error {
 	dataJson, err := json.Marshal(data)
 	if err != nil {
 		return err
 	}
+	fmt.Printf("dataJson: %s\n", dataJson)
 	err = json.Unmarshal(dataJson, &receiver)
+	fmt.Printf("unmarshal: %v\n", *receiver)
 	if err != nil {
 		return err
 	}
