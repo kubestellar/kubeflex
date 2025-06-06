@@ -69,6 +69,7 @@ func NewRuntimeKubeflexExtension() *RuntimeKubeflexExtension {
 	r.ObjectMeta = metav1.ObjectMeta{
 		Name:              ExtensionKubeflexKey,
 		CreationTimestamp: metav1.NewTime(time.Now()),
+		Namespace:         "",
 	}
 	r.Data = make(RuntimeKubeflexExtensionData)
 	return r
@@ -77,6 +78,7 @@ func NewRuntimeKubeflexExtension() *RuntimeKubeflexExtension {
 type KubeflexConfiger interface {
 	ConvertExtensionsToRuntimeExtension(receiver *RuntimeKubeflexExtension) error
 	ConvertRuntimeExtensionToExtensions(producer *RuntimeKubeflexExtension) error
+	ParseToKubeconfigExtensions() (map[string]runtime.Object, error)
 }
 
 type kubeflexConfig[T KubeflexExtensions | KubeflexContextExtensions] struct {
@@ -112,6 +114,15 @@ func (kflexConfig *kubeflexConfig[T]) ConvertRuntimeExtensionToExtensions(produc
 		return fmt.Errorf("json unmarshal of producer data failed: %v", err)
 	}
 	return nil
+}
+
+func (kflexConfig *kubeflexConfig[T]) ParseToKubeconfigExtensions() (map[string]runtime.Object, error) {
+	r := NewRuntimeKubeflexExtension()
+	err := kflexConfig.ConvertExtensionsToRuntimeExtension(r)
+	if err != nil {
+		return nil, fmt.Errorf("error while parsing kubeflex to kubeconfig extensions: %v", err)
+	}
+	return map[string]runtime.Object{ExtensionKubeflexKey: r}, err
 }
 
 type KubeflexConfig struct {

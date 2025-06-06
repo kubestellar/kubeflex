@@ -112,22 +112,15 @@ func merge(base, target *clientcmdapi.Config) error {
 // it can be set globally in the feature. We abstract that from the end-user
 func AssignControlPlaneToContext(config *clientcmdapi.Config, cpName string, ctxName string) error {
 	if ctx, ok := config.Contexts[ctxName]; ok {
-		ctx.Namespace = ""
-		ctx.Extensions = map[string]runtime.Object{
-			ExtensionKubeflexKey: &corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					// Name: ExtensionControlPlaneName,
-					// Labels: map[string]string{
-					// 	ExtensionLabelManageByKubeflex: "true",
-					// },
-					CreationTimestamp: metav1.NewTime(time.Now()),
-				},
-				Data: map[string]string{
-					ExtensionControlPlaneName:   cpName,
-					ExtensionInitialContextName: ctxName,
-				},
-			},
+		var parsed map[string]runtime.Object
+		kflexConfig, err := NewKubeflexContextConfig(*config, ctxName)
+		if err != nil {
+			return fmt.Errorf("error while assigning control plane to context: %v", err)
 		}
+		if parsed, err = kflexConfig.ParseToKubeconfigExtensions(); err != nil {
+			return fmt.Errorf("error while assigning control plane to context: %v", err)
+		}
+		ctx.Extensions = parsed
 		return nil
 	}
 	return fmt.Errorf("error context %s does not exist in config", ctxName)
