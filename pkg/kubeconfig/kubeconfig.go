@@ -97,7 +97,7 @@ func merge(base, target *clientcmdapi.Config) error {
 		base.Contexts[k] = v
 	}
 
-	if !IsHostingClusterContextPreferenceSet(base) {
+	if !IsHostingClusterContextSet(base) {
 		SetHostingClusterContextPreference(base, nil)
 	}
 
@@ -172,14 +172,12 @@ func GetHostingClusterContext(config *clientcmdapi.Config) (string, error) {
 	return kflexConfig.Extensions.HostingClusterContextName, nil
 }
 
-func IsHostingClusterContextPreferenceSet(config *clientcmdapi.Config) bool {
-	if config.Preferences.Extensions != nil {
-		_, ok := config.Preferences.Extensions[ExtensionConfigName]
-		if ok {
-			return true
-		}
+func IsHostingClusterContextSet(config *clientcmdapi.Config) bool {
+	kflexConfig, err := NewKubeflexConfig(*config)
+	if err != nil {
+		return false
 	}
-	return false
+	return kflexConfig.Extensions.HostingClusterContextName != ""
 }
 
 // List all contexts
@@ -302,7 +300,7 @@ func SwitchContext(config *clientcmdapi.Config, cpName string) error {
 
 // Switch to hosting cluster context
 func SwitchToHostingClusterContext(config *clientcmdapi.Config, removeExtension bool) error {
-	if !IsHostingClusterContextPreferenceSet(config) {
+	if !IsHostingClusterContextSet(config) {
 		return fmt.Errorf("hosting cluster preference context not set")
 	}
 
