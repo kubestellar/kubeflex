@@ -89,7 +89,7 @@ func (cpCtx *CPCtx) ExecuteCtx(chattyStatus, failIfNone, overwriteExistingCtx, s
 	if cpCtx.Name == "" {
 		// Switch to hosting cluster context when no context is provided
 		if setCurrentCtxAsHosting { // set hosting cluster context unconditionally to the current context
-			err = kubeconfig.SetHostingClusterContextPreference(kconf, nil)
+			err = kubeconfig.SetHostingClusterContext(kconf, nil)
 			if err != nil {
 				return fmt.Errorf("error on ExecuteCtx: %v", err)
 			}
@@ -117,7 +117,7 @@ func (cpCtx *CPCtx) ExecuteCtx(chattyStatus, failIfNone, overwriteExistingCtx, s
 
 			}
 			util.PrintStatus("Hosting cluster context not set, setting it to current context", done, &wg, chattyStatus)
-			err = kubeconfig.SetHostingClusterContextPreference(kconf, nil)
+			err = kubeconfig.SetHostingClusterContext(kconf, nil)
 			if err != nil {
 				return fmt.Errorf("error on ExecuteCtx: %v", err)
 			}

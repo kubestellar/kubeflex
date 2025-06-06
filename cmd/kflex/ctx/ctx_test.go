@@ -38,7 +38,7 @@ func setupMockContext(kubeconfigPath string, ctxName string) error {
 	kconf.Clusters[certs.GenerateClusterName(ctxName)] = api.NewCluster()
 	kconf.AuthInfos[certs.GenerateAuthInfoAdminName(ctxName)] = api.NewAuthInfo()
 	kconf.CurrentContext = hostingClusterContextMock
-	if err := kubeconfig.SetHostingClusterContextPreference(kconf, nil); err != nil {
+	if err := kubeconfig.SetHostingClusterContext(kconf, nil); err != nil {
 		return fmt.Errorf("error setupmockcontext: %v", err)
 	}
 	if err := kubeconfig.WriteKubeconfig(kubeconfigPath, kconf); err != nil {

@@ -98,7 +98,7 @@ func merge(base, target *clientcmdapi.Config) error {
 	}
 
 	if !IsHostingClusterContextSet(base) {
-		err := SetHostingClusterContextPreference(base, nil)
+		err := SetHostingClusterContext(base, nil)
 		if err != nil {
 			return fmt.Errorf("error on ExecuteCtx: %v", err)
 		}
@@ -254,24 +254,8 @@ func RenameKey(m interface{}, oldKey string, newKey string) {
 	}
 }
 
-// DISCUSSION: shouldn't we keep our functions as much low-level as possible?
-// Rather than having SaveHostingClusterContextPreference as a function
-// Shouldn't we use SetHostingClusterContextPreference and WriteKubeconfig
-// whenever it is required? It seem clearer to only have a single WRITE function
-// instead of SAVE function that embeds WRITE... (personal observation)
-func SaveHostingClusterContextPreference(kubeconfig string) error {
-	// TODO replace context parameter
-	kconfig, err := LoadKubeconfig(kubeconfig)
-	if err != nil {
-		return fmt.Errorf("setHostingClusterContextPreference: error loading kubeconfig %s", err)
-	}
-	SetHostingClusterContextPreference(kconfig, nil)
-	// TODO replace context parameter
-	return WriteKubeconfig(kubeconfig, kconfig)
-}
-
 // Sets hosting cluster context to current context if userSuppliedContext is nil, otherwise set to userSuppliedContext
-func SetHostingClusterContextPreference(config *clientcmdapi.Config, userSuppliedContext *string) error {
+func SetHostingClusterContext(config *clientcmdapi.Config, userSuppliedContext *string) error {
 	kflexConfig, err := NewKubeflexConfig(*config)
 	if err != nil {
 		return fmt.Errorf("error while setting hosting cluster context to extensions: %v", err)
