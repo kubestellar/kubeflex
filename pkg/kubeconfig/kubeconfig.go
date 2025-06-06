@@ -18,7 +18,6 @@ package kubeconfig
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -36,17 +35,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
-
-
-func unMarshallCM(obj runtime.Object) (*corev1.ConfigMap, error) {
-	jsonData, err := json.Marshal(obj)
-	if err != nil {
-		return nil, fmt.Errorf("error marshaling object %s", err)
-	}
-	cm := corev1.ConfigMap{}
-	json.Unmarshal(jsonData, &cm)
-	return &cm, nil
-}
 
 func adjustConfigKeys(config *clientcmdapi.Config, cpName, controlPlaneType string) {
 	switch controlPlaneType {
@@ -177,23 +165,18 @@ func GetCurrentContext(kubeconfig string) (string, error) {
 
 // Get hosting cluster context value set in extensions
 func GetHostingClusterContext(config *clientcmdapi.Config) (string, error) {
-	cm, err := unMarshallCM(config.Preferences.Extensions[ExtensionConfigName])
+	kflexConfig, err := NewKubeflexConfig(*config)
 	if err != nil {
 		return "", fmt.Errorf("error unmarshaling config map %s", err)
 	}
-
-	contextData, ok := cm.Data[ExtensionInitialContextName]
-	if !ok {
+	if kflexConfig.Extensions.HostingClusterContextName == "" {
 		return "", fmt.Errorf("hosting cluster preference context data not set")
 	}
-
 	// make sure that context set in extension is a valid context
-	_, ok = config.Contexts[contextData]
-	if !ok {
+	if _, ok := config.Contexts[kflexConfig.Extensions.HostingClusterContextName]; !ok {
 		return "", fmt.Errorf("hosting cluster preference context data is set to a non-existing context")
 	}
-
-	return contextData, nil
+	return kflexConfig.Extensions.HostingClusterContextName, nil
 }
 
 func IsHostingClusterContextPreferenceSet(config *clientcmdapi.Config) bool {

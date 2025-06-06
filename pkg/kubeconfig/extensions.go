@@ -41,9 +41,9 @@ const (
 
 // Internal structure of Kubeflex global extension in a Kubeconfig file
 type KubeflexExtensions struct {
-	// Must change --> BREAKING CHANGE
+	// BREAKING CHANGE
 	ConfigName string `json:"config-extension-name,omitempty"`
-	// Should change --> BREAKING CHANGE
+	// BREAKING CHANGE
 	HostingClusterContextName string `json:"hosting-cluster-ctx-name,omitempty"`
 }
 
