@@ -98,7 +98,10 @@ func merge(base, target *clientcmdapi.Config) error {
 	}
 
 	if !IsHostingClusterContextSet(base) {
-		SetHostingClusterContextPreference(base, nil)
+		err := SetHostingClusterContextPreference(base, nil)
+		if err != nil {
+			return fmt.Errorf("error on ExecuteCtx: %v", err)
+		}
 	}
 
 	// set the current context to the nex context
@@ -172,6 +175,7 @@ func GetHostingClusterContext(config *clientcmdapi.Config) (string, error) {
 	return kflexConfig.Extensions.HostingClusterContextName, nil
 }
 
+// Check if hosting cluster context value is set within kubeconfig
 func IsHostingClusterContextSet(config *clientcmdapi.Config) bool {
 	kflexConfig, err := NewKubeflexConfig(*config)
 	if err != nil {
@@ -266,25 +270,22 @@ func SaveHostingClusterContextPreference(kubeconfig string) error {
 	return WriteKubeconfig(kubeconfig, kconfig)
 }
 
-// sets hosting cluster context to current context if userSuppliedContext is nil, otherwise set to userSuppliedContext
-func SetHostingClusterContextPreference(config *clientcmdapi.Config, userSuppliedContext *string) {
+// Sets hosting cluster context to current context if userSuppliedContext is nil, otherwise set to userSuppliedContext
+func SetHostingClusterContextPreference(config *clientcmdapi.Config, userSuppliedContext *string) error {
+	kflexConfig, err := NewKubeflexConfig(*config)
+	if err != nil {
+		return fmt.Errorf("error while setting hosting cluster context to extensions: %v", err)
+	}
 	hostingContext := config.CurrentContext
 	if userSuppliedContext != nil {
 		hostingContext = *userSuppliedContext
 	}
-	runtimeObjects := make(map[string]runtime.Object)
-	runtimeObjects[ExtensionConfigName] = &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: ExtensionConfigName,
-		},
-		Data: map[string]string{
-			ExtensionInitialContextName: hostingContext,
-		},
+	kflexConfig.Extensions.ConfigName = hostingContext
+	config.Extensions, err = kflexConfig.ParseToKubeconfigExtensions()
+	if err != nil {
+		return fmt.Errorf("error while setting hosting cluster context to extensions: %v", err)
 	}
-
-	config.Preferences = clientcmdapi.Preferences{
-		Extensions: runtimeObjects,
-	}
+	return nil
 }
 
 // Switch context
