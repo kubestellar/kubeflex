@@ -65,7 +65,7 @@ func ExecuteDelete(cp common.CP, chattyStatus bool) error {
 		return fmt.Errorf("error loading kubeconfig: %v", err)
 	}
 
-	if err = kubeconfig.SwitchToHostingClusterContext(kconf, false); err != nil {
+	if err = kubeconfig.SwitchToHostingClusterContext(kconf); err != nil {
 		return fmt.Errorf("error switching to hosting cluster kubeconfig context: %v", err)
 	}
 

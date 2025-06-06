@@ -58,7 +58,7 @@ func ExecuteCtxDelete(cp common.CP, ctxName string, chattyStatus bool) error {
 	}
 	if kconf.CurrentContext == ctxName {
 		fmt.Printf("prepare the switch to hosting cluster context")
-		kubeconfig.SwitchToHostingClusterContext(kconf, false)
+		kubeconfig.SwitchToHostingClusterContext(kconf)
 	}
 	if err = kubeconfig.WriteKubeconfig(cp.Kubeconfig, kconf); err != nil {
 		return fmt.Errorf("error writing kubeconfig: %v", err)
