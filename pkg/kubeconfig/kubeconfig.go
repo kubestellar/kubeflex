@@ -270,16 +270,18 @@ func SetHostingClusterContext(kconf *clientcmdapi.Config, ctxName *string) error
 	if ctxName != nil {
 		hostingContext = *ctxName
 	}
-	kflexConfig.Extensions.HostingClusterContextName = hostingContext
-	kconf.Extensions, err = kflexConfig.ParseToKubeconfigExtensions()
-	if err != nil {
-		return fmt.Errorf("error while setting hosting cluster context to extensions: %v", err)
-	}
 	kflexContextConfig, err := NewKubeflexContextConfig(*kconf, hostingContext)
 	if err != nil {
 		return fmt.Errorf("error while setting hosting cluster context to context extensions: %v", err)
 	}
+	// Setting hosting cluster context values
+	kflexConfig.Extensions.HostingClusterContextName = hostingContext
 	kflexContextConfig.Extensions.IsHostingClusterContext = strconv.FormatBool(true)
+	// Updating kubeconfig extensions with values
+	kconf.Extensions, err = kflexConfig.ParseToKubeconfigExtensions()
+	if err != nil {
+		return fmt.Errorf("error while setting hosting cluster context to extensions: %v", err)
+	}
 	kconf.Contexts[hostingContext].Extensions, err = kflexContextConfig.ParseToKubeconfigExtensions()
 	if err != nil {
 		return fmt.Errorf("error while setting hosting cluster context to context extensions: %v", err)

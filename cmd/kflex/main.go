@@ -22,6 +22,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/kubestellar/kubeflex/cmd/kflex/adopt"
 	"github.com/kubestellar/kubeflex/cmd/kflex/common"
+	"github.com/kubestellar/kubeflex/cmd/kflex/config"
 	"github.com/kubestellar/kubeflex/cmd/kflex/create"
 	kflexCtx "github.com/kubestellar/kubeflex/cmd/kflex/ctx"
 	"github.com/kubestellar/kubeflex/cmd/kflex/delete"
@@ -50,6 +51,7 @@ func init() {
 	rootCmd.AddCommand(delete.Command())
 	rootCmd.AddCommand(create.Command())
 	rootCmd.AddCommand(list.Command())
+	rootCmd.AddCommand(config.Command())
 }
 
 // TODO - work on passing the verbosity to the logger

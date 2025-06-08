@@ -147,10 +147,13 @@ type KubeflexContextConfig struct {
 }
 
 // New kubeflex config local to a context in a kubeconfig
-func NewKubeflexContextConfig(kconf clientcmdapi.Config, contextName string) (*KubeflexContextConfig, error) {
+func NewKubeflexContextConfig(kconf clientcmdapi.Config, ctxName string) (*KubeflexContextConfig, error) {
 	kflexConfig := newKflexConfig[KubeflexContextExtensions](kconf)
-	ctx, hasCtx := kconf.Contexts[contextName]
-	if runtimeObj, ok := ctx.Extensions[ExtensionKubeflexKey]; hasCtx && ok {
+	ctx, hasCtx := kconf.Contexts[ctxName]
+	if !hasCtx {
+		return nil, fmt.Errorf("context '%s' must exist within kubeconfig", ctxName)
+	}
+	if runtimeObj, ok := ctx.Extensions[ExtensionKubeflexKey]; ok {
 		runtimeExtension := &RuntimeKubeflexExtension{}
 		if err := ConvertRuntimeObjectToRuntimeExtension(runtimeObj, runtimeExtension); err != nil {
 			return nil, err
@@ -159,7 +162,7 @@ func NewKubeflexContextConfig(kconf clientcmdapi.Config, contextName string) (*K
 			return nil, err
 		}
 	}
-	return &KubeflexContextConfig{kubeflexConfig: kflexConfig, ContextName: contextName}, nil
+	return &KubeflexContextConfig{kubeflexConfig: kflexConfig, ContextName: ctxName}, nil
 }
 
 // Unmarshal runtime.Object into RuntimeKubeflexExtension
