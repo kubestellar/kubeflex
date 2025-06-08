@@ -26,11 +26,15 @@ import (
 )
 
 var kubeconfigPath string = "./testconfig"
-var hostingClusterContextMock = "default"
+var hostingClusterContextMock = "kind-kubeflex"
 
 // Setup mock kubeconfig file with context,cluster,authinfo
 func setupMockContext(kubeconfigPath string, ctxName string) error {
 	kconf := api.NewConfig()
+	kconf.Contexts[hostingClusterContextMock] = &api.Context{
+		Cluster:  hostingClusterContextMock,
+		AuthInfo: hostingClusterContextMock,
+	}
 	kconf.Contexts[certs.GenerateContextName(ctxName)] = &api.Context{
 		Cluster:  certs.GenerateClusterName(ctxName),
 		AuthInfo: certs.GenerateAuthInfoAdminName(ctxName),

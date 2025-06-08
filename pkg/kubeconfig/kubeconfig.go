@@ -19,6 +19,7 @@ package kubeconfig
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
@@ -254,20 +255,29 @@ func RenameKey(m interface{}, oldKey string, newKey string) {
 	}
 }
 
-// Sets hosting cluster context to current context if userSuppliedContext is nil, otherwise set to userSuppliedContext
-func SetHostingClusterContext(kconf *clientcmdapi.Config, userSuppliedContext *string) error {
+// Sets hosting cluster context to current context if ctxName is nil, otherwise set to ctxName
+func SetHostingClusterContext(kconf *clientcmdapi.Config, ctxName *string) error {
 	kflexConfig, err := NewKubeflexConfig(*kconf)
 	if err != nil {
 		return fmt.Errorf("error while setting hosting cluster context to extensions: %v", err)
 	}
 	hostingContext := kconf.CurrentContext
-	if userSuppliedContext != nil {
-		hostingContext = *userSuppliedContext
+	if ctxName != nil {
+		hostingContext = *ctxName
 	}
 	kflexConfig.Extensions.HostingClusterContextName = hostingContext
 	kconf.Extensions, err = kflexConfig.ParseToKubeconfigExtensions()
 	if err != nil {
 		return fmt.Errorf("error while setting hosting cluster context to extensions: %v", err)
+	}
+	kflexContextConfig, err := NewKubeflexContextConfig(*kconf, hostingContext)
+	if err != nil {
+		return fmt.Errorf("error while setting hosting cluster context to context extensions: %v", err)
+	}
+	kflexContextConfig.Extensions.IsHostingClusterContext = strconv.FormatBool(true)
+	kconf.Contexts[hostingContext].Extensions, err = kflexContextConfig.ParseToKubeconfigExtensions()
+	if err != nil {
+		return fmt.Errorf("error while setting hosting cluster context to context extensions: %v", err)
 	}
 	return nil
 }

@@ -30,6 +30,7 @@ import (
 const (
 	ExtensionConfigName                = "config-extension-name"    // BREAKING CHANGE
 	ExtensionHostingClusterContextName = "hosting-cluster-ctx-name" // BREAKING CHANGE
+	ExtensionContextsIsHostingCluster  = "is-hosting-cluster-ctx"   // BREAKING CHANGE
 	ExtensionInitialContextName        = "first-ctx-name"
 	ExtensionControlPlaneName          = "controlplane-name"
 	ExtensionKubeflexKey               = "kubeflex"
@@ -53,8 +54,9 @@ func (kflexExtensions KubeflexExtensions) String() string {
 
 // Internal structure of Kubeflex extension local to a context in a Kubeconfig file
 type KubeflexContextExtensions struct {
-	InitialContextName string `json:"first-ctx-name,omitempty"`
-	ControlPlaneName   string `json:"controlplane-name,omitempty"`
+	InitialContextName      string `json:"first-ctx-name,omitempty"`
+	ControlPlaneName        string `json:"controlplane-name,omitempty"`
+	IsHostingClusterContext string `json:"is-hosting-cluster-ctx,omitempty"`
 }
 
 func (kflexContextExtensions KubeflexContextExtensions) String() string {
@@ -145,13 +147,13 @@ func NewKubeflexConfig(kconf clientcmdapi.Config) (*KubeflexConfig, error) {
 }
 
 type KubeflexContextConfig struct {
-	*kubeflexConfig[KubeflexExtensions]
+	*kubeflexConfig[KubeflexContextExtensions]
 	ContextName string
 }
 
 // New kubeflex config local to a context in a kubeconfig
 func NewKubeflexContextConfig(kconf clientcmdapi.Config, contextName string) (*KubeflexContextConfig, error) {
-	kflexConfig := newKflexConfig[KubeflexExtensions](kconf)
+	kflexConfig := newKflexConfig[KubeflexContextExtensions](kconf)
 	ctx, hasCtx := kconf.Contexts[contextName]
 	if runtimeObj, ok := ctx.Extensions[ExtensionKubeflexKey]; hasCtx && ok {
 		runtimeExtension := &RuntimeKubeflexExtension{}
