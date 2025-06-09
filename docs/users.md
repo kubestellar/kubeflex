@@ -1,5 +1,54 @@
 # User's Guide
 
+## Breaking changes
+
+### v0.9.0 
+
+Kubeflex configuration is stored within Kubeconfig file. Prior this version, `kflex` put its configuration under 
+
+```yaml
+preferences:
+  extensions:
+  - extension:
+      data:
+        kflex-initial-ctx-name: kind-kubeflex  # indicates to kflex the hosting cluster context
+      metadata:
+        creationTimestamp: null
+        name: kflex-config-extension-name
+    name: kflex-config-extension-name          # indicates to kflex that this extension belongs to it
+```
+
+Starting `v0.9.0`, configuration remains within kubeconfig file but leverages `extensions:` and context-scope extension. For instance, the previous example would be translated as follow:
+
+```yaml
+extensions:                                          # change -> no longer preferences. See https://kubernetes.io/docs/reference/config-api/kubeconfig.v1/#Config
+  - extension:
+      data:
+        hosting-cluster-ctx-name: kind-kubeflex      # change -> key name "hosting-cluster-ctx-name"
+      metadata:
+        creationTimestamp: 2025-06-09T22:36:17+02:00 # creation timestamp using ISO 8601 seconds
+        name: kubeflex                               # same as below
+    name: kubeflex                                   # change -> new extension name "kubeflex"
+# ...
+# Find the context corresponding to "hosting-cluster-ctx-name" (here "kind-kubeflex")
+contexts:
+  - context:
+      cluster: kind-kubeflex
+      user: kind-kubeflex
+      # add extensions below and its information
+      extensions:
+      - extension:
+        data:
+          is-hosting-cluster-ctx: true                 # change -> key name "is-hosting-cluster-ctx" with "true"
+        metadata:
+          creationTimestamp: 2025-06-09T22:36:17+02:00 # creation timestamp using ISO 8601 seconds
+          name: kubeflex                               # same as below
+      name: kubeflex                                   # change -> new extension name "kubeflex"
+    name: kind-kubeflex
+```
+
+Proceed to change the kubeconfig file to match `v0.9.0`. At the moment, the change must be done manually until issue [#389](https://github.com/kubestellar/kubeflex/issues/389) is implemented.
+
 ## Installation
 
 [kind](https://kind.sigs.k8s.io) and [kubectl](https://kubernetes.io/docs/tasks/tools/) are

@@ -7,8 +7,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 )
 
-const configName = "mockConfigName"
-const configNameExistent = "mockConfigNameLoaded"
 const hostingClusterContextName = "kind-kubeflex"
 const hostingClusterContextNameExistent = "kind-legacy-kubeflex"
 
@@ -21,12 +19,10 @@ func SetupMockKubeflexConfig(receiver **KubeflexConfig) (err error) {
 		if err != nil {
 			return err
 		}
-		(*receiver).Extensions.ConfigName = configName
 		(*receiver).Extensions.HostingClusterContextName = hostingClusterContextName
 	} else {
 		// Define extensions.kubeflex mock values
 		fmt.Println("setup mock with existent values")
-		(*receiver).Extensions.ConfigName = configNameExistent
 		(*receiver).Extensions.HostingClusterContextName = hostingClusterContextNameExistent
 	}
 	return nil
@@ -39,11 +35,8 @@ func TestKubeflexConfig(t *testing.T) {
 	if err != nil {
 		t.Errorf("fail to setup kubeflex config")
 	}
-	if kflexConfig.Extensions.ConfigName != configName {
-		t.Errorf("fail to setup kubeflex config as ConfigName is not '%s'", configName)
-	}
 	if kflexConfig.Extensions.HostingClusterContextName != hostingClusterContextName {
-		t.Errorf("fail to setup kubeflex config as ConfigName is not '%s'", hostingClusterContextName)
+		t.Errorf("fail to setup kubeflex config as HostingClusterContextName is not '%s'", hostingClusterContextName)
 	}
 }
 
@@ -57,11 +50,8 @@ func TestKubeflexConfigWithExistentValues(t *testing.T) {
 	if err != nil {
 		t.Errorf("fail to setup kubeflex config")
 	}
-	if kflexConfig.Extensions.ConfigName != configNameExistent {
-		t.Errorf("fail to setup kubeflex config as ConfigName is not '%s'", configNameExistent)
-	}
 	if kflexConfig.Extensions.HostingClusterContextName != hostingClusterContextNameExistent {
-		t.Errorf("fail to setup kubeflex config as ConfigName is not '%s'", hostingClusterContextNameExistent)
+		t.Errorf("fail to setup kubeflex config as HostingClusterContextName is not '%s'", hostingClusterContextNameExistent)
 	}
 }
 
@@ -79,9 +69,6 @@ func TestKubeflexConfigWrittenAsKubeConfig(t *testing.T) {
 	}
 	fmt.Printf("runtimeKflex metadata: %v\n", runtimeKflex.ObjectMeta)
 	fmt.Printf("runtimeKflex data: %v\n", runtimeKflex.Data)
-	if v, ok := runtimeKflex.Data[ExtensionConfigName]; !ok || v != configNameExistent {
-		t.Errorf("fail to setup kubeflex config as ConfigName is not '%s': value is %s", configNameExistent, v)
-	}
 	if v, ok := runtimeKflex.Data[ExtensionHostingClusterContextName]; !ok || v != hostingClusterContextNameExistent {
 		t.Errorf("fail to setup kubeflex config as HostingClusterContextName is not '%s': value is %s", hostingClusterContextNameExistent, v)
 	}

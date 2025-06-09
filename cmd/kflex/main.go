@@ -19,6 +19,7 @@ package main
 import (
 	"os"
 
+	"github.com/fatih/color"
 	"github.com/kubestellar/kubeflex/cmd/kflex/adopt"
 	"github.com/kubestellar/kubeflex/cmd/kflex/common"
 	"github.com/kubestellar/kubeflex/cmd/kflex/create"
@@ -30,12 +31,6 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
 )
-
-// Version injected by makefile:LDFLAGS
-var Version string
-
-// BuildDate injected by makefile:LDFLAGS
-var BuildDate string
 
 var rootCmd = &cobra.Command{
 	Use:   "kflex",
@@ -58,8 +53,12 @@ func init() {
 }
 
 // TODO - work on passing the verbosity to the logger
-
 func main() {
+	// TODO - find a way to inject it using Makefile
+	common.WarningMessage = "WARNING: current kflex version introduces BREAKING CHANGES related to kflex and your kubeconfig file which may interrupt kflex to function properly.\nSee https://github.com/kubestellar/kubeflex/blob/main/docs/users.md"
+	if common.WarningMessage != "" {
+		color.Yellow(common.WarningMessage)
+	}
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}

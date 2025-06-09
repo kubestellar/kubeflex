@@ -28,14 +28,11 @@ import (
 )
 
 const (
-	ExtensionConfigName                = "config-extension-name"    // BREAKING CHANGE
 	ExtensionHostingClusterContextName = "hosting-cluster-ctx-name" // BREAKING CHANGE
 	ExtensionContextsIsHostingCluster  = "is-hosting-cluster-ctx"   // BREAKING CHANGE
 	ExtensionInitialContextName        = "first-ctx-name"
 	ExtensionControlPlaneName          = "controlplane-name"
 	ExtensionKubeflexKey               = "kubeflex"
-	ControlPlaneTypeOCMDefault         = "multicluster-controlplane"
-	ControlPlaneTypeVClusterDefault    = "my-vcluster"
 	TypeExtensionDefault               = "extensions"
 	TypeExtensionLegacy                = "preferences[].extensions"
 )
@@ -43,13 +40,11 @@ const (
 // Internal structure of Kubeflex global extension in a Kubeconfig file
 type KubeflexExtensions struct {
 	// BREAKING CHANGE
-	ConfigName string `json:"config-extension-name,omitempty"`
-	// BREAKING CHANGE
 	HostingClusterContextName string `json:"hosting-cluster-ctx-name,omitempty"`
 }
 
 func (kflexExtensions KubeflexExtensions) String() string {
-	return fmt.Sprintf("KubeflexExtensions: ConfigName=%s; HostingClusterContextName=%s;", kflexExtensions.ConfigName, kflexExtensions.HostingClusterContextName)
+	return fmt.Sprintf("KubeflexExtensions: HostingClusterContextName=%s;", kflexExtensions.HostingClusterContextName)
 }
 
 // Internal structure of Kubeflex extension local to a context in a Kubeconfig file
@@ -60,7 +55,7 @@ type KubeflexContextExtensions struct {
 }
 
 func (kflexContextExtensions KubeflexContextExtensions) String() string {
-	return fmt.Sprintf("KubeflexContextExtensions: InitialContextName=%s; ControlPlaneName=%s;", kflexContextExtensions.InitialContextName, kflexContextExtensions.ControlPlaneName)
+	return fmt.Sprintf("KubeflexContextExtensions: InitialContextName=%s; ControlPlaneName=%s; IsHostingClusterContext=%s;", kflexContextExtensions.InitialContextName, kflexContextExtensions.ControlPlaneName, kflexContextExtensions.IsHostingClusterContext)
 }
 
 type RuntimeKubeflexExtension = corev1.ConfigMap

@@ -37,6 +37,11 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
+const (
+	ControlPlaneTypeOCMDefault      = "multicluster-controlplane"
+	ControlPlaneTypeVClusterDefault = "my-vcluster"
+)
+
 func adjustConfigKeys(kconf *clientcmdapi.Config, cpName, controlPlaneType string) {
 	switch controlPlaneType {
 	case string(tenancyv1alpha1.ControlPlaneTypeOCM):
