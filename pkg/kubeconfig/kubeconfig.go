@@ -18,8 +18,8 @@ package kubeconfig
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
@@ -38,43 +38,27 @@ import (
 )
 
 const (
-	ExtensionConfigName                = "kflex-config-extension-name" // Unchanged otherwise breaking change
-	ExtensionHostingClusterContextName = "kflex-initial-ctx-name"      // Unchanged otherwise breaking change
-	ExtensionInitialContextName        = "first-context-name"
-	ExtensionControlPlaneName          = "controlplane-name"
-	ExtensionKubeflexKey               = "kubeflex"
-	ExtensionLabelManageByKubeflex     = "kubeflex.dev/is-managed"
-	ControlPlaneTypeOCMDefault         = "multicluster-controlplane"
-	ControlPlaneTypeVClusterDefault    = "my-vcluster"
+	ControlPlaneTypeOCMDefault      = "multicluster-controlplane"
+	ControlPlaneTypeVClusterDefault = "my-vcluster"
 )
 
-func unMarshallCM(obj runtime.Object) (*corev1.ConfigMap, error) {
-	jsonData, err := json.Marshal(obj)
-	if err != nil {
-		return nil, fmt.Errorf("error marshaling object %s", err)
-	}
-	cm := corev1.ConfigMap{}
-	json.Unmarshal(jsonData, &cm)
-	return &cm, nil
-}
-
-func adjustConfigKeys(config *clientcmdapi.Config, cpName, controlPlaneType string) {
+func adjustConfigKeys(kconf *clientcmdapi.Config, cpName, controlPlaneType string) {
 	switch controlPlaneType {
 	case string(tenancyv1alpha1.ControlPlaneTypeOCM):
-		RenameKey(config.Clusters, ControlPlaneTypeOCMDefault, certs.GenerateClusterName(cpName))
-		RenameKey(config.AuthInfos, "user", certs.GenerateAuthInfoAdminName(cpName))
-		RenameKey(config.Contexts, ControlPlaneTypeOCMDefault, certs.GenerateContextName(cpName))
-		config.CurrentContext = certs.GenerateContextName(cpName)
-		config.Contexts[certs.GenerateContextName(cpName)] = &clientcmdapi.Context{
+		RenameKey(kconf.Clusters, ControlPlaneTypeOCMDefault, certs.GenerateClusterName(cpName))
+		RenameKey(kconf.AuthInfos, "user", certs.GenerateAuthInfoAdminName(cpName))
+		RenameKey(kconf.Contexts, ControlPlaneTypeOCMDefault, certs.GenerateContextName(cpName))
+		kconf.CurrentContext = certs.GenerateContextName(cpName)
+		kconf.Contexts[certs.GenerateContextName(cpName)] = &clientcmdapi.Context{
 			Cluster:  certs.GenerateClusterName(cpName),
 			AuthInfo: certs.GenerateAuthInfoAdminName(cpName),
 		}
 	case string(tenancyv1alpha1.ControlPlaneTypeVCluster):
-		RenameKey(config.Clusters, ControlPlaneTypeVClusterDefault, certs.GenerateClusterName(cpName))
-		RenameKey(config.AuthInfos, ControlPlaneTypeVClusterDefault, certs.GenerateAuthInfoAdminName(cpName))
-		RenameKey(config.Contexts, ControlPlaneTypeVClusterDefault, certs.GenerateContextName(cpName))
-		config.CurrentContext = certs.GenerateContextName(cpName)
-		config.Contexts[certs.GenerateContextName(cpName)] = &clientcmdapi.Context{
+		RenameKey(kconf.Clusters, ControlPlaneTypeVClusterDefault, certs.GenerateClusterName(cpName))
+		RenameKey(kconf.AuthInfos, ControlPlaneTypeVClusterDefault, certs.GenerateAuthInfoAdminName(cpName))
+		RenameKey(kconf.Contexts, ControlPlaneTypeVClusterDefault, certs.GenerateContextName(cpName))
+		kconf.CurrentContext = certs.GenerateContextName(cpName)
+		kconf.Contexts[certs.GenerateContextName(cpName)] = &clientcmdapi.Context{
 			Cluster:  certs.GenerateClusterName(cpName),
 			AuthInfo: certs.GenerateAuthInfoAdminName(cpName),
 		}
@@ -119,8 +103,11 @@ func merge(base, target *clientcmdapi.Config) error {
 		base.Contexts[k] = v
 	}
 
-	if !IsHostingClusterContextPreferenceSet(base) {
-		SetHostingClusterContextPreference(base, nil)
+	if !IsHostingClusterContextSet(base) {
+		err := SetHostingClusterContext(base, nil)
+		if err != nil {
+			return fmt.Errorf("error on ExecuteCtx: %v", err)
+		}
 	}
 
 	// set the current context to the nex context
@@ -132,24 +119,17 @@ func merge(base, target *clientcmdapi.Config) error {
 // NOTE: function names starts with 'Assign' to have the freedom of WHERE to
 // set control plane information. As of now, it is locally under 'contexts' but
 // it can be set globally in the feature. We abstract that from the end-user
-func AssignControlPlaneToContext(config *clientcmdapi.Config, cpName string, ctxName string) error {
-	if ctx, ok := config.Contexts[ctxName]; ok {
-		ctx.Namespace = ""
-		ctx.Extensions = map[string]runtime.Object{
-			ExtensionKubeflexKey: &corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					// Name: ExtensionControlPlaneName,
-					// Labels: map[string]string{
-					// 	ExtensionLabelManageByKubeflex: "true",
-					// },
-					CreationTimestamp: metav1.NewTime(time.Now()),
-				},
-				Data: map[string]string{
-					ExtensionControlPlaneName:   cpName,
-					ExtensionInitialContextName: ctxName,
-				},
-			},
+func AssignControlPlaneToContext(kconf *clientcmdapi.Config, cpName string, ctxName string) error {
+	if ctx, ok := kconf.Contexts[ctxName]; ok {
+		var parsed map[string]runtime.Object
+		kflexConfig, err := NewKubeflexContextConfig(*kconf, ctxName)
+		if err != nil {
+			return fmt.Errorf("error while assigning control plane to context: %v", err)
 		}
+		if parsed, err = kflexConfig.ParseToKubeconfigExtensions(); err != nil {
+			return fmt.Errorf("error while assigning control plane to context: %v", err)
+		}
+		ctx.Extensions = parsed
 		return nil
 	}
 	return fmt.Errorf("error context %s does not exist in config", ctxName)
@@ -161,69 +141,63 @@ func AssignControlPlaneToContext(config *clientcmdapi.Config, cpName string, ctx
 // It will make sense to guard any context/cluster/user that has
 // nothing to do with a kflex control plane. If we do not restrict,
 // then we should highly change the codeflow.
-func DeleteAll(config *clientcmdapi.Config, cpName string) error {
+func DeleteAll(kconf *clientcmdapi.Config, cpName string) error {
 	ctxName := certs.GenerateContextName(cpName)
 	clusterName := certs.GenerateClusterName(cpName)
 	authName := certs.GenerateAuthInfoAdminName(cpName)
 
-	_, ok := config.Contexts[ctxName]
+	_, ok := kconf.Contexts[ctxName]
 	if !ok {
 		return fmt.Errorf("context %s not found for control plane %s", ctxName, cpName)
 	}
-	delete(config.Contexts, ctxName)
-	delete(config.Clusters, clusterName)
-	delete(config.AuthInfos, authName)
+	delete(kconf.Contexts, ctxName)
+	delete(kconf.Clusters, clusterName)
+	delete(kconf.AuthInfos, authName)
 	return nil
 }
 
 // Get current context
 func GetCurrentContext(kubeconfig string) (string, error) {
-	config, err := LoadKubeconfig(kubeconfig)
+	kconf, err := LoadKubeconfig(kubeconfig)
 	if err != nil {
 		return "", err
 	}
-	return config.CurrentContext, nil
+	return kconf.CurrentContext, nil
 }
 
 // Get hosting cluster context value set in extensions
-func GetHostingClusterContext(config *clientcmdapi.Config) (string, error) {
-	cm, err := unMarshallCM(config.Preferences.Extensions[ExtensionConfigName])
+func GetHostingClusterContext(kconf *clientcmdapi.Config) (string, error) {
+	kflexConfig, err := NewKubeflexConfig(*kconf)
 	if err != nil {
 		return "", fmt.Errorf("error unmarshaling config map %s", err)
 	}
-
-	contextData, ok := cm.Data[ExtensionInitialContextName]
-	if !ok {
-		return "", fmt.Errorf("hosting cluster preference context data not set")
+	if kflexConfig.Extensions.HostingClusterContextName == "" {
+		return "", fmt.Errorf("hosting cluster context data not set")
 	}
-
 	// make sure that context set in extension is a valid context
-	_, ok = config.Contexts[contextData]
-	if !ok {
-		return "", fmt.Errorf("hosting cluster preference context data is set to a non-existing context")
+	if _, ok := kconf.Contexts[kflexConfig.Extensions.HostingClusterContextName]; !ok {
+		return "", fmt.Errorf("hosting cluster context data is set to a non-existing context")
 	}
-
-	return contextData, nil
+	return kflexConfig.Extensions.HostingClusterContextName, nil
 }
 
-func IsHostingClusterContextPreferenceSet(config *clientcmdapi.Config) bool {
-	if config.Preferences.Extensions != nil {
-		_, ok := config.Preferences.Extensions[ExtensionConfigName]
-		if ok {
-			return true
-		}
+// Check if hosting cluster context value is set within kubeconfig
+func IsHostingClusterContextSet(kconf *clientcmdapi.Config) bool {
+	kflexConfig, err := NewKubeflexConfig(*kconf)
+	if err != nil {
+		return false
 	}
-	return false
+	return kflexConfig.Extensions.HostingClusterContextName != ""
 }
 
 // List all contexts
 func ListContexts(kubeconfig string) ([]string, error) {
-	config, err := LoadKubeconfig(kubeconfig)
+	kconf, err := LoadKubeconfig(kubeconfig)
 	if err != nil {
 		return nil, err
 	}
-	contexts := make([]string, 0, len(config.Contexts))
-	for ctxName := range config.Contexts {
+	contexts := make([]string, 0, len(kconf.Contexts))
+	for ctxName := range kconf.Contexts {
 		contexts = append(contexts, ctxName)
 	}
 	return contexts, nil
@@ -286,81 +260,63 @@ func RenameKey(m interface{}, oldKey string, newKey string) {
 	}
 }
 
-// DISCUSSION: shouldn't we keep our functions as much low-level as possible?
-// Rather than having SaveHostingClusterContextPreference as a function
-// Shouldn't we use SetHostingClusterContextPreference and WriteKubeconfig
-// whenever it is required? It seem clearer to only have a single WRITE function
-// instead of SAVE function that embeds WRITE... (personal observation)
-func SaveHostingClusterContextPreference(kubeconfig string) error {
-	// TODO replace context parameter
-	kconfig, err := LoadKubeconfig(kubeconfig)
+// Sets hosting cluster context to current context if ctxName is nil, otherwise set to ctxName
+func SetHostingClusterContext(kconf *clientcmdapi.Config, ctxName *string) error {
+	kflexConfig, err := NewKubeflexConfig(*kconf)
 	if err != nil {
-		return fmt.Errorf("setHostingClusterContextPreference: error loading kubeconfig %s", err)
+		return fmt.Errorf("error while setting hosting cluster context to extensions: %v", err)
 	}
-	SetHostingClusterContextPreference(kconfig, nil)
-	// TODO replace context parameter
-	return WriteKubeconfig(kubeconfig, kconfig)
+	hostingContext := kconf.CurrentContext
+	if ctxName != nil {
+		hostingContext = *ctxName
+	}
+	kflexConfig.Extensions.HostingClusterContextName = hostingContext
+	kconf.Extensions, err = kflexConfig.ParseToKubeconfigExtensions()
+	if err != nil {
+		return fmt.Errorf("error while setting hosting cluster context to extensions: %v", err)
+	}
+	kflexContextConfig, err := NewKubeflexContextConfig(*kconf, hostingContext)
+	if err != nil {
+		return fmt.Errorf("error while setting hosting cluster context to context extensions: %v", err)
+	}
+	kflexContextConfig.Extensions.IsHostingClusterContext = strconv.FormatBool(true)
+	kconf.Contexts[hostingContext].Extensions, err = kflexContextConfig.ParseToKubeconfigExtensions()
+	if err != nil {
+		return fmt.Errorf("error while setting hosting cluster context to context extensions: %v", err)
+	}
+	return nil
 }
 
-// sets hosting cluster context to current context if userSuppliedContext is nil, otherwise set to userSuppliedContext
-func SetHostingClusterContextPreference(config *clientcmdapi.Config, userSuppliedContext *string) {
-	hostingContext := config.CurrentContext
-	if userSuppliedContext != nil {
-		hostingContext = *userSuppliedContext
-	}
-	runtimeObjects := make(map[string]runtime.Object)
-	runtimeObjects[ExtensionConfigName] = &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: ExtensionConfigName,
-		},
-		Data: map[string]string{
-			ExtensionInitialContextName: hostingContext,
-		},
-	}
-
-	config.Preferences = clientcmdapi.Preferences{
-		Extensions: runtimeObjects,
-	}
-}
-
+// TODO: the signature is confusing. It switches context but expect controlPlane name as parameter
+// NOTE: Perhaps SwitchContext should only switch context to a context name
+// NOTE: Create a new function SwitchToControlPlaneContext to find a context using control plane name
 // Switch context
-func SwitchContext(config *clientcmdapi.Config, cpName string) error {
+func SwitchContext(kconf *clientcmdapi.Config, cpName string) error {
 	ctxName := certs.GenerateContextName(cpName)
-	_, ok := config.Contexts[ctxName]
+	_, ok := kconf.Contexts[ctxName]
 	if !ok {
 		return fmt.Errorf("context %s not found", ctxName)
 	}
-	config.CurrentContext = ctxName
+	kconf.CurrentContext = ctxName
 	return nil
 }
 
 // Switch to hosting cluster context
-func SwitchToHostingClusterContext(config *clientcmdapi.Config, removeExtension bool) error {
-	if !IsHostingClusterContextPreferenceSet(config) {
-		return fmt.Errorf("hosting cluster preference context not set")
-	}
-
-	// found that the only way to unmarshal the runtime.Object into a ConfigMap
-	// was to use the unMarshallCM() function based on json marshal/unmarshal
-	hostingClusterContextName, err := GetHostingClusterContext(config)
+func SwitchToHostingClusterContext(kconf *clientcmdapi.Config) error {
+	hostingClusterContextName, err := GetHostingClusterContext(kconf)
 	if err != nil {
-		return err
+		return fmt.Errorf("error while switching context to hosting cluster: %v", err)
 	}
-	config.CurrentContext = hostingClusterContextName
-
-	// remove the extensions
-	if removeExtension {
-		delete(config.Preferences.Extensions, ExtensionConfigName)
-	}
+	kconf.CurrentContext = hostingClusterContextName
 	return nil
 }
 
 // Write config into provided kubeconfig file
-func WriteKubeconfig(kubeconfig string, config *clientcmdapi.Config) error {
+func WriteKubeconfig(kubeconfig string, kconf *clientcmdapi.Config) error {
 	if kubeconfig == "" {
 		kubeconfig = clientcmd.NewDefaultPathOptions().GetDefaultFilename()
 	}
-	return clientcmd.WriteToFile(*config, kubeconfig)
+	return clientcmd.WriteToFile(*kconf, kubeconfig)
 }
 
 // Watch for secret creation

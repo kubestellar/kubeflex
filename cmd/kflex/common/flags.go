@@ -32,6 +32,9 @@ var Version string
 // BuildDate injected by makefile:LDFLAGS
 var BuildDate string
 
+// WarningMessage injected by makefile:LDFLAGS
+var WarningMessage string
+
 type KflexGlobalOptions interface {
 	WithChattyStatus(chattyStatus bool)
 	WithVerbosity(verbosity int)

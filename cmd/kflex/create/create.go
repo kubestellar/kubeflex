@@ -135,6 +135,7 @@ func ExecuteCreate(cp common.CP, controlPlaneType string, backendType string, ho
 	if err = kubeconfig.AssignControlPlaneToContext(kconf, cp.Name, certs.GenerateContextName(cp.Name)); err != nil {
 		return fmt.Errorf("error assigning control plane to context as kubeconfig extension: %v", err)
 	}
+	
 	kubeconfig.WriteKubeconfig(cp.Kubeconfig, kconf)
 	wg.Wait()
 	return nil

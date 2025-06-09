@@ -86,7 +86,7 @@ func ExecuteCtxRename(cp common.CP, ctxName string, newCtxName string, toSwitch 
 		kconf.CurrentContext = newCtxName
 	} else if kconf.CurrentContext == ctxName {
 		fmt.Fprintf(os.Stdout, "switching to hosting cluster context\n")
-		kubeconfig.SwitchToHostingClusterContext(kconf, false)
+		kubeconfig.SwitchToHostingClusterContext(kconf)
 	}
 	if err = kubeconfig.WriteKubeconfig(cp.Kubeconfig, kconf); err != nil {
 		return fmt.Errorf("error writing kubeconfig: %v", err)
