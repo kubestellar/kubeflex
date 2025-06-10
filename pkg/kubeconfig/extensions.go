@@ -171,9 +171,7 @@ func ConvertRuntimeObjectToRuntimeExtension(data runtime.Object, receiver *Runti
 	if err != nil {
 		return err
 	}
-	fmt.Printf("dataJson: %s\n", dataJson)
 	err = json.Unmarshal(dataJson, &receiver)
-	fmt.Printf("unmarshal: %v\n", *receiver)
 	if err != nil {
 		return err
 	}

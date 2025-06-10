@@ -17,8 +17,8 @@ limitations under the License.
 package ctx
 
 import (
-	"fmt"
 	"os"
+	"testing"
 
 	"github.com/kubestellar/kubeflex/pkg/certs"
 	"github.com/kubestellar/kubeflex/pkg/kubeconfig"
@@ -29,7 +29,7 @@ var kubeconfigPath string = "./testconfig"
 var hostingClusterContextMock = "kind-kubeflex"
 
 // Setup mock kubeconfig file with context,cluster,authinfo
-func setupMockContext(kubeconfigPath string, ctxName string) error {
+func setupMockContext(t *testing.T, kubeconfigPath string, ctxName string) {
 	kconf := api.NewConfig()
 	kconf.Contexts[hostingClusterContextMock] = &api.Context{
 		Cluster:  hostingClusterContextMock,
@@ -43,15 +43,16 @@ func setupMockContext(kubeconfigPath string, ctxName string) error {
 	kconf.AuthInfos[certs.GenerateAuthInfoAdminName(ctxName)] = api.NewAuthInfo()
 	kconf.CurrentContext = hostingClusterContextMock
 	if err := kubeconfig.SetHostingClusterContext(kconf, nil); err != nil {
-		return fmt.Errorf("error setupmockcontext: %v", err)
+		t.Fatalf("error setupmockcontext: %v", err)
 	}
 	if err := kubeconfig.WriteKubeconfig(kubeconfigPath, kconf); err != nil {
-		return fmt.Errorf("error writing kubeconfig: %v", err)
+		t.Fatalf("error writing kubeconfig: %v", err)
 	}
-	return nil
 }
 
 // Delete mock kubeconfig file
-func teardown(kubeconfigPath string) error {
-	return os.Remove(kubeconfigPath)
+func teardown(t *testing.T, kubeconfigPath string) {
+	if err := os.Remove(kubeconfigPath); err != nil {
+		t.Fatalf("failed to teardown: %v", err)
+	}
 }

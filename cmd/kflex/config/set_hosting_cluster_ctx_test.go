@@ -17,8 +17,8 @@ limitations under the License.
 package config
 
 import (
-	"fmt"
 	"os"
+	"path"
 	"testing"
 
 	"github.com/kubestellar/kubeflex/pkg/certs"
@@ -29,8 +29,8 @@ import (
 var kubeconfigPath string = "./testconfig"
 var hostingClusterContextMock = "kind-kubeflex"
 
-// Setup mock kubeconfig file with context,cluster,authinfo
-func setupKubeconfig(kubeconfigPath string, ctxName string) error {
+// setupKubeconfig creates a mock kubeconfig file with context, cluster, and authinfo
+func setupKubeconfig(t *testing.T, kubeconfigPath string, ctxName string) {
 	kconf := api.NewConfig()
 	// hosting cluster context entry
 	kconf.Contexts[hostingClusterContextMock] = &api.Context{
@@ -47,25 +47,34 @@ func setupKubeconfig(kubeconfigPath string, ctxName string) error {
 	kconf.Clusters[certs.GenerateClusterName(ctxName)] = api.NewCluster()
 	kconf.AuthInfos[certs.GenerateAuthInfoAdminName(ctxName)] = api.NewAuthInfo()
 	kconf.CurrentContext = hostingClusterContextMock
-	fmt.Printf("kconf: %v\n", kconf)
 	if err := kubeconfig.SetHostingClusterContext(kconf, nil); err != nil {
-		return fmt.Errorf("error setupmockcontext: %v", err)
+		t.Fatalf("error setup mock kubeconfig: %v", err)
 	}
 	if err := kubeconfig.WriteKubeconfig(kubeconfigPath, kconf); err != nil {
-		return fmt.Errorf("error writing kubeconfig: %v", err)
+		t.Fatalf("error writing kubeconfig: %v", err)
 	}
-	return nil
+}
+
+// setupInvalidKubeconfig creates an invalid mock kubeconfig file
+func setupInvalidKubeconfig(t *testing.T, kubeconfigPath string, ctxName string) {
+	setupKubeconfig(t, kubeconfigPath, ctxName+"-makeitinvalid")
 }
 
 // Delete mock kubeconfig file
-func teardown(kubeconfigPath string) error {
-	return os.Remove(kubeconfigPath)
+func teardown(t *testing.T, kubeconfigPath string) {
+	if err := os.Remove(kubeconfigPath); err != nil {
+		t.Fatalf("failed to teardown: %v", err)
+	}
 }
 
+// Test set hosting cluster ctx to $ctxName is successful
+// when a kubeconfig is valid meaning has $ctxName as entry
+// to contexts
 func TestSetHostingClusterCtx_ValidKubeconfig(t *testing.T) {
 	ctxName := "cp1"
-	setupKubeconfig(kubeconfigPath, ctxName)
-	defer teardown(kubeconfigPath)
+	kubeconfigPath = path.Join(t.TempDir(), kubeconfigPath)
+	setupKubeconfig(t, kubeconfigPath, ctxName)
+	defer teardown(t, kubeconfigPath)
 	// Execute command - change hosting cluster ctx name to $ctxName
 	err := ExecuteSetHostingClusterCtx(kubeconfigPath, ctxName)
 	if err != nil {
@@ -89,5 +98,32 @@ func TestSetHostingClusterCtx_ValidKubeconfig(t *testing.T) {
 	}
 	if kflexContextConfig.Extensions.IsHostingClusterContext != "true" {
 		t.Errorf("hosting cluster context must indicates to be hosting cluster using 'true' not '%s'", kflexContextConfig.Extensions.IsHostingClusterContext)
+	}
+}
+
+// Test set hosting cluster ctx fails to change hosting cluster context name to $ctxName
+// when a kubeconfig does not have context entry of $ctxName
+func TestSetHostingClusterCtx_InvalidKubeconfig(t *testing.T) {
+	ctxName := "cp1"
+	kubeconfigPath = path.Join(t.TempDir(), kubeconfigPath)
+	setupInvalidKubeconfig(t, kubeconfigPath, ctxName)
+	defer teardown(t, kubeconfigPath)
+	// Execute command - change hosting cluster ctx name to $ctxName should failed
+	err := ExecuteSetHostingClusterCtx(kubeconfigPath, ctxName)
+	if err == nil {
+		t.Errorf("execute set hosting cluster ctx command failed: %v", err)
+	}
+	// Checking values
+	kconf, err := kubeconfig.LoadKubeconfig(kubeconfigPath)
+	if err != nil {
+		t.Errorf("error loading kubeconfig: %v", err)
+	}
+	kflexConfig, err := kubeconfig.NewKubeflexConfig(*kconf)
+	if err != nil {
+		t.Errorf("error creating kflexConfig: %v", err)
+	}
+	// hosting cluster context name should remain unchanged
+	if kflexConfig.Extensions.HostingClusterContextName != hostingClusterContextMock {
+		t.Errorf("hosting cluster context name must be changed from '%s' to '%s', not '%s'", hostingClusterContextMock, ctxName, kflexConfig.Extensions.HostingClusterContextName)
 	}
 }

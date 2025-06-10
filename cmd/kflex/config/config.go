@@ -22,7 +22,7 @@ import (
 
 func Command() *cobra.Command {
 	command := &cobra.Command{
-		Use:   "config",
+		Use:   "config COMMAND",
 		Short: "Configure kubeflex",
 		Long:  `Configure settings of kubeflex set within a kubeconfig file`,
 		Args:  cobra.ExactArgs(1),

@@ -26,11 +26,12 @@ import (
 
 func CommandSetHostingClusterCtx() *cobra.Command {
 	command := &cobra.Command{
-		Use:   "set-hosting",
+		Use:   "set-hosting CTX_NAME",
 		Short: "Set hosting cluster context",
 		Long:  `Set hosting cluster context name of kubeflex within kubeconfig file`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.SilenceUsage = true
 			flagset := cmd.Flags()
 			kubeconfigFile, err := flagset.GetString(common.KubeconfigFlag)
 			if err != nil {
@@ -48,7 +49,7 @@ func ExecuteSetHostingClusterCtx(kubeconfigFile string, ctxName string) error {
 	if err != nil {
 		return fmt.Errorf("error while executing set hosting cluster ctx: %v", err)
 	}
-	fmt.Printf("setting hosting cluster context name to '%s' in %s", ctxName, kubeconfigFile)
+	fmt.Printf("setting hosting cluster context name to '%s' in %s\n", ctxName, kubeconfigFile)
 	err = kubeconfig.SetHostingClusterContext(kconf, &ctxName)
 	if err != nil {
 		return fmt.Errorf("error while executing set hosting cluster ctx: %v", err)

@@ -47,7 +47,17 @@ contexts:
     name: kind-kubeflex
 ```
 
-Proceed to change the kubeconfig file to match `v0.9.0`. At the moment, the change must be done manually until issue [#389](https://github.com/kubestellar/kubeflex/issues/389) is implemented.
+Proceed to change the kubeconfig file to match `v0.9.0`, as follow:
+
+1. Set new hosting cluster context name running:
+```bash
+kflex config set-hosting $ctx_name
+```
+where `$ctx_name` represents the desired hosting context name 
+
+2. Delete `preferences:` related to **kubeflex** by editing your kubeconfig file manually.
+
+At the moment, the change must be done manually until issue [#389](https://github.com/kubestellar/kubeflex/issues/389) is implemented.
 
 ## Installation
 

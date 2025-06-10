@@ -28,8 +28,8 @@ import (
 // from the kubeconfig
 func TestDeleteOk(t *testing.T) {
 	ctxName := "cptobedeleted"
-	setupMockContext(kubeconfigPath, ctxName)
-	defer teardown(kubeconfigPath)
+	setupMockContext(t, kubeconfigPath, ctxName)
+	defer teardown(t, kubeconfigPath)
 
 	// Start test
 	cp := common.NewCP(kubeconfigPath, common.WithName(ctxName))
@@ -61,8 +61,8 @@ func TestDeleteOk(t *testing.T) {
 func TestDeleteNonExistentContext(t *testing.T) {
 	ctxName := "cptobedeleted"
 	noneCtxName := "none"
-	setupMockContext(kubeconfigPath, ctxName)
-	defer teardown(kubeconfigPath)
+	setupMockContext(t, kubeconfigPath, ctxName)
+	defer teardown(t, kubeconfigPath)
 
 	// Start test
 	cp := common.NewCP(kubeconfigPath, common.WithName(ctxName))
