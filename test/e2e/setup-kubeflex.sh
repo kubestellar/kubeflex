@@ -24,16 +24,8 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
 :
 
 kind create cluster --name kubeflex --config ${SCRIPT_DIR}/kind-config.yaml
-
-# Install ingress-nginx using kubectl apply
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/refs/tags/controller-v1.12.1/deploy/static/provider/kind/deploy.yaml
 kubectl -n ingress-nginx patch deployment/ingress-nginx-controller --patch-file=${SCRIPT_DIR}/nginx-patch.yaml
-
-# Wait for ingress controller to be ready
-kubectl wait --namespace ingress-nginx \
-  --for=condition=ready pod \
-  --selector=app.kubernetes.io/component=controller \
-  --timeout=90s
 
 :
 : -------------------------------------------------------------------------
@@ -48,11 +40,11 @@ make build
 :
 make ko-local-build
 
-# -------------------------------------------------------------------------
-# Ensure kubeflex-system namespace exists
-# -------------------------------------------------------------------------
-kubectl create namespace kubeflex-system --dry-run=client -o yaml | kubectl apply -f -
-
+:
+: -------------------------------------------------------------------------
+: Load the local image in kind, re-generate manifests and helm chart, and install the helm chart:
+:
+:
 make install-local-chart
 
 :
