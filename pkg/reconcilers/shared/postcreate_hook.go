@@ -45,25 +45,36 @@ func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp 
     logger := clog.FromContext(ctx)
     namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
     
-    // Collect all hooks to process (legacy + new)
-    var hooks []v1alpha1.PostCreateHookUse
+    // Collect all hooks to process (legacy + new) while preserving order
+    hooks := make([]v1alpha1.PostCreateHookUse, 0)
+    seen := make(map[string]bool)
     
-    // Add legacy hook if specified
+    // Add legacy hook first if specified
     if hcp.Spec.PostCreateHook != nil {
+        hookName := *hcp.Spec.PostCreateHook
         hooks = append(hooks, v1alpha1.PostCreateHookUse{
             HookName: hcp.Spec.PostCreateHook,
             Vars:     hcp.Spec.PostCreateHookVars,
         })
+        seen[hookName] = true
     }
     
-    // Add new hooks
-    hooks = append(hooks, hcp.Spec.PostCreateHooks...)
+    // Add new hooks in declared order, skipping duplicates
+    for _, hook := range hcp.Spec.PostCreateHooks {
+        if hook.HookName != nil {
+            hookName := *hook.HookName
+            if !seen[hookName] {
+                hooks = append(hooks, hook)
+                seen[hookName] = true
+            } else {
+                logger.Info("Skipping duplicate hook", "hook", hookName)
+            }
+        }
+    }
+    
+    var errs []error
     
     for _, hook := range hooks {
-        if hook.HookName == nil {
-            logger.Info("Skipping hook with nil name")
-            continue
-        }
         hookName := *hook.HookName
         
         // Skip already applied hooks
@@ -76,7 +87,8 @@ func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp 
         // Get hook definition
         pch := &v1alpha1.PostCreateHook{}
         if err := r.Client.Get(ctx, client.ObjectKey{Name: hookName}, pch); err != nil {
-            return fmt.Errorf("failed to get PostCreateHook %s: %w", hookName, err)
+            errs = append(errs, fmt.Errorf("failed to get PostCreateHook %s: %w", hookName, err))
+            continue
         }
         
         // Build variables with precedence: defaults -> user vars -> system vars
@@ -100,10 +112,12 @@ func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp 
         // Apply hook templates
         if err := applyPostCreateHook(ctx, r.ClientSet, r.DynamicClient, pch, vars, hcp); err != nil {
             if util.IsTransientError(err) {
-                return fmt.Errorf("transient error applying hook %s: %w", hookName, err)
+                errs = append(errs, fmt.Errorf("transient error applying hook %s: %w", hookName, err))
+            } else {
+                logger.Error(err, "Permanent error applying post-create hook", "hook", hookName)
+                errs = append(errs, fmt.Errorf("permanent error applying hook %s: %w", hookName, err))
             }
-            logger.Error(err, "Failed to apply post-create hook", "hook", hookName)
-            continue // Continue with other hooks
+            continue
         }
         
         // Update status
@@ -112,7 +126,9 @@ func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp 
         }
         hcp.Status.PostCreateHooks[hookName] = true
         if err := r.Client.Status().Update(ctx, hcp); err != nil {
-            return fmt.Errorf("failed to update status for hook %s: %w", hookName, err)
+            errs = append(errs, fmt.Errorf("failed to update status for hook %s: %w", hookName, err))
+            // Break on status update error to prevent inconsistent state
+            break
         }
         
         // Propagate labels
@@ -121,6 +137,9 @@ func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp 
         }
     }
     
+    if len(errs) > 0 {
+        return fmt.Errorf("errors processing hooks: %v", errs)
+    }
     return nil
 }
 
