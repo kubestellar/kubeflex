@@ -1,0 +1,16 @@
+apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
+kind: PostCreateHook
+metadata:
+  name: demo-job
+spec:
+  jobs:
+  - metadata:
+      name: hello-job
+    spec:
+      template:
+        spec:
+          containers:
+          - name: hello
+            image: busybox:latest
+            command: ["echo", "Kubeflex post-create hook job completed"]
+          restartPolicy: Never
