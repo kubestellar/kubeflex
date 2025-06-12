@@ -29,8 +29,8 @@ func TestRenameOk(t *testing.T) {
 	// Mock data
 	ctxName := "testcp"
 	expected := "testcp-renamed"
-	setupMockContext(kubeconfigPath, ctxName)
-	defer teardown(kubeconfigPath)
+	setupMockContext(t, kubeconfigPath, ctxName)
+	defer teardown(t, kubeconfigPath)
 
 	// Start test
 	cp := common.NewCP(kubeconfigPath, common.WithName(ctxName))
@@ -63,8 +63,8 @@ func TestRenameThenSwitchOk(t *testing.T) {
 	// Mock data
 	ctxName := "testcp"
 	expected := "testcp-renamed"
-	setupMockContext(kubeconfigPath, ctxName)
-	defer teardown(kubeconfigPath)
+	setupMockContext(t, kubeconfigPath, ctxName)
+	defer teardown(t, kubeconfigPath)
 
 	// Start test
 	cp := common.NewCP(kubeconfigPath, common.WithName(ctxName))
@@ -95,8 +95,8 @@ func TestRenameNonExistentContext(t *testing.T) {
 	// Mock data
 	ctxName := "nonexistent"
 	expected := "testcp-renamed"
-	setupMockContext(kubeconfigPath, "random")
-	defer teardown(kubeconfigPath)
+	setupMockContext(t, kubeconfigPath, "random")
+	defer teardown(t, kubeconfigPath)
 	// Start test
 	cp := common.NewCP(kubeconfigPath, common.WithName(ctxName))
 	err := ExecuteCtxRename(cp, ctxName, expected, false)
