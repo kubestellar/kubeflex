@@ -48,11 +48,11 @@ make build
 :
 make ko-local-build
 
-:
-: -------------------------------------------------------------------------
-: Load the local image in kind, re-generate manifests and helm chart, and install the helm chart:
-:
-:
+# -------------------------------------------------------------------------
+# Ensure kubeflex-system namespace exists
+# -------------------------------------------------------------------------
+kubectl create namespace kubeflex-system --dry-run=client -o yaml | kubectl apply -f -
+
 make install-local-chart
 
 :
