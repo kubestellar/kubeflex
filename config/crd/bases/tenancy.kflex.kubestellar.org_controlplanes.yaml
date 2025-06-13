@@ -83,6 +83,11 @@ spec:
                 - name
                 - namespace
                 type: object
+              globalVars:
+                additionalProperties:
+                  type: string
+                description: GlobalVars defines shared variables for all post-creation hooks
+                type: object
               postCreateHook:
                 description: 'Deprecated: Use PostCreateHooks instead'
                 type: string

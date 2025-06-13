@@ -91,7 +91,7 @@ func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp 
             continue
         }
         
-        // Build variables with precedence: defaults -> user vars -> system vars
+        // Build variables with precedence: defaults -> global -> user vars -> system
         vars := make(map[string]interface{})
         
         // 1. Default vars from hook spec
@@ -99,12 +99,17 @@ func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp 
             vars[dv.Name] = dv.Value
         }
         
-        // 2. User-provided vars from control plane
+        // 2. Global variables from control plane
+        for key, val := range hcp.Spec.GlobalVars {
+            vars[key] = val
+        }
+        
+        // 3. User-provided vars from hook use
         for key, val := range hook.Vars {
             vars[key] = val
         }
         
-        // 3. System variables
+        // 4. System variables
         vars["Namespace"] = namespace
         vars["ControlPlaneName"] = hcp.Name
         vars["HookName"] = hookName

@@ -38,6 +38,10 @@ type ControlPlaneSpec struct {
     PostCreateHookVars     map[string]string `json:"postCreateHookVars,omitempty"`
     // PostCreateHooks specifies multiple post-creation hooks to execute
     PostCreateHooks        []PostCreateHookUse `json:"postCreateHooks,omitempty"`
+
+	// GlobalVars defines shared variables for all post-creation hooks
+    // +optional
+    GlobalVars map[string]string `json:"globalVars,omitempty"`
 }
 
 type PostCreateHookUse struct {
