@@ -45,72 +45,106 @@ func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp 
     logger := clog.FromContext(ctx)
     namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
     
-    if hcp.Spec.PostCreateHook == nil {
-        return nil
-    }
-
-    // Hook is only applied once after CP creation
-    _, ok := hcp.Status.PostCreateHooks[*hcp.Spec.PostCreateHook]
-    if ok {
-        return nil
-    }
-
-    logger.Info("Running ReconcileUpdatePostCreateHook", "post-create-hook", *hcp.Spec.PostCreateHook)
-
-    // Get the post create hook
-    hook := &v1alpha1.PostCreateHook{
-        ObjectMeta: metav1.ObjectMeta{
-            Name: *hcp.Spec.PostCreateHook,
-        },
-    }
-    if err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(hook), hook, &client.GetOptions{}); err != nil {
-        return fmt.Errorf("error retrieving post create hook %s: %w", *hcp.Spec.PostCreateHook, err)
-    }
-
-    // Build variables with proper precedence:
-    // 1. Default vars from PostCreateHook
-    // 2. User-provided vars from ControlPlane (override defaults)
-    // 3. Built-in system vars (highest priority)
-    vars := make(map[string]interface{})
+    // Collect all hooks to process (legacy + new) while preserving order
+    hooks := make([]v1alpha1.PostCreateHookUse, 0)
+    seen := make(map[string]bool)
     
-    // Add default variables from hook spec
-    for _, dv := range hook.Spec.DefaultVars {
-        vars[dv.Name] = dv.Value
+    // Add legacy hook first if specified
+    if hcp.Spec.PostCreateHook != nil {
+        hookName := *hcp.Spec.PostCreateHook
+        hooks = append(hooks, v1alpha1.PostCreateHookUse{
+            HookName: hcp.Spec.PostCreateHook,
+            Vars:     hcp.Spec.PostCreateHookVars,
+        })
+        seen[hookName] = true
     }
     
-    // Override with user-provided variables from control plane
-    for key, val := range hcp.Spec.PostCreateHookVars {
-        vars[key] = val
-    }
-    
-    // Add system variables (highest priority)
-    vars["Namespace"] = namespace
-    vars["ControlPlaneName"] = hcp.Name
-    vars["HookName"] = *hcp.Spec.PostCreateHook
-
-    // Apply the hook templates
-    if err := applyPostCreateHook(ctx, r.ClientSet, r.DynamicClient, hook, vars, hcp); err != nil {
-        if util.IsTransientError(err) {
-            return fmt.Errorf("failed to apply post-create hook: %w", err) // Retry
+    // Add new hooks in declared order, skipping duplicates
+    for _, hook := range hcp.Spec.PostCreateHooks {
+        if hook.HookName != nil {
+            hookName := *hook.HookName
+            if !seen[hookName] {
+                hooks = append(hooks, hook)
+                seen[hookName] = true
+            } else {
+                logger.Info("Skipping duplicate hook", "hook", hookName)
+            }
         }
-        logger.Error(err, "Failed to apply post-create hook", "hook", *hcp.Spec.PostCreateHook)
     }
-
-    // Update status if hook was successfully applied
-    if hcp.Status.PostCreateHooks == nil {
-        hcp.Status.PostCreateHooks = make(map[string]bool)
-    }
-    hcp.Status.PostCreateHooks[*hcp.Spec.PostCreateHook] = true
     
-    if err := r.Client.Status().Update(context.TODO(), hcp, &client.SubResourceUpdateOptions{}); err != nil {
-        return fmt.Errorf("failed to update control plane status: %w", err)
+    var errs []error
+    
+    for _, hook := range hooks {
+        hookName := *hook.HookName
+        
+        // Skip already applied hooks
+        if hcp.Status.PostCreateHooks != nil && hcp.Status.PostCreateHooks[hookName] {
+            continue
+        }
+        
+        logger.Info("Processing post-create hook", "hook", hookName)
+        
+        // Get hook definition
+        pch := &v1alpha1.PostCreateHook{}
+        if err := r.Client.Get(ctx, client.ObjectKey{Name: hookName}, pch); err != nil {
+            errs = append(errs, fmt.Errorf("failed to get PostCreateHook %s: %w", hookName, err))
+            continue
+        }
+        
+        // Build variables with precedence: defaults -> global -> user vars -> system
+        vars := make(map[string]interface{})
+        
+        // 1. Default vars from hook spec
+        for _, dv := range pch.Spec.DefaultVars {
+            vars[dv.Name] = dv.Value
+        }
+        
+        // 2. Global variables from control plane
+        for key, val := range hcp.Spec.GlobalVars {
+            vars[key] = val
+        }
+        
+        // 3. User-provided vars from hook use
+        for key, val := range hook.Vars {
+            vars[key] = val
+        }
+        
+        // 4. System variables
+        vars["Namespace"] = namespace
+        vars["ControlPlaneName"] = hcp.Name
+        vars["HookName"] = hookName
+        
+        // Apply hook templates
+        if err := applyPostCreateHook(ctx, r.ClientSet, r.DynamicClient, pch, vars, hcp); err != nil {
+            if util.IsTransientError(err) {
+                errs = append(errs, fmt.Errorf("transient error applying hook %s: %w", hookName, err))
+            } else {
+                logger.Error(err, "Permanent error applying post-create hook", "hook", hookName)
+                errs = append(errs, fmt.Errorf("permanent error applying hook %s: %w", hookName, err))
+            }
+            continue
+        }
+        
+        // Update status
+        if hcp.Status.PostCreateHooks == nil {
+            hcp.Status.PostCreateHooks = make(map[string]bool)
+        }
+        hcp.Status.PostCreateHooks[hookName] = true
+        if err := r.Client.Status().Update(ctx, hcp); err != nil {
+            errs = append(errs, fmt.Errorf("failed to update status for hook %s: %w", hookName, err))
+            // Break on status update error to prevent inconsistent state
+            break
+        }
+        
+        // Propagate labels
+        if err := propagateLabels(pch, hcp, r.Client); err != nil {
+            logger.Error(err, "Failed to propagate labels from hook", "hook", hookName)
+        }
     }
-
-    // Propagate labels from hook to control plane
-    if err := propagateLabels(hook, hcp, r.Client); err != nil {
-        return fmt.Errorf("failed to propagate labels: %w", err)
+    
+    if len(errs) > 0 {
+        return fmt.Errorf("errors processing hooks: %v", errs)
     }
-
     return nil
 }
 
