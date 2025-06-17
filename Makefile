@@ -204,7 +204,7 @@ ko-local-build:
 
 # this is used for local testing
 .PHONY: kind-load-image
-kind-load-image:
+kind-load-image: ko-local-build
 	kind load docker-image ${IMG} --name kubeflex
 
 .PHONY: install-local-chart
