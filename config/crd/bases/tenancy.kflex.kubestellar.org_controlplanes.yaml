@@ -138,6 +138,8 @@ spec:
               observedGeneration:
                 format: int64
                 type: integer
+              postCreateHookCompleted:
+                type: boolean
               postCreateHooks:
                 additionalProperties:
                   type: boolean

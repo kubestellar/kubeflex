@@ -44,6 +44,8 @@ type ControlPlaneStatus struct {
 	SecretRef *SecretReference `json:"secretRef,omitempty"`
 	// +optional
 	PostCreateHooks map[string]bool `json:"postCreateHooks,omitempty"`
+	// +optional
+	PostCreateHookCompleted bool `json:"postCreateHookCompleted,omitempty"`
 }
 
 // ControlPlane is the Schema for the controlplanes API
