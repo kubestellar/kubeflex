@@ -83,12 +83,36 @@ spec:
                 - name
                 - namespace
                 type: object
+              globalVars:
+                additionalProperties:
+                  type: string
+                description: GlobalVars defines shared variables for all post-creation hooks
+                type: object
               postCreateHook:
+                description: 'Deprecated: Use PostCreateHooks instead'
                 type: string
               postCreateHookVars:
                 additionalProperties:
                   type: string
+                description: 'Deprecated: Use PostCreateHooks instead'
                 type: object
+              postCreateHooks:
+                description: PostCreateHooks specifies multiple post-creation hooks
+                  to execute
+                items:
+                  properties:
+                    hookName:
+                      description: Name of the PostCreateHook resource to execute
+                      type: string
+                    vars:
+                      additionalProperties:
+                        type: string
+                      description: Variables to pass to the hook template
+                      type: object
+                  required:
+                  - hookName
+                  type: object
+                type: array
               tokenExpirationSeconds:
                 default: 31536000
                 description: tokenExpirationSeconds is the expiration time for generated

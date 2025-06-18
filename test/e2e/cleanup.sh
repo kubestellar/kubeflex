@@ -19,8 +19,8 @@ set -x # echo so that users can understand what is happening
 : -------------------------------------------------------------------------
 : "Cleaning up from previous run of an e2e test"
 :
-kubectl config use-context kind-kubeflex
-kubectl config delete-context cp1 &> /dev/null
-kubectl config delete-context cp2 &> /dev/null
-kind delete cluster --name kubeflex
-kind delete cluster --name ext
+kubectl config use-context kind-kubeflex 2>&1 || true
+kubectl config delete-context cp1 &> /dev/null 2>&1 || true
+kubectl config delete-context cp2 &> /dev/null 2>&1 || true
+kind delete cluster --name kubeflex >/dev/null 2>&1 || true
+kind delete cluster --name ext >/dev/null 2>&1 || true
