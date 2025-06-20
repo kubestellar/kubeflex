@@ -22,33 +22,37 @@ import (
 
 // ControlPlaneSpec defines the desired state of ControlPlane
 type ControlPlaneSpec struct {
-    Type    ControlPlaneType `json:"type,omitempty"`
-    Backend BackendDBType    `json:"backend,omitempty"`
-    // bootstrapSecretRef contains a reference to the kubeconfig used to bootstrap adoption of
-    // an external cluster
-    // +optional
-    BootstrapSecretRef *BootstrapSecretReference `json:"bootstrapSecretRef,omitempty"`
-    // tokenExpirationSeconds is the expiration time for generated auth token
-    // +optional
-    // +kubebuilder:default:=31536000
-    TokenExpirationSeconds *int64            `json:"tokenExpirationSeconds,omitempty"`
-    // Deprecated: Use PostCreateHooks instead
-    PostCreateHook         *string           `json:"postCreateHook,omitempty"`
-    // Deprecated: Use PostCreateHooks instead
-    PostCreateHookVars     map[string]string `json:"postCreateHookVars,omitempty"`
-    // PostCreateHooks specifies multiple post-creation hooks to execute
-    PostCreateHooks        []PostCreateHookUse `json:"postCreateHooks,omitempty"`
+	// type refers to the control plane type
+	// +required
+	Type    ControlPlaneType `json:"type,omitempty"`
+	// backend refers to the database type used by the control plane
+	// +required
+	Backend BackendDBType    `json:"backend,omitempty"`
+	// bootstrapSecretRef contains a reference to the kubeconfig used to bootstrap adoption of
+	// an external cluster
+	// +optional
+	BootstrapSecretRef *BootstrapSecretReference `json:"bootstrapSecretRef,omitempty"`
+	// tokenExpirationSeconds is the expiration time for generated auth token
+	// +optional
+	// +kubebuilder:default:=31536000
+	TokenExpirationSeconds *int64 `json:"tokenExpirationSeconds,omitempty"`
+	// Deprecated: Use PostCreateHooks instead
+	PostCreateHook *string `json:"postCreateHook,omitempty"`
+	// Deprecated: Use PostCreateHooks instead
+	PostCreateHookVars map[string]string `json:"postCreateHookVars,omitempty"`
+	// PostCreateHooks specifies multiple post-creation hooks to execute
+	PostCreateHooks []PostCreateHookUse `json:"postCreateHooks,omitempty"`
 
 	// GlobalVars defines shared variables for all post-creation hooks
-    // +optional
-    GlobalVars map[string]string `json:"globalVars,omitempty"`
+	// +optional
+	GlobalVars map[string]string `json:"globalVars,omitempty"`
 }
 
 type PostCreateHookUse struct {
-    // Name of the PostCreateHook resource to execute
-    HookName *string           `json:"hookName"`
-    // Variables to pass to the hook template
-    Vars     map[string]string `json:"vars,omitempty"`
+	// Name of the PostCreateHook resource to execute
+	HookName *string `json:"hookName"`
+	// Variables to pass to the hook template
+	Vars map[string]string `json:"vars,omitempty"`
 }
 
 // ControlPlaneStatus defines the observed state of ControlPlane
@@ -94,7 +98,7 @@ const (
 	BackendDBTypeDedicated BackendDBType = "dedicated"
 )
 
-// +kubebuilder:validation:Enum=k8s;ocm;vcluster;host;external
+// +kubebuilder:validation:Enum=k8s;ocm;vcluster;host;external;k3s;
 type ControlPlaneType string
 
 const (
@@ -103,6 +107,7 @@ const (
 	ControlPlaneTypeVCluster ControlPlaneType = "vcluster"
 	ControlPlaneTypeHost     ControlPlaneType = "host"
 	ControlPlaneTypeExternal ControlPlaneType = "external"
+	ControlPlaneTypeK3s      ControlPlaneType = "k3s"
 )
 
 // SecretReference is a reference to a secret that holds the kubeconfigs for
