@@ -59,24 +59,24 @@ func (r *OCMReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.Cont
 
 	cfg, err := r.BaseReconciler.GetConfig(ctx)
 	if err != nil {
-		return r.UpdateStatusForSyncingError(hcp, err)
+		return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 	}
 
 	if err := r.BaseReconciler.ReconcileNamespace(ctx, hcp); err != nil {
-		return r.UpdateStatusForSyncingError(hcp, err)
+		return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 	}
 
 	if err := r.ReconcileOCMService(ctx, hcp); err != nil {
-		return r.UpdateStatusForSyncingError(hcp, err)
+		return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 	}
 
 	if cfg.IsOpenShift {
 		if err = r.ReconcileAPIServerRoute(ctx, hcp, ServiceName, shared.SecurePort, cfg.Domain); err != nil {
-			return r.UpdateStatusForSyncingError(hcp, err)
+			return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 		}
 		routeURL, err = r.GetAPIServerRouteURL(ctx, hcp)
 		if err != nil {
-			return r.UpdateStatusForSyncingError(hcp, err)
+			return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 		}
 		// re-queue until valid route URL is retrieved
 		if routeURL == "" {
@@ -84,32 +84,39 @@ func (r *OCMReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.Cont
 		}
 		cfg.ExternalURL = routeURL
 	} else {
-		if err := r.ReconcileAPIServerIngress(ctx, hcp, ServiceName, shared.DefaulPort, cfg.Domain); err != nil {
-			return r.UpdateStatusForSyncingError(hcp, err)
+		if err := r.ReconcileAPIServerIngress(ctx, hcp, ServiceName, shared.DefaultPort, cfg.Domain); err != nil {
+			return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 		}
 	}
 
 	if err := r.ReconcileChart(ctx, hcp, cfg); err != nil {
-		return r.UpdateStatusForSyncingError(hcp, err)
+		return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 	}
 
 	if err := r.ReconcileUpdateClusterInfoJobRole(ctx, hcp); err != nil {
-		return r.UpdateStatusForSyncingError(hcp, err)
+		return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 	}
 
 	if err := r.ReconcileUpdateClusterInfoJobRoleBinding(ctx, hcp); err != nil {
-		return r.UpdateStatusForSyncingError(hcp, err)
+		return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 	}
 
 	if err := r.ReconcileUpdateClusterInfoJob(ctx, hcp, cfg, r.Version); err != nil {
-		return r.UpdateStatusForSyncingError(hcp, err)
+		return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 	}
 
 	if err := r.addOwnerReference(ctx, hcp); err != nil {
-		return r.UpdateStatusForSyncingError(hcp, err)
+		return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 	}
 
 	r.UpdateStatusWithSecretRef(hcp, util.OCMKubeConfigSecret, util.KubeconfigSecretKeyDefault, "")
+
+	if hcp.Spec.PostCreateHook != nil &&
+		tenancyv1alpha1.HasConditionAvailable(hcp.Status.Conditions) {
+		if err := r.ReconcileUpdatePostCreateHook(ctx, hcp); err != nil {
+			return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
+		}
+	}
 
 	return r.UpdateStatusForSyncingSuccess(ctx, hcp)
 }

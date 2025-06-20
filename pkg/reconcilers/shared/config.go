@@ -17,7 +17,8 @@ limitations under the License.
 package shared
 
 const (
-	DefaulPort    = 443
-	SecurePort    = 9444
-	CMHealthzPort = 10257
+	DefaultPort     = 443
+	DefaultPortName = "https"
+	SecurePort      = 9444
+	CMHealthzPort   = 10257
 )

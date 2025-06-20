@@ -40,30 +40,32 @@ import (
 const (
 	ControlPlaneTypeOCMDefault      = "multicluster-controlplane"
 	ControlPlaneTypeVClusterDefault = "my-vcluster"
+	ControlPlaneTypeK3sDefault      = "default"
 )
 
+// adjustConfigKeys change kubeconfig default values according to its ControlPlane type with the Kubeflex kubeconfig
+// default logic which is cluster=$cpName-cluster, user=$cpName-admin, context=$cpName
 func adjustConfigKeys(kconf *clientcmdapi.Config, cpName, controlPlaneType string) {
 	switch controlPlaneType {
 	case string(tenancyv1alpha1.ControlPlaneTypeOCM):
 		RenameKey(kconf.Clusters, ControlPlaneTypeOCMDefault, certs.GenerateClusterName(cpName))
 		RenameKey(kconf.AuthInfos, "user", certs.GenerateAuthInfoAdminName(cpName))
 		RenameKey(kconf.Contexts, ControlPlaneTypeOCMDefault, certs.GenerateContextName(cpName))
-		kconf.CurrentContext = certs.GenerateContextName(cpName)
-		kconf.Contexts[certs.GenerateContextName(cpName)] = &clientcmdapi.Context{
-			Cluster:  certs.GenerateClusterName(cpName),
-			AuthInfo: certs.GenerateAuthInfoAdminName(cpName),
-		}
 	case string(tenancyv1alpha1.ControlPlaneTypeVCluster):
 		RenameKey(kconf.Clusters, ControlPlaneTypeVClusterDefault, certs.GenerateClusterName(cpName))
 		RenameKey(kconf.AuthInfos, ControlPlaneTypeVClusterDefault, certs.GenerateAuthInfoAdminName(cpName))
 		RenameKey(kconf.Contexts, ControlPlaneTypeVClusterDefault, certs.GenerateContextName(cpName))
-		kconf.CurrentContext = certs.GenerateContextName(cpName)
-		kconf.Contexts[certs.GenerateContextName(cpName)] = &clientcmdapi.Context{
-			Cluster:  certs.GenerateClusterName(cpName),
-			AuthInfo: certs.GenerateAuthInfoAdminName(cpName),
-		}
+	case string(tenancyv1alpha1.ControlPlaneTypeK3s):
+		RenameKey(kconf.Clusters, ControlPlaneTypeK3sDefault, certs.GenerateClusterName(cpName))
+		RenameKey(kconf.AuthInfos, ControlPlaneTypeK3sDefault, certs.GenerateAuthInfoAdminName(cpName))
+		RenameKey(kconf.Contexts, ControlPlaneTypeK3sDefault, certs.GenerateContextName(cpName))
 	default:
 		return
+	}
+	kconf.CurrentContext = certs.GenerateContextName(cpName)
+	kconf.Contexts[certs.GenerateContextName(cpName)] = &clientcmdapi.Context{
+		Cluster:  certs.GenerateClusterName(cpName),
+		AuthInfo: certs.GenerateAuthInfoAdminName(cpName),
 	}
 }
 
@@ -72,12 +74,17 @@ func loadKubeconfigFromControlPlane(ctx context.Context, client kubernetes.Clien
 	var kubeconfigSecret *corev1.Secret
 	var errGet error
 	namespace := util.GenerateNamespaceFromControlPlaneName(name)
-	err := wait.PollUntilContextTimeout(ctx, 1*time.Second, 15*time.Minute, false, func(ctx context.Context) (bool, error) {
+	err := wait.PollUntilContextTimeout(ctx, 10*time.Second, 15*time.Minute, false, func(ctx context.Context) (bool, error) {
 		kubeconfigSecret, errGet = client.CoreV1().Secrets(namespace).Get(ctx,
-			util.GetKubeconfSecretNameByControlPlaneType(controlPlaneType),
+			util.GetKubeconfSecretNameByControlPlaneType(controlPlaneType), // TODO to replace as it introduces bug
 			metav1.GetOptions{})
 		if errGet != nil {
 			return false, nil
+		}
+		for _, v := range kubeconfigSecret.Data {
+			if len(v) == 0 {
+				return false, nil
+			}
 		}
 		return true, nil
 	})
@@ -239,8 +246,7 @@ func LoadServerKubeconfigAndMergeIn(ctx context.Context, kconf *clientcmdapi.Con
 		return err
 	}
 	adjustConfigKeys(cpKconf, name, controlPlaneType)
-	err = merge(kconf, cpKconf)
-	if err != nil {
+	if err = merge(kconf, cpKconf); err != nil {
 		return err
 	}
 	return nil
@@ -392,7 +398,6 @@ func WaitForNamespaceReady(ctx context.Context, clientset kubernetes.Interface, 
 			return false, nil // Continue waiting
 		},
 	)
-
 	if err != nil {
 		return fmt.Errorf("timed out waiting for namespace %s to be ready: %v", namespace, err)
 	}

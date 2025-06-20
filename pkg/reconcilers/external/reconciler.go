@@ -51,11 +51,11 @@ func New(cl client.Client, scheme *runtime.Scheme, version string, clientSet *ku
 func (r *ExternalReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
 
 	if err := r.BaseReconciler.ReconcileNamespace(ctx, hcp); err != nil {
-		return r.UpdateStatusForSyncingError(hcp, err)
+		return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 	}
 
 	if err := r.ReconcileKubeconfigFromBootstrapSecret(ctx, hcp); err != nil {
-		return r.UpdateStatusForSyncingError(hcp, err)
+		return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 	}
 
 	r.UpdateStatusWithSecretRef(hcp, util.AdminConfSecret, util.KubeconfigSecretKeyDefault, util.KubeconfigSecretKeyInCluster)
