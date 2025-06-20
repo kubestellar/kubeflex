@@ -1,0 +1,235 @@
+# k3s manual setup
+
+Setup environment
+```bash
+kflex init -c
+kflex create k8s --type=k8s
+kflex create vc --type=vcluster
+```
+
+Initial pods state
+```
+(lxf/449*) » k get pods -A                                                                                                                                                                          nui@dnbcarnegie
+NAMESPACE            NAME                                                READY   STATUS      RESTARTS   AGE
+ingress-nginx        ingress-nginx-admission-create-z7cfj                0/1     Completed   0          6m25s
+ingress-nginx        ingress-nginx-admission-patch-tg9q5                 0/1     Completed   0          6m25s
+ingress-nginx        ingress-nginx-controller-5d9986446-zmf4m            1/1     Running     0          6m25s
+k8s-system           kube-apiserver-7d974948db-gdrfs                     2/2     Running     0          4m15s
+k8s-system           kube-controller-manager-67c8fc77cb-nkfsq            1/1     Running     0          4m15s
+kube-system          coredns-674b8bbfcf-5gmz5                            1/1     Running     0          6m25s
+kube-system          coredns-674b8bbfcf-kxztn                            1/1     Running     0          6m25s
+kube-system          etcd-kubeflex-control-plane                         1/1     Running     0          6m34s
+kube-system          kindnet-mxwrj                                       1/1     Running     0          6m26s
+kube-system          kube-apiserver-kubeflex-control-plane               1/1     Running     0          6m33s
+kube-system          kube-controller-manager-kubeflex-control-plane      1/1     Running     0          6m33s
+kube-system          kube-proxy-5kbtm                                    1/1     Running     0          6m26s
+kube-system          kube-scheduler-kubeflex-control-plane               1/1     Running     0          6m33s
+kubeflex-system      kubeflex-controller-manager-8545bd9b59-gz2r2        2/2     Running     0          5m43s
+kubeflex-system      kubeflex-operator-q7bw9                             0/1     Completed   0          5m43s
+kubeflex-system      postgres-postgresql-0                               1/1     Running     0          6m25s
+local-path-storage   local-path-provisioner-7dc846544d-qcxkr             1/1     Running     0          6m25s
+vc-system            coredns-68559449b6-qxz64-x-kube-system-x-vcluster   1/1     Running     0          16s
+vc-system            update-cluster-info-8lrm4                           0/1     Completed   0          48s
+vc-system            vcluster-0                                          2/2     Running     0          48s
+```
+
+Get k8s and vcluster services information
+```
+ (lxf/449*) » k get svc -n k8s-system                                                                                                                                                                nui@dnbcarnegie
+NAME   TYPE       CLUSTER-IP     EXTERNAL-IP   PORT(S)         AGE
+k8s    NodePort   10.96.79.216   <none>        443:31191/TCP   8m48s
+
+kube-dns-x-kube-system-x-vcluster      ClusterIP   10.96.168.54    <none>        53/UDP,53/TCP,9153/TCP   5m3s
+vcluster                               ClusterIP   10.96.119.153   <none>        443/TCP,10250/TCP        5m35s
+vcluster-headless                      ClusterIP   None            <none>        443/TCP                  5m35s
+vcluster-node-kubeflex-control-plane   ClusterIP   10.96.183.76    <none>        10250/TCP                5m3s
+vcluster-nodeport                      NodePort    10.96.16.54     <none>        443:31049/TCP            5m35s
+```
+
+with `vcluster` ClusterIP service
+```
+ports:
+  - name: https
+    port: 443
+    protocol: TCP
+    targetPort: 8443  # vcluster default apiserver port, see vcluster pod
+  - name: kubelet
+    port: 10250
+    protocol: TCP
+    targetPort: 8443
+```
+
+with `k8s` NodePort service
+```
+ports:
+  - name: https
+    nodePort: 31191
+    port: 443
+    protocol: TCP
+    targetPort: 9444  # defined on k8s kube-apiserver pod --secure-port=9444
+```
+
+also, kind clusters (docker containers) have the following ports
+```
+CONTAINER ID   IMAGE                  COMMAND                  CREATED          STATUS          PORTS                                                                    NAMES
+9b9c580bf51f   kindest/node:v1.33.1   "/usr/local/bin/entr…"   20 minutes ago   Up 20 minutes   0.0.0.0:9080->80/tcp, 0.0.0.0:9443->443/tcp, 127.0.0.1:62813->6443/tcp   kubeflex-control-plane
+```
+
+and the cluster entries within my kubeconfig
+```
+    server: https://k8s.localtest.me:9443
+  name: k8s-cluster
+
+    server: https://vc.localtest.me:9443
+  name: vc-cluster
+```
+
+With all these information, I drafted the following manifest and apply it:
+```bash
+k apply -f - <<EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: testk3s
+  name: testk3s
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: testk3s
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: testk3s
+    spec:
+      containers:
+      - image: rancher/k3s:v1.30.13-k3s1
+        name: k3s
+        ports:
+        - containerPort: 6443
+        resources: {}
+        securityContext:
+          privileged: true
+          readOnlyRootFilesystem: false
+        args:
+        - server
+        - "--tls-san=testk3s.localtest.me"
+        env:
+        - name: K3S_KUBECONFIG_MODE
+          value: "644"
+        - name: K3S_KUBECONFIG_OUTPUT
+          value: /etc/rancher/k3s/k3s.yaml
+          
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+  name: testk3s
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: testk3s.localtest.me
+    http:
+      paths:
+      - backend:
+          service:
+            name: testk3s
+            port:
+              number: 443
+        path: /
+        pathType: Prefix
+        
+---
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    component: testk3s
+    tier: control-plane
+  name: testk3s
+spec:
+  ports:
+  - port: 443
+    protocol: TCP
+    targetPort: 6443
+  selector:
+    app: testk3s
+
+EOF
+```
+
+Retrieve the kubeconfig of k3s
+```bash
+k exec testk3s-pod-name -- cat /etc/rancher/k3s/k3s.yaml
+```
+
+Here the snippet of the retrieved kubeconfig from k3s
+```yaml
+apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJkakNDQVIyZ0F3SUJBZ0lCQURBS0JnZ3Foa2pPUFFRREFqQWpNU0V3SHdZRFZRUUREQmhyTTNNdGMyVnkKZG1WeUxXTmhRREUzTlRJeU56azNORE13SGhjTk1qVXdOekV5TURBeU1qSXpXaGNOTXpVd056RXdNREF5TWpJegpXakFqTVNFd0h3WURWUVFEREJock0zTXRjMlZ5ZG1WeUxXTmhRREUzTlRJeU56azNORE13V1RBVEJnY3Foa2pPClBRSUJCZ2dxaGtqT1BRTUJCd05DQUFRUFU0NzVTdTQ2ZG9LQ2VqUnZCZkZ1ckE5RWdnT3JuOTQ1UU0zcTdXQTQKdVRPUFBzOGxBSUNsa29GNWlpVTMwRWlHby95dUpyVm1XWVdhUGlrMzFQcCtvMEl3UURBT0JnTlZIUThCQWY4RQpCQU1DQXFRd0R3WURWUjBUQVFIL0JBVXdBd0VCL3pBZEJnTlZIUTRFRmdRVUJabGtpTDA3R2R4ZG9ZVUpwaXlKCm9SK3lpaWt3Q2dZSUtvWkl6ajBFQXdJRFJ3QXdSQUlnVWpjZW1zRVE0MkRiZ0g2QkJDQWd3YU04cnFZWTlhRDMKWW83OUtRZkZGWWNDSUJOYzlzV0FYdlI5bm1CN05wU1ZnemFtRFdLN0h6ZWZ0Nk5rS0tFOFowenQKLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo=
+    server: https://127.0.0.1:6443
+  name: default
+```
+
+which I update the server value to my ingress host + docker HTTPS port 9443
+
+```yaml
+apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJkakNDQVIyZ0F3SUJBZ0lCQURBS0JnZ3Foa2pPUFFRREFqQWpNU0V3SHdZRFZRUUREQmhyTTNNdGMyVnkKZG1WeUxXTmhRREUzTlRJeU56azNORE13SGhjTk1qVXdOekV5TURBeU1qSXpXaGNOTXpVd056RXdNREF5TWpJegpXakFqTVNFd0h3WURWUVFEREJock0zTXRjMlZ5ZG1WeUxXTmhRREUzTlRJeU56azNORE13V1RBVEJnY3Foa2pPClBRSUJCZ2dxaGtqT1BRTUJCd05DQUFRUFU0NzVTdTQ2ZG9LQ2VqUnZCZkZ1ckE5RWdnT3JuOTQ1UU0zcTdXQTQKdVRPUFBzOGxBSUNsa29GNWlpVTMwRWlHby95dUpyVm1XWVdhUGlrMzFQcCtvMEl3UURBT0JnTlZIUThCQWY4RQpCQU1DQXFRd0R3WURWUjBUQVFIL0JBVXdBd0VCL3pBZEJnTlZIUTRFRmdRVUJabGtpTDA3R2R4ZG9ZVUpwaXlKCm9SK3lpaWt3Q2dZSUtvWkl6ajBFQXdJRFJ3QXdSQUlnVWpjZW1zRVE0MkRiZ0g2QkJDQWd3YU04cnFZWTlhRDMKWW83OUtRZkZGWWNDSUJOYzlzV0FYdlI5bm1CN05wU1ZnemFtRFdLN0h6ZWZ0Nk5rS0tFOFowenQKLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo=
+    server: https://testk3s.localtest.me:9443    # :9443 port is also used by vcluster and k8s cluster
+  name: default
+```
+
+try to reach k3s cluster from my local machine using `kubectl`
+```bash
+» k --kubeconfig=k3s-config get pods -A                                                                                                                                                  nui@dnbcarnegie
+NAMESPACE     NAME                                     READY   STATUS      RESTARTS   AGE
+kube-system   coredns-7d7f87556c-2qklp                 1/1     Running     0          4m18s
+kube-system   helm-install-traefik-crd-mqb5r           0/1     Completed   0          4m18s
+kube-system   helm-install-traefik-ftch5               0/1     Completed   2          4m18s
+kube-system   local-path-provisioner-ffbcc4db4-gtc4r   1/1     Running     0          4m18s
+kube-system   metrics-server-8677f8544d-zchdp          1/1     Running     0          4m18s
+kube-system   svclb-traefik-b92aa8fb-lmv62             2/2     Running     0          3m50s
+kube-system   traefik-5b6d9f7f5c-w2b6n                 1/1     Running     0          3m50s
+```
+
+It works!
+
+Next step is to translate this manual procedure into golang code and reconciler logic!
+
+# How to retrieve and manage k3s certs?
+
+Option 1:
+1. Use k3s utility script to generate k3s certs (global -- works when scaling k3s controlplane)
+2. Update incluster configmap
+3. Use configmap as a volume for k3s server pod (inject certs)
+
+Outcome: does not work as configmap as a volume implies read-only volume
+
+Option 2: same as option 1 with a file copy within emptyDir volume to enable write-access
+
+Outcome: works but building a kubeconfig file from certs give a very-restricted access to the user (subject from cert)
+Therefore, it is necessary to create a rolebinding which grant this user admin access. How to do that automatically is a a hassle
+
+Option 3: Pod with container (k3s server) and its sidecar (script upload k3s kubeconfig as configmap)
+1. container after startup phase, auto-generates k3s kubeconfig file with user/cluster certs+key
+2. sidecar container awaits on k3s kubeconfig to be ready using Container Probe (exec) and then create the configmap on the host cluster
+3. ensure sidecar container restartPolicy=Never and kill the sidecar
+
+Outcome: with option 3, the kubeconfig is store as a configmap on the host cluster, making it accessible to the kubeflex controller.
+
+# Kubeflex controller and configmap k3s certs
+
+Kubeflex controller reconcile the configmap to do the following:
+1. Check if `data.kubeconfig-raw` is set 

@@ -40,6 +40,7 @@ import (
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/external"
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/host"
+	"github.com/kubestellar/kubeflex/pkg/reconcilers/k3s"
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/k8s"
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/ocm"
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/vcluster"
@@ -168,6 +169,9 @@ func (r *ControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return reconciler.Reconcile(ctx, hcp)
 	case tenancyv1alpha1.ControlPlaneTypeExternal:
 		reconciler := external.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
+		return reconciler.Reconcile(ctx, hcp)
+	case tenancyv1alpha1.ControlPlaneTypeK3s:
+		reconciler := k3s.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
 		return reconciler.Reconcile(ctx, hcp)
 	default:
 		return ctrl.Result{}, fmt.Errorf("unsupported control plane type: %s", hcp.Spec.Type)

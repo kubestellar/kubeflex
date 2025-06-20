@@ -1,0 +1,49 @@
+###
+# Test: simple up-and-running k3s server
+# Minimal configuration to deploy k3s server as Pod
+#
+# Works when:
+# - priviledge=true + seccompProfile=Unconfined + readOnlyRootFilesystem=false
+###
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: local-path-pvc
+  namespace: k3stest
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: standard
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: k3s-server
+  namespace: k3stest
+spec:
+  containers:
+  - name: k3s-server
+    image: "rancher/k3s:v1.30.13-k3s1"
+    args:
+      - server
+    imagePullPolicy: IfNotPresent
+    securityContext:
+      seccompProfile:
+        type: RuntimeDefault
+      readOnlyRootFilesystem: false
+      privileged: true
+    volumeMounts:
+    - name: data
+      mountPath: /data
+    ports:
+    - containerPort: 80
+  volumes:
+  - name: data
+    persistentVolumeClaim:
+      claimName: local-path-pvc
+
