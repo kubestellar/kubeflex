@@ -98,7 +98,7 @@ const (
 	BackendDBTypeDedicated BackendDBType = "dedicated"
 )
 
-// +kubebuilder:validation:Enum=k8s;ocm;vcluster;host;external;k3s;
+// +kubebuilder:validation:Enum=k8s;ocm;vcluster;host;external;k3s
 type ControlPlaneType string
 
 const (

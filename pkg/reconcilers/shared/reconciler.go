@@ -40,6 +40,17 @@ const (
 	FieldOwner = "kubeflex.kubestellar.io"
 )
 
+// Kubeflex ControlPlane reconciler
+// each controlplane type must implement ControlPlaneReconciler as
+// internal/controller/controlplane_controller.go Reconcile acts
+// as a reconciler factory according to a controlplane type
+type ControlPlaneReconciler interface {
+	// Reconcile is part of the main kubernetes reconciliation loop which aims to
+	// move the current state of the cluster closer to the desired state.
+	// NOTE: returns a ctrl.Result to comply with kubernetes Reconcile. It does not make much sense to talk about Reconcile without returning a ctrl.Result
+	Reconcile(context.Context, *tenancyv1alpha1.ControlPlane) (ctrl.Result, error)
+}
+
 // BaseReconciler provide common reconcilers used by other reconcilers
 type BaseReconciler struct {
 	client.Client
@@ -58,6 +69,13 @@ type SharedConfig struct {
 	ExternalURL   string
 }
 
+// Reconcile
+// implements ControlPlaneReconciler
+func (r *BaseReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
+	return r.UpdateStatusForSyncingSuccess(ctx, hcp)
+}
+
+// TODO: as part of the interface ControlPlaneReconciler it makes more sense to have a ctrl.Result as a parameter which will be return by this function.
 func (r *BaseReconciler) UpdateStatusForSyncingError(hcp *tenancyv1alpha1.ControlPlane, e error) (ctrl.Result, error) {
 	if r.EventRecorder != nil {
 		r.EventRecorder.Event(hcp, "Warning", "SyncFail", e.Error())
@@ -70,6 +88,7 @@ func (r *BaseReconciler) UpdateStatusForSyncingError(hcp *tenancyv1alpha1.Contro
 	return ctrl.Result{}, err
 }
 
+// TODO: as part of the interface ControlPlaneReconciler it makes more sense to have a ctrl.Result as a parameter which will be return by this function.
 func (r *BaseReconciler) UpdateStatusForSyncingSuccess(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
 	if r.EventRecorder != nil {
 		r.EventRecorder.Event(hcp, "Normal", "SyncSuccess", "")
@@ -110,6 +129,8 @@ func (r *BaseReconciler) GetConfig(ctx context.Context) (*SharedConfig, error) {
 	}, nil
 }
 
+// TODO: It is confusing that this UpdateStatusWithSecretRef does not return the same type of parameters than UpdateStatusForSyncingSuccess and UpdateStatusForSyncingError which are contributing to the Reconcile function.
+// It would be better to rename the function to avoid confusion
 func (r *BaseReconciler) UpdateStatusWithSecretRef(hcp *tenancyv1alpha1.ControlPlane, secretName, key, inClusterKey string) {
 	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
 	hcp.Status.SecretRef = &tenancyv1alpha1.SecretReference{
