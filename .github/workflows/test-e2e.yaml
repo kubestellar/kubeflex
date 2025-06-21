@@ -6,9 +6,11 @@ on:
   pull_request:
     branches:
       - main
+      - "lxf/**"
   push:
     branches:
       - main
+      - "lxf/**"
     tags:
       - 'v*'
 
