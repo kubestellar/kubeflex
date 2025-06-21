@@ -1,0 +1,63 @@
+/*
+Copyright 2025 The KubeStellar Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package k3s
+
+import (
+	"context"
+
+	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
+	"github.com/kubestellar/kubeflex/pkg/reconcilers/shared"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/record"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+// K3sReconciler embeds all k3s components
+type K3sReconciler struct {
+	*Service               // k3s service
+	*APIServer             // k3s api server
+	*shared.BaseReconciler // shared base controller
+}
+
+// Init new K3sReconciler
+// create a BaseReconciler datastruct that is shared to Service and APIServer.
+// Both Service and APIServer interact on the same reference of BaseReconciler
+func New(cl client.Client, scheme *runtime.Scheme, version string, clientSet *kubernetes.Clientset, dynamicClient *dynamic.DynamicClient, eventRecorder record.EventRecorder) *K3sReconciler {
+	br := shared.BaseReconciler{
+		Client:        cl,
+		Scheme:        scheme,
+		ClientSet:     clientSet,
+		DynamicClient: dynamicClient,
+		EventRecorder: eventRecorder,
+	}
+	return &K3sReconciler{
+		BaseReconciler: &br,
+		Service:        &Service{&br},
+		APIServer:      &APIServer{&br},
+	}
+}
+
+// Reconcile K3s control plane
+// implements ControlPlaneReconciler
+// TODO: to implement
+func (r *K3sReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
+	// Idempotent
+	return r.BaseReconciler.Reconcile(ctx, hcp)
+}
