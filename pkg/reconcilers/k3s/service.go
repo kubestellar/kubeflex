@@ -24,6 +24,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
+const ServiceName = "k3s-svc"
+
 // K3s service
 type Service struct {
 	*shared.BaseReconciler
