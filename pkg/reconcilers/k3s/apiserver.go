@@ -22,13 +22,17 @@ import (
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/shared"
+	"github.com/kubestellar/kubeflex/pkg/util"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-const APIServerPodName = "k3s-apiserver"
+const APIServerPodName = "k3s-server"
 const APIServerDockerImage = "rancher/k3s"
 
 // K3s API server
@@ -114,5 +118,24 @@ func NewAPIServer() (_ metav1.Object, err error) {
 // implements ControlPlaneReconciler
 // TODO: to implement
 func (r *APIServer) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
-	return r.BaseReconciler.Reconcile(ctx, hcp)
+	log := logf.FromContext(ctx)
+	log.Info("k3s:apiserver:Reconcile: begin")
+	// Get k3s server from hosting cluster and stored it in apiServerObject
+	apiServerObject := &appsv1.StatefulSet{}
+	apiServerObjectKey := client.ObjectKey{Namespace: util.GenerateNamespaceFromControlPlaneName(string(tenancyv1alpha1.ControlPlaneTypeK3s)), Name: APIServerPodName}
+	err := r.Client.Get(ctx, apiServerObjectKey, apiServerObject)
+	if err != nil {
+		r.BaseReconciler.UpdateStatusForSyncingError(hcp, err) // TODO: to change
+		// is NotFound, we retry in 5s
+		if apierrors.IsNotFound(err) {
+			// Create the k3s server
+			// TODO create
+			if err = r.Client.Create(ctx, apiServerObject); err != nil {
+				// if not able to create, we retry in 10s
+				return ctrl.Result{RequeueAfter: 10}, err
+			}
+		}
+		return ctrl.Result{}, err
+	}
+	return r.BaseReconciler.Reconcile(ctx, hcp) // TODO: to change
 }

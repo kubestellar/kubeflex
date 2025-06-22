@@ -28,6 +28,7 @@ import (
 )
 
 const (
+	// TODO: move to its reconciler component (k8s)
 	APIServerDeploymentName              = "kube-apiserver"
 	OCMServerDeploymentName              = "multicluster-controlplane"
 	VClusterServerDeploymentName         = "vcluster"

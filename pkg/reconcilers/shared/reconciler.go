@@ -85,7 +85,7 @@ func (r *BaseReconciler) UpdateStatusForSyncingError(hcp *tenancyv1alpha1.Contro
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(e, err.Error())
 	}
-	return ctrl.Result{}, err
+	return ctrl.Result{}, nil
 }
 
 // TODO: as part of the interface ControlPlaneReconciler it makes more sense to have a ctrl.Result as a parameter which will be return by this function.
@@ -99,7 +99,7 @@ func (r *BaseReconciler) UpdateStatusForSyncingSuccess(ctx context.Context, hcp 
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	return ctrl.Result{}, err
+	return ctrl.Result{}, nil
 }
 
 func (r *BaseReconciler) GetConfig(ctx context.Context) (*SharedConfig, error) {
