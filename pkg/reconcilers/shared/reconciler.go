@@ -32,7 +32,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	clog "sigs.k8s.io/controller-runtime/pkg/log"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
@@ -76,15 +76,17 @@ func (r *BaseReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.Con
 }
 
 // TODO: as part of the interface ControlPlaneReconciler it makes more sense to have a ctrl.Result as a parameter which will be return by this function.
-func (r *BaseReconciler) UpdateStatusForSyncingError(hcp *tenancyv1alpha1.ControlPlane, e error) (ctrl.Result, error) {
+func (r *BaseReconciler) UpdateStatusForSyncingError(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane, err error) (ctrl.Result, error) {
 	if r.EventRecorder != nil {
-		r.EventRecorder.Event(hcp, "Warning", "SyncFail", e.Error())
+		r.EventRecorder.Event(hcp, "Warning", "SyncFail", err.Error())
 	}
-	tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionReconcileError(e))
-	err := r.Status().Update(context.Background(), hcp)
-	if err != nil {
-		return ctrl.Result{}, errors.Wrap(e, err.Error())
+	log := logf.FromContext(ctx)
+	tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionReconcileError(err))
+	if err1 := r.Status().Update(context.Background(), hcp); err1 != nil {
+		log.Error(err1, "update status for syncing error failed")
+		return ctrl.Result{}, errors.Wrap(err, err1.Error())
 	}
+	log.Error(err, "update status for syncing error is done")
 	return ctrl.Result{}, nil
 }
 
@@ -93,12 +95,13 @@ func (r *BaseReconciler) UpdateStatusForSyncingSuccess(ctx context.Context, hcp 
 	if r.EventRecorder != nil {
 		r.EventRecorder.Event(hcp, "Normal", "SyncSuccess", "")
 	}
-	_ = clog.FromContext(ctx)
+	log := logf.FromContext(ctx)
 	tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionReconcileSuccess())
-	err := r.Status().Update(context.Background(), hcp)
-	if err != nil {
+	if err := r.Status().Update(context.Background(), hcp); err != nil {
+		log.Error(err, "update status for syncing success failed")
 		return ctrl.Result{}, err
 	}
+
 	return ctrl.Result{}, nil
 }
 

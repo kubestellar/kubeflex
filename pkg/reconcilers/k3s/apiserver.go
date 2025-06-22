@@ -29,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -36,6 +37,7 @@ const APIServerPodName = "k3s-server"
 const APIServerDockerImage = "rancher/k3s"
 
 // K3s API server
+// NOTE: k3s is a single binary containing apiserver, etcd, controller-manager... therefore `APIServer` refers to all components
 type APIServer struct {
 	*shared.BaseReconciler
 }
@@ -125,13 +127,18 @@ func (r *APIServer) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlP
 	apiServerObjectKey := client.ObjectKey{Namespace: util.GenerateNamespaceFromControlPlaneName(string(tenancyv1alpha1.ControlPlaneTypeK3s)), Name: APIServerPodName}
 	err := r.Client.Get(ctx, apiServerObjectKey, apiServerObject)
 	if err != nil {
-		r.BaseReconciler.UpdateStatusForSyncingError(hcp, err) // TODO: to change
+		r.BaseReconciler.UpdateStatusForSyncingError(ctx, hcp, err) // TODO: to change
 		// is NotFound, we retry in 5s
 		if apierrors.IsNotFound(err) {
+			// Set owner reference of the API server object
+			if err := controllerutil.SetControllerReference(hcp, apiServerObject, r.Scheme); err != nil {
+				return ctrl.Result{}, err
+			}
 			// Create the k3s server
 			// TODO create
 			if err = r.Client.Create(ctx, apiServerObject); err != nil {
 				// if not able to create, we retry in 10s
+				// TODO implement exp. backoff?
 				return ctrl.Result{RequeueAfter: 10}, err
 			}
 		}
