@@ -56,24 +56,24 @@ func (r *BaseReconciler) ReconcileAPIServerIngress(ctx context.Context, hcp *ten
 
 	err := r.Client.Get(ctx, client.ObjectKeyFromObject(ingress), ingress, &client.GetOptions{})
 	if err != nil {
-        if apierrors.IsNotFound(err) {
-            ingress = generateAPIServerIngress(hcp.Name, svcName, namespace, svcPort, domain)
-            if err := controllerutil.SetControllerReference(hcp, ingress, r.Scheme); err != nil {
-                return fmt.Errorf("failed to SetControllerReference: %w", err)
-            }
-            if err = r.Client.Create(ctx, ingress, &client.CreateOptions{}); err != nil {
-                if util.IsTransientError(err) {
-                    return err // Retry transient errors
-                }
-                return fmt.Errorf("failed to create ingress: %w", err)
-            }
-        } else if util.IsTransientError(err) {
-            return err // Retry transient errors
-        } else {
-            return fmt.Errorf("failed to get ingress: %w", err)
-        }
-    }
-    return nil
+		if apierrors.IsNotFound(err) {
+			ingress = generateAPIServerIngress(hcp.Name, svcName, namespace, svcPort, domain)
+			if err := controllerutil.SetControllerReference(hcp, ingress, r.Scheme); err != nil {
+				return fmt.Errorf("failed to SetControllerReference: %w", err)
+			}
+			if err = r.Client.Create(ctx, ingress, &client.CreateOptions{}); err != nil {
+				if util.IsTransientError(err) {
+					return err // Retry transient errors
+				}
+				return fmt.Errorf("failed to create ingress: %w", err)
+			}
+		} else if util.IsTransientError(err) {
+			return err // Retry transient errors
+		} else {
+			return fmt.Errorf("failed to get ingress: %w", err)
+		}
+	}
+	return nil
 }
 
 func generateAPIServerIngress(name, svcName, namespace string, svcPort int, domain string) *networkingv1.Ingress {
