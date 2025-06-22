@@ -81,7 +81,7 @@ func (r *K8sReconciler) Reconcile(ctx context.Context, hcp *v1alpha1.ControlPlan
 			return ctrl.Result{RequeueAfter: 3 * time.Second}, nil
 		}
 	} else {
-		if err = r.ReconcileAPIServerIngress(ctx, hcp, "", shared.DefaulPort, cfg.Domain); err != nil {
+		if err = r.ReconcileAPIServerIngress(ctx, hcp, "", shared.DefaultPort, cfg.Domain); err != nil {
 			return r.UpdateStatusForSyncingError(hcp, err)
 		}
 	}
