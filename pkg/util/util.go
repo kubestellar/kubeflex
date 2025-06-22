@@ -28,10 +28,9 @@ import (
 )
 
 const (
-	// TODO: move to its reconciler component (k8s)
-	APIServerDeploymentName              = "kube-apiserver"
-	OCMServerDeploymentName              = "multicluster-controlplane"
-	VClusterServerDeploymentName         = "vcluster"
+	APIServerDeploymentName              = "kube-apiserver"            // TODO: move to its reconciler component (k8s)
+	OCMServerDeploymentName              = "multicluster-controlplane" // TODO: move to its reconciler component (ocm)
+	VClusterServerDeploymentName         = "vcluster"                  // TODO: move to its reconciler component (vcluster)
 	CMDeploymentName                     = "kube-controller-manager"
 	ProjectName                          = "kubeflex"
 	DBReleaseName                        = "postgres"
@@ -46,7 +45,7 @@ const (
 	KubeconfigSecretKeyInCluster         = "kubeconfig-incluster"
 	KubeconfigSecretKeyVCluster          = "config"
 	KubeconfigSecretKeyVClusterInCluster = "config-incluster"
-	NamespaceSuffix                      = "-system"
+	NamespaceSuffix                      = "-system" // TODO: change to SystemNamespaceSuffix
 )
 
 func GenerateNamespaceFromControlPlaneName(name string) string {
@@ -134,6 +133,8 @@ func GetAPIServerDeploymentNameByControlPlaneType(controlPlaneType string) strin
 		return OCMServerDeploymentName
 	case string(tenancyv1alpha1.ControlPlaneTypeVCluster):
 		return VClusterServerDeploymentName
+	case string(tenancyv1alpha1.ControlPlaneTypeK3s):
+		return ""
 	default:
 		// TODO - should we instead throw an error?
 		return APIServerDeploymentName

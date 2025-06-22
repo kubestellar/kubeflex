@@ -22,7 +22,6 @@ import (
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/shared"
-	"github.com/kubestellar/kubeflex/pkg/util"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -124,7 +123,7 @@ func (r *APIServer) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlP
 	log.Info("k3s:apiserver:Reconcile: begin")
 	// Get k3s server from hosting cluster and stored it in apiServerObject
 	apiServerObject := &appsv1.StatefulSet{}
-	apiServerObjectKey := client.ObjectKey{Namespace: util.GenerateNamespaceFromControlPlaneName(string(tenancyv1alpha1.ControlPlaneTypeK3s)), Name: APIServerPodName}
+	apiServerObjectKey := client.ObjectKey{Namespace: string(tenancyv1alpha1.ControlPlaneTypeK3s) + "-system", Name: APIServerPodName}
 	err := r.Client.Get(ctx, apiServerObjectKey, apiServerObject)
 	if err != nil {
 		r.BaseReconciler.UpdateStatusForSyncingError(ctx, hcp, err) // TODO: to change
