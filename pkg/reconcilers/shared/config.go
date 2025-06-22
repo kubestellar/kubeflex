@@ -16,8 +16,14 @@ limitations under the License.
 
 package shared
 
+import v1 "k8s.io/api/core/v1"
+
 const (
-	DefaulPort    = 443
+	// Value to HTTPS
+	DefaultPort = 443
+	// Name it using HTTPS const
+	DefaultPortName = v1.URISchemeHTTPS
+	// NOTE: what is that use for?
 	SecurePort    = 9444
 	CMHealthzPort = 10257
 )

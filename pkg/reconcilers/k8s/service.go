@@ -74,10 +74,11 @@ func generateAPIServerService(name, namespace string) *corev1.Service {
 			Type: corev1.ServiceTypeNodePort,
 			Ports: []corev1.ServicePort{
 				{
-					Port:       shared.DefaulPort,
+					Port:       shared.DefaultPort,
 					TargetPort: intstr.FromInt(shared.SecurePort),
-					Name:       "https",
-					Protocol:   "TCP",
+					// NOTE: why should we name our port?
+					Name:     string(shared.DefaultPortName),
+					Protocol: "TCP",
 				},
 			},
 		},

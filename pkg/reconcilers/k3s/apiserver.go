@@ -52,7 +52,6 @@ func containerImage() string {
 }
 
 // Init API server object to apply on kubernetes server
-// TODO: to implement
 func NewAPIServer() (_ metav1.Object, err error) {
 	return &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{

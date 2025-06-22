@@ -50,7 +50,7 @@ func (r *VClusterReconciler) ReconcileChart(ctx context.Context, hcp *tenancyv1a
 	configs := append([]string{}, configsBase...)
 	if cfg.ExternalURL != "" {
 		dnsName = cfg.ExternalURL
-		port = 443
+		port = shared.DefaultPort
 		// TODO - this is specific to OpenShift, not to having an external URL - ok for now, but to improve later
 		//configs = append(configs, "openshift.enable=true")
 		ocpConfigs := []string{

@@ -38,7 +38,7 @@ import (
 
 const (
 	ServiceName      = "vcluster"
-	ServicePort      = 443
+	ServicePort      = shared.DefaultPort
 	kubeconfigSecret = "TODO"
 )
 
@@ -70,8 +70,8 @@ func (r *VClusterReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1
 
 	if err := r.BaseReconciler.ReconcileNamespace(ctx, hcp); err != nil {
 		if util.IsTransientError(err) {
-            return ctrl.Result{}, err
-        }
+			return ctrl.Result{}, err
+		}
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 

@@ -48,7 +48,7 @@ func (r *OCMReconciler) ReconcileChart(ctx context.Context, hcp *tenancyv1alpha1
 	port := cfg.ExternalPort
 	if cfg.ExternalURL != "" {
 		dnsName = cfg.ExternalURL
-		port = 443
+		port = shared.DefaultPort
 	}
 	configs = append(configs, fmt.Sprintf("apiserver.externalHostname=%s", dnsName))
 	configs = append(configs, fmt.Sprintf("apiserver.port=%d", port))
