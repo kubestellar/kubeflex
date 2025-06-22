@@ -84,7 +84,7 @@ func (r *OCMReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.Cont
 		}
 		cfg.ExternalURL = routeURL
 	} else {
-		if err := r.ReconcileAPIServerIngress(ctx, hcp, ServiceName, shared.DefaulPort, cfg.Domain); err != nil {
+		if err := r.ReconcileAPIServerIngress(ctx, hcp, ServiceName, shared.DefaultPort, cfg.Domain); err != nil {
 			return r.UpdateStatusForSyncingError(hcp, err)
 		}
 	}
