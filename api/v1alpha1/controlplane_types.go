@@ -24,10 +24,10 @@ import (
 type ControlPlaneSpec struct {
 	// type refers to the control plane type
 	// +required
-	Type    ControlPlaneType `json:"type,omitempty"`
+	Type ControlPlaneType `json:"type,omitempty"`
 	// backend refers to the database type used by the control plane
 	// +required
-	Backend BackendDBType    `json:"backend,omitempty"`
+	Backend BackendDBType `json:"backend,omitempty"`
 	// bootstrapSecretRef contains a reference to the kubeconfig used to bootstrap adoption of
 	// an external cluster
 	// +optional
