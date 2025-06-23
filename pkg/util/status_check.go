@@ -175,7 +175,7 @@ func IsAPIServerDeploymentReady(log logr.Logger, c client.Client, hcp tenancyv1a
 			return true, nil
 		}
 	default:
-		log.Error(fmt.Errorf("control plane type not supported"), "type", hcp.Spec.Type)
+		log.Error(fmt.Errorf("control plane type not supported"), "isAPIServerDeploymentReady failed", "type", hcp.Spec.Type)
 		return false, nil
 	}
 
