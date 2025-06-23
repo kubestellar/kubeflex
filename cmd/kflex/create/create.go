@@ -30,6 +30,7 @@ import (
 	"github.com/kubestellar/kubeflex/pkg/certs"
 	kfclient "github.com/kubestellar/kubeflex/pkg/client"
 	"github.com/kubestellar/kubeflex/pkg/kubeconfig"
+	"github.com/kubestellar/kubeflex/pkg/reconcilers/k3s"
 	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
@@ -112,6 +113,7 @@ func ExecuteCreate(cp common.CP, controlPlaneType string, backendType string, ho
 	case string(tenancyv1alpha1.ControlPlaneTypeVCluster):
 		if err := util.WaitForStatefulSetReady(clientset,
 			util.GetAPIServerDeploymentNameByControlPlaneType(controlPlaneType),
+			// TODO replace util.GenerateNamespaceFromControlPlaneName like in k3s
 			util.GenerateNamespaceFromControlPlaneName(controlPlane.Name)); err != nil {
 
 			return fmt.Errorf("error waiting for stateful set to become ready: %v", err)
@@ -119,9 +121,15 @@ func ExecuteCreate(cp common.CP, controlPlaneType string, backendType string, ho
 	case string(tenancyv1alpha1.ControlPlaneTypeK8S), string(tenancyv1alpha1.ControlPlaneTypeOCM):
 		if err := util.WaitForDeploymentReady(clientset,
 			util.GetAPIServerDeploymentNameByControlPlaneType(controlPlaneType),
+			// TODO replace util.GenerateNamespaceFromControlPlaneName like in k3s
 			util.GenerateNamespaceFromControlPlaneName(controlPlane.Name)); err != nil {
 
 			return fmt.Errorf("error waiting for deployment to become ready: %v", err)
+		}
+	case string(tenancyv1alpha1.ControlPlaneTypeK3s):
+		// NOTE: different implementation
+		if err := util.WaitForStatefulSetReady(clientset, k3s.ServerName, controlPlane.Name+k3s.SystemNamespaceSuffix); err != nil {
+			return fmt.Errorf("error waiting for stateful set to become ready: %v", err)
 		}
 	default:
 		return fmt.Errorf("unknown control plane type: %s", controlPlaneType)
@@ -135,7 +143,7 @@ func ExecuteCreate(cp common.CP, controlPlaneType string, backendType string, ho
 	if err = kubeconfig.AssignControlPlaneToContext(kconf, cp.Name, certs.GenerateContextName(cp.Name)); err != nil {
 		return fmt.Errorf("error assigning control plane to context as kubeconfig extension: %v", err)
 	}
-	
+
 	kubeconfig.WriteKubeconfig(cp.Kubeconfig, kconf)
 	wg.Wait()
 	return nil

@@ -36,7 +36,7 @@ type Service struct {
 
 // build labels for k3s service
 func serviceLabels() map[string]string {
-	labels := apiServerLabels()
+	labels := serverLabels()
 	return labels
 }
 
@@ -61,7 +61,7 @@ func NewService() (_ *v1.Service, err error) {
 				},
 			},
 			// Attach service to k3s apiserver
-			Selector: apiServerLabels(),
+			Selector: serverLabels(),
 		},
 	}, nil
 }
@@ -72,4 +72,3 @@ func NewService() (_ *v1.Service, err error) {
 func (svc *Service) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
 	return svc.BaseReconciler.Reconcile(ctx, hcp)
 }
-

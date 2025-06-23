@@ -31,14 +31,15 @@ import (
 
 // K3sReconciler embeds all k3s components
 type K3sReconciler struct {
+	*Namespace             // k3s namespace
 	*Service               // k3s service
-	*APIServer             // k3s api server
+	*Server                // k3s api server
 	*shared.BaseReconciler // shared base controller
 }
 
 // Init new K3sReconciler
-// create a BaseReconciler datastruct that is shared to Service and APIServer.
-// Both Service and APIServer interact on the same reference of BaseReconciler
+// create a BaseReconciler datastruct that is shared to Service and k3s Server.
+// Both Service and k3s Server interact on the same reference of BaseReconciler
 func New(cl client.Client, scheme *runtime.Scheme, version string, clientSet *kubernetes.Clientset, dynamicClient *dynamic.DynamicClient, eventRecorder record.EventRecorder) *K3sReconciler {
 	br := shared.BaseReconciler{
 		Client:        cl,
@@ -49,8 +50,9 @@ func New(cl client.Client, scheme *runtime.Scheme, version string, clientSet *ku
 	}
 	return &K3sReconciler{
 		BaseReconciler: &br,
+		Namespace:      &Namespace{&br},
 		Service:        &Service{&br},
-		APIServer:      &APIServer{&br},
+		Server:         &Server{&br},
 	}
 }
 
@@ -59,5 +61,8 @@ func New(cl client.Client, scheme *runtime.Scheme, version string, clientSet *ku
 // TODO: to implement
 func (r *K3sReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
 	// Idempotent
-	return r.BaseReconciler.Reconcile(ctx, hcp)
+	if result, err := r.Namespace.Reconcile(ctx, hcp); err != nil {
+		return result, err
+	}
+	return r.Server.Reconcile(ctx, hcp)
 }

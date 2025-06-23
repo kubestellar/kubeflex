@@ -29,7 +29,7 @@ type Var struct {
 
 // PostCreateHookSpec defines the desired state of PostCreateHook
 type PostCreateHookSpec struct {
-	Templates []Manifest `json:"templates,omitempty"`
+	Templates   []Manifest `json:"templates,omitempty"`
 	DefaultVars []Var      `json:"defaultVars,omitempty"`
 }
 

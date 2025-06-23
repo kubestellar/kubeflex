@@ -32,7 +32,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	clog "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
@@ -80,7 +80,7 @@ func (r *BaseReconciler) UpdateStatusForSyncingError(ctx context.Context, hcp *t
 	if r.EventRecorder != nil {
 		r.EventRecorder.Event(hcp, "Warning", "SyncFail", err.Error())
 	}
-	log := logf.FromContext(ctx)
+	log := clog.FromContext(ctx)
 	tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionReconcileError(err))
 	if err1 := r.Status().Update(context.Background(), hcp); err1 != nil {
 		log.Error(err1, "update status for syncing error failed")
@@ -95,7 +95,7 @@ func (r *BaseReconciler) UpdateStatusForSyncingSuccess(ctx context.Context, hcp 
 	if r.EventRecorder != nil {
 		r.EventRecorder.Event(hcp, "Normal", "SyncSuccess", "")
 	}
-	log := logf.FromContext(ctx)
+	log := clog.FromContext(ctx)
 	tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionReconcileSuccess())
 	if err := r.Status().Update(context.Background(), hcp); err != nil {
 		log.Error(err, "update status for syncing success failed")

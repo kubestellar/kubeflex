@@ -29,20 +29,20 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	clog "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-const APIServerPodName = "k3s-server"
-const APIServerDockerImage = "rancher/k3s"
+const ServerName = "k3s-server"
+const ServerDockerImage = "rancher/k3s"
 
 // K3s API server
-// NOTE: k3s is a single binary containing apiserver, etcd, controller-manager... therefore `APIServer` refers to all components
-type APIServer struct {
+// NOTE: k3s is a single binary containing apiserver, etcd, controller-manager... therefore `Server` refers to all components
+type Server struct {
 	*shared.BaseReconciler
 }
 
 // build labels for k3s apiserver
-func apiServerLabels() map[string]string {
+func serverLabels() map[string]string {
 	return map[string]string{
 		"controller.kubeflex.dev/type":         string(tenancyv1alpha1.ControlPlaneTypeK3s),
 		"controller.kubeflex.dev/service-name": ServiceName,
@@ -53,30 +53,31 @@ func apiServerLabels() map[string]string {
 // see https://hub.docker.com/r/rancher/k3s/tags
 func containerImage() string {
 	imageTag := "v1.30.13-k3s1" // To update
-	return fmt.Sprintf("%s:%s", APIServerDockerImage, imageTag)
+	return fmt.Sprintf("%s:%s", ServerDockerImage, imageTag)
 }
 
-// Init API server object to apply on kubernetes server
-// TODO: to implement
-func NewAPIServer() (_ metav1.Object, err error) {
+// Init API server object to apply on controlplane $cpName
+// NOTE: $cpName is used only for object Namespace, not its Name
+func NewServer(cpName string) (*appsv1.StatefulSet, error) {
 	return &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   string(APIServerPodName),
-			Labels: apiServerLabels(),
+			Name:      string(ServerName),                  //	always be unique as it has it dedicated namespace
+			Namespace: GenerateSystemNamespaceName(cpName), // must be dedicated name
+			Labels:    serverLabels(),
 		},
 		Spec: appsv1.StatefulSetSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: apiServerLabels(),
+				MatchLabels: serverLabels(),
 			},
 			Template: v1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:   string(APIServerPodName),
-					Labels: apiServerLabels(),
+					Name:   string(ServerName),
+					Labels: serverLabels(),
 				},
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						{
-							Name:            string(APIServerPodName),
+							Name:            string(ServerName),
 							Image:           containerImage(),
 							ImagePullPolicy: v1.PullIfNotPresent,
 							// Command: is by default `/bin/k3s`
@@ -115,33 +116,42 @@ func NewAPIServer() (_ metav1.Object, err error) {
 	}, nil
 }
 
-// Reconcile API server
+// Reconcile k3s server
 // implements ControlPlaneReconciler
-// TODO: to implement
-func (r *APIServer) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
-	log := logf.FromContext(ctx)
-	log.Info("k3s:apiserver:Reconcile: begin")
-	// Get k3s server from hosting cluster and stored it in apiServerObject
-	apiServerObject := &appsv1.StatefulSet{}
-	apiServerObjectKey := client.ObjectKey{Namespace: string(tenancyv1alpha1.ControlPlaneTypeK3s) + "-system", Name: APIServerPodName}
-	err := r.Client.Get(ctx, apiServerObjectKey, apiServerObject)
+// TODO to implement
+func (r *Server) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
+	log := clog.FromContext(ctx)
+	// Get k3s server from hosting cluster and stored it in k3sServerObject
+
+	k3sServerObject := &appsv1.StatefulSet{}
+	k3sServerObjectKey := client.ObjectKey{Namespace: GenerateSystemNamespaceName(hcp.Name), Name: ServerName}
+	log.Info("k3s:server.go:Reconcile:", "k3sServerObjectKey", k3sServerObjectKey)
+	err := r.Client.Get(ctx, k3sServerObjectKey, k3sServerObject)
 	if err != nil {
+		log.Error(err, "k3s:server.go:Reconcile:r.Client.Get failed")
 		r.BaseReconciler.UpdateStatusForSyncingError(ctx, hcp, err) // TODO: to change
-		// is NotFound, we retry in 5s
 		if apierrors.IsNotFound(err) {
+			log.Error(err, "k3s:server.go:Reconcile:is not found error")
+			log.Info("k3s:server.go:Reconcile:call NewServer() on k3sServerObject")
+			// Generate new k3s server
+			k3sServerObject, _ = NewServer(hcp.Name)
+			log.Info("k3s:server.go:Reconcile:call SetControllerReference")
 			// Set owner reference of the API server object
-			if err := controllerutil.SetControllerReference(hcp, apiServerObject, r.Scheme); err != nil {
+			if err := controllerutil.SetControllerReference(hcp, k3sServerObject, r.Scheme); err != nil {
+				log.Error(err, "k3s:server.go:Reconcile:SetControllerReference failed")
 				return ctrl.Result{}, err
 			}
 			// Create the k3s server
-			// TODO create
-			if err = r.Client.Create(ctx, apiServerObject); err != nil {
-				// if not able to create, we retry in 10s
-				// TODO implement exp. backoff?
+			log.Info("k3s:server.go:Reconcile:call r.Client.Create on", "k3sServerObject", k3sServerObject)
+			if err = r.Client.Create(ctx, k3sServerObject); err != nil {
+				log.Error(err, "k3s:server.go:Reconcile:r.Client.Create failed")
 				return ctrl.Result{RequeueAfter: 10}, err
 			}
 		}
+		log.Info("k3s:server.go:Reconcile:end of reconcile k3s server")
 		return ctrl.Result{}, err
 	}
+	// Update to success
+	log.Info("k3s:server.go:Reconcile:reconcile is a success...")
 	return r.BaseReconciler.Reconcile(ctx, hcp) // TODO: to change
 }
