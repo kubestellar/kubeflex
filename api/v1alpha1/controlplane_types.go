@@ -34,6 +34,10 @@ type ControlPlaneSpec struct {
 	TokenExpirationSeconds *int64            `json:"tokenExpirationSeconds,omitempty"`
 	PostCreateHook         *string           `json:"postCreateHook,omitempty"`
 	PostCreateHookVars     map[string]string `json:"postCreateHookVars,omitempty"`
+	// waitForPostCreateHooks determines if the control plane should wait for all post create hook resources to be ready before marking the control plane as ready
+	// +optional
+	// +kubebuilder:default:=false
+	WaitForPostCreateHooks *bool `json:"waitForPostCreateHooks,omitempty"`
 }
 
 // ControlPlaneStatus defines the observed state of ControlPlane

@@ -1,0 +1,45 @@
+apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
+kind: PostCreateHook
+metadata:
+  name: completion-test-hook
+spec:
+  templates:
+  # Test Job that completes successfully
+  - apiVersion: batch/v1
+    kind: Job
+    metadata:
+      name: completion-test-job
+    spec:
+      template:
+        spec:
+          containers:
+          - name: test-container
+            image: busybox:1.35
+            command: ["/bin/sh", "-c"]
+            args:
+            - |
+              echo "Starting completion test job"
+              sleep 10
+              echo "Job completed successfully"
+          restartPolicy: Never
+      backoffLimit: 3
+  # Test Deployment that should be ready
+  - apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: completion-test-deployment
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          app: completion-test
+      template:
+        metadata:
+          labels:
+            app: completion-test
+        spec:
+          containers:
+          - name: test-container
+            image: nginx:1.21
+            ports:
+            - containerPort: 80 
