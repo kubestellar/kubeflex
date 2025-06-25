@@ -55,9 +55,12 @@ func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp 
 	// Hook is only applied once after CP creation
 	_, ok := hcp.Status.PostCreateHooks[*hcp.Spec.PostCreateHook]
 	if ok {
-		// Check if all resources are ready
-		if err := r.checkPostCreateHookResources(ctx, hcp); err != nil {
-			return fmt.Errorf("error checking post create hook resources: %w", err)
+		// Check if all resources are ready only if WaitForPostCreateHooks is enabled
+		if hcp.Spec.WaitForPostCreateHooks != nil && *hcp.Spec.WaitForPostCreateHooks {
+			logger.Info("Checking post-create hook resources", "hook", *hcp.Spec.PostCreateHook)
+			if err := r.checkPostCreateHookResources(ctx, hcp); err != nil {
+				return fmt.Errorf("error checking post create hook resources: %w", err)
+			}
 		}
 		return nil
 	}
@@ -70,7 +73,7 @@ func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp 
 			Name: *hcp.Spec.PostCreateHook,
 		},
 	}
-	if err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(hook), hook, &client.GetOptions{}); err != nil {
+	if err := r.Client.Get(ctx, client.ObjectKeyFromObject(hook), hook, &client.GetOptions{}); err != nil {
 		return fmt.Errorf("error retrieving post create hook %s: %w", *hcp.Spec.PostCreateHook, err)
 	}
 
@@ -109,7 +112,7 @@ func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp 
 	}
 	hcp.Status.PostCreateHooks[*hcp.Spec.PostCreateHook] = true
 
-	if err := r.Client.Status().Update(context.TODO(), hcp, &client.SubResourceUpdateOptions{}); err != nil {
+	if err := r.Client.Status().Update(ctx, hcp, &client.SubResourceUpdateOptions{}); err != nil {
 		return fmt.Errorf("failed to update control plane status: %w", err)
 	}
 
@@ -132,15 +135,40 @@ func (r *BaseReconciler) checkPostCreateHookResources(ctx context.Context, hcp *
 			Name: *hcp.Spec.PostCreateHook,
 		},
 	}
-	if err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(hook), hook, &client.GetOptions{}); err != nil {
+	if err := r.Client.Get(ctx, client.ObjectKeyFromObject(hook), hook, &client.GetOptions{}); err != nil {
 		return fmt.Errorf("error retrieving post create hook %s: %w", *hcp.Spec.PostCreateHook, err)
 	}
 
+	// Build variables with proper precedence (same as in ReconcileUpdatePostCreateHook)
+	vars := make(map[string]interface{})
+
+	// Add default variables from hook spec
+	for _, dv := range hook.Spec.DefaultVars {
+		vars[dv.Name] = dv.Value
+	}
+
+	// Override with user-provided variables from control plane
+	for key, val := range hcp.Spec.PostCreateHookVars {
+		vars[key] = val
+	}
+
+	// Add system variables (highest priority)
+	vars["Namespace"] = namespace
+	vars["ControlPlaneName"] = hcp.Name
+	vars["HookName"] = *hcp.Spec.PostCreateHook
+
+	allResourcesReady := true
 	// Check each template's resource status
 	for _, template := range hook.Spec.Templates {
-		obj, err := util.ToUnstructured(template.Raw)
+		// Render the template with variables first
+		rendered, err := util.RenderYAML(template.Raw, vars)
 		if err != nil {
-			return fmt.Errorf("error converting template to unstructured: %w", err)
+			return fmt.Errorf("error rendering template: %w", err)
+		}
+
+		obj, err := util.ToUnstructured(rendered)
+		if err != nil {
+			return fmt.Errorf("error converting rendered template to unstructured: %w", err)
 		}
 
 		gvk := util.GetGroupVersionKindFromObject(obj)
@@ -157,14 +185,13 @@ func (r *BaseReconciler) checkPostCreateHookResources(ctx context.Context, hcp *
 
 		if !ready {
 			logger.Info("Resource not ready", "kind", gvk.Kind, "name", obj.GetName())
-			hcp.Status.PostCreateHookCompleted = false
-			return r.Client.Status().Update(context.TODO(), hcp, &client.SubResourceUpdateOptions{})
+			allResourcesReady = false
 		}
 	}
 
-	// All resources are ready
-	hcp.Status.PostCreateHookCompleted = true
-	return r.Client.Status().Update(context.TODO(), hcp, &client.SubResourceUpdateOptions{})
+	// Update status only once after checking all resources
+	hcp.Status.PostCreateHookCompleted = allResourcesReady
+	return r.Client.Status().Update(ctx, hcp, &client.SubResourceUpdateOptions{})
 }
 
 // checkResourceStatus checks if a specific resource is ready based on its type
@@ -175,12 +202,20 @@ func (r *BaseReconciler) checkResourceStatus(ctx context.Context, gvr schema.Gro
 		if err := r.Client.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, deployment); err != nil {
 			return false, err
 		}
+		// Check for nil pointer before dereferencing
+		if deployment.Spec.Replicas == nil {
+			return false, nil
+		}
 		return deployment.Status.ReadyReplicas == *deployment.Spec.Replicas, nil
 
 	case "StatefulSet":
 		statefulset := &appsv1.StatefulSet{}
 		if err := r.Client.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, statefulset); err != nil {
 			return false, err
+		}
+		// Check for nil pointer before dereferencing
+		if statefulset.Spec.Replicas == nil {
+			return false, nil
 		}
 		return statefulset.Status.ReadyReplicas == *statefulset.Spec.Replicas, nil
 
@@ -189,6 +224,8 @@ func (r *BaseReconciler) checkResourceStatus(ctx context.Context, gvr schema.Gro
 		if err := r.Client.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, job); err != nil {
 			return false, err
 		}
+		logger := clog.FromContext(ctx)
+		logger.Info("Job status debug", "name", name, "succeeded", job.Status.Succeeded, "conditions", job.Status.Conditions)
 		return job.Status.Succeeded > 0, nil
 
 	case "DaemonSet":
@@ -243,9 +280,9 @@ func applyPostCreateHook(ctx context.Context, clientSet *kubernetes.Clientset, d
 
 		if clusterScoped {
 			setTrackingLabelsAndAnnotations(obj, hcp.Name)
-			_, err = dynamicClient.Resource(gvr).Apply(context.TODO(), obj.GetName(), obj, metav1.ApplyOptions{FieldManager: FieldManager})
+			_, err = dynamicClient.Resource(gvr).Apply(ctx, obj.GetName(), obj, metav1.ApplyOptions{FieldManager: FieldManager})
 		} else {
-			_, err = dynamicClient.Resource(gvr).Namespace(namespace).Apply(context.TODO(), obj.GetName(), obj, metav1.ApplyOptions{FieldManager: FieldManager})
+			_, err = dynamicClient.Resource(gvr).Namespace(namespace).Apply(ctx, obj.GetName(), obj, metav1.ApplyOptions{FieldManager: FieldManager})
 		}
 		if err != nil {
 			return err
@@ -296,7 +333,7 @@ func propagateLabels(hook *v1alpha1.PostCreateHook, hcp *v1alpha1.ControlPlane, 
 	hcp.SetLabels(hcpLabels)
 
 	if updateRequired {
-		if err := c.Update(context.TODO(), hcp, &client.SubResourceUpdateOptions{}); err != nil {
+		if err := c.Update(context.Background(), hcp, &client.SubResourceUpdateOptions{}); err != nil {
 			return err
 		}
 	}

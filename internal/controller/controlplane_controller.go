@@ -146,6 +146,15 @@ func (r *ControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	// check if API server is already in a ready state
 	ready, _ := util.IsAPIServerDeploymentReady(log, r.Client, *hcp)
+
+	// If waitForPostCreateHooks is enabled, also check if PostCreateHook resources are ready
+	if ready && hcp.Spec.WaitForPostCreateHooks != nil && *hcp.Spec.WaitForPostCreateHooks {
+		// Only mark as ready if PostCreateHook resources are also ready
+		if !hcp.Status.PostCreateHookCompleted {
+			ready = false
+		}
+	}
+
 	if ready {
 		tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionAvailable())
 	} else {

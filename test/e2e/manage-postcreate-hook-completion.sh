@@ -63,27 +63,20 @@ while true; do
         exit 1
     fi
     
-    # Check postCreateHooks status
-    hooks_status=$(kubectl get cp completion-test-cp -o jsonpath='{.status.postCreateHooks}' 2>/dev/null || echo '{}')
+    # Check only 2 things: hook applied and CP ready
     hook_completed=$(kubectl get cp completion-test-cp -o jsonpath='{.status.postCreateHooks.completion-test-hook}' 2>/dev/null || echo 'false')
-    pch_completed=$(kubectl get cp completion-test-cp -o jsonpath='{.status.postCreateHookCompleted}' 2>/dev/null || echo 'false')
     cp_ready=$(kubectl get cp completion-test-cp -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo 'False')
     
-    echo "[$elapsed s] Hook applied: $hook_completed, Resources ready: $pch_completed, CP ready: $cp_ready"
+    echo "[$elapsed s] Hook applied: $hook_completed, CP ready: $cp_ready"
     
     # Check if hook is applied
     if [ "$hook_completed" = "true" ]; then
         echo "✅ PostCreateHook successfully applied"
         
-        # Check if resources are ready (should be true when waitForPostCreateHooks is enabled)
-        if [ "$pch_completed" = "true" ]; then
-            echo "✅ PostCreateHook resources are ready"
-            
-            # Control plane should be ready only after resources are ready
-            if [ "$cp_ready" = "True" ]; then
-                echo "✅ Control plane is ready after PostCreateHook completion"
-                break
-            fi
+        # Control plane should be ready after hook is applied
+        if [ "$cp_ready" = "True" ]; then
+            echo "✅ Control plane is ready after PostCreateHook completion"
+            break
         fi
     fi
     

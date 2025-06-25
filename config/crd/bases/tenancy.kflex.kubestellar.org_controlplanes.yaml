@@ -103,6 +103,12 @@ spec:
                 - host
                 - external
                 type: string
+              waitForPostCreateHooks:
+                default: false
+                description: waitForPostCreateHooks determines if the control plane
+                  should wait for all post create hook resources to be ready before
+                  marking the control plane as ready
+                type: boolean
             type: object
           status:
             description: ControlPlaneStatus defines the observed state of ControlPlane
