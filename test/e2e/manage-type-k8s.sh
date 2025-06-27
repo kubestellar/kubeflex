@@ -23,38 +23,61 @@ source "${SRC_DIR}/setup-shell.sh"
 : -------------------------------------------------------------------------
 : Create a ControlPlane of type k8s
 :
-./bin/kflex create cp1 --type k8s --chatty-status=false
+./bin/kflex create mysupercp --type k8s --chatty-status=false
 
 :
 : -------------------------------------------------------------------------
-: Wait for the running components of ControlPlane cp1 to be ready, with
+: Verify that the kubeconfig has the correct extensions structure
+: with controlplane-name set in the context
+:
+echo "Verifying kubeconfig extensions for control plane mysupercp..."
+
+# Check that the context exists
+if ! kubectl config view --raw | grep -q "name: mysupercp"; then
+    echo "ERROR: Context mysupercp not found in kubeconfig"
+    exit 1
+fi
+
+# Check that the context has the kubeflex extension with controlplane-name
+if ! kubectl config view --raw | grep -A 50 "name: mysupercp" | grep -A 20 "extensions:" | grep -q "controlplane-name: mysupercp"; then
+    echo "ERROR: Context mysupercp does not have controlplane-name extension set to mysupercp"
+    echo "Showing the mysupercp context section:"
+    kubectl config view --raw | grep -A 30 "name: mysupercp"
+    exit 1
+fi
+
+echo "SUCCESS: Kubeconfig extensions verified for control plane mysupercp"
+
+:
+: -------------------------------------------------------------------------
+: Wait for the running components of ControlPlane mysupercp to be ready, with
 : default timeout which is 30 seconds
 :
-kubectl --context kind-kubeflex -n cp1-system wait --for=condition=Available deployment/kube-apiserver
-kubectl --context kind-kubeflex -n cp1-system wait --for=condition=Available deployment/kube-controller-manager
+kubectl --context kind-kubeflex -n mysupercp-system wait --for=condition=Available deployment/kube-apiserver
+kubectl --context kind-kubeflex -n mysupercp-system wait --for=condition=Available deployment/kube-controller-manager
 
 :
 : -------------------------------------------------------------------------
-: Specify a PostCreateHook for cp1, then wait for the PostCreateHook to
+: Specify a PostCreateHook for mysupercp, then wait for the PostCreateHook to
 : take effect, with default timeout which is 30 seconds
 :
-kubectl --context kind-kubeflex patch cp/cp1 --type=merge --patch '{"spec":{"postCreateHook":"synthetic-crd"}}'
+kubectl --context kind-kubeflex patch cp/mysupercp --type=merge --patch '{"spec":{"postCreateHook":"synthetic-crd"}}'
 wait-for-cmd 'kubectl --context kind-kubeflex get crd cr1s.synthetic-crd.com'
 kubectl --context kind-kubeflex wait --for=condition=Established crd cr1s.synthetic-crd.com
 
 :
 : -------------------------------------------------------------------------
-: Create a namespace in ControlPlane cp1, then wait for the namespace to
+: Create a namespace in ControlPlane mysupercp, then wait for the namespace to
 : become active
 :
-kubectl --context cp1 create ns e2e
-kubectl --context cp1 wait --for=jsonpath='{.status.phase}'=Active ns/e2e --timeout=120s
+kubectl --context mysupercp create ns e2e
+kubectl --context mysupercp wait --for=jsonpath='{.status.phase}'=Active ns/e2e --timeout=120s
 
 :
 : -------------------------------------------------------------------------
-: Delete ControlPlane cp1
+: Delete ControlPlane mysupercp
 :
-./bin/kflex delete cp1 --chatty-status=false
+./bin/kflex delete mysupercp --chatty-status=false
 
 :
 : -------------------------------------------------------------------------
