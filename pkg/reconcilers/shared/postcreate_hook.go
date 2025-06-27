@@ -47,99 +47,164 @@ type Vars struct {
 func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp *v1alpha1.ControlPlane) error {
 	logger := clog.FromContext(ctx)
 	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
-
-	if hcp.Spec.PostCreateHook == nil {
-		return nil
+	
+	// Collect all hooks to process (legacy + new) while preserving order
+	hooks := make([]v1alpha1.PostCreateHookUse, 0)
+	seen := make(map[string]bool)
+	
+	// Add legacy hook first if specified
+	if hcp.Spec.PostCreateHook != nil {
+		hookName := *hcp.Spec.PostCreateHook
+		hooks = append(hooks, v1alpha1.PostCreateHookUse{
+			HookName: hookName,
+			Vars:     hcp.Spec.PostCreateHookVars,
+		})
+		seen[hookName] = true
 	}
-
-	// Hook is only applied once after CP creation
-	_, ok := hcp.Status.PostCreateHooks[*hcp.Spec.PostCreateHook]
-	if ok {
-		// Check if all resources are ready only if WaitForPostCreateHooks is enabled
-		if hcp.Spec.WaitForPostCreateHooks != nil && *hcp.Spec.WaitForPostCreateHooks {
-			logger.Info("Checking post-create hook resources", "hook", *hcp.Spec.PostCreateHook)
-			if err := r.checkPostCreateHookResources(ctx, hcp); err != nil {
-				return fmt.Errorf("error checking post create hook resources: %w", err)
+	
+	// Add new hooks in declared order, skipping duplicates
+	for _, hook := range hcp.Spec.PostCreateHooks {
+		if hook.HookName != "" {
+			hookName := hook.HookName
+			if !seen[hookName] {
+				hooks = append(hooks, hook)
+				seen[hookName] = true
+			} else {
+				logger.Info("Skipping duplicate hook", "hook", hookName)
 			}
 		}
-		return nil
 	}
-
-	logger.Info("Running ReconcileUpdatePostCreateHook", "post-create-hook", *hcp.Spec.PostCreateHook)
-
-	// Get the post create hook
-	hook := &v1alpha1.PostCreateHook{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: *hcp.Spec.PostCreateHook,
-		},
-	}
-	if err := r.Client.Get(ctx, client.ObjectKeyFromObject(hook), hook, &client.GetOptions{}); err != nil {
-		return fmt.Errorf("error retrieving post create hook %s: %w", *hcp.Spec.PostCreateHook, err)
-	}
-
-	// Build variables with proper precedence:
-	// 1. Default vars from PostCreateHook
-	// 2. User-provided vars from ControlPlane (override defaults)
-	// 3. Built-in system vars (highest priority)
-	vars := make(map[string]interface{})
-
-	// Add default variables from hook spec
-	for _, dv := range hook.Spec.DefaultVars {
-		vars[dv.Name] = dv.Value
-	}
-
-	// Override with user-provided variables from control plane
-	for key, val := range hcp.Spec.PostCreateHookVars {
-		vars[key] = val
-	}
-
-	// Add system variables (highest priority)
-	vars["Namespace"] = namespace
-	vars["ControlPlaneName"] = hcp.Name
-	vars["HookName"] = *hcp.Spec.PostCreateHook
-
-	// Apply the hook templates
-	if err := applyPostCreateHook(ctx, r.ClientSet, r.DynamicClient, hook, vars, hcp); err != nil {
-		if util.IsTransientError(err) {
-			return fmt.Errorf("failed to apply post-create hook: %w", err) // Retry
+	
+	var errs []error
+	allHooksApplied := true
+	
+	for _, hook := range hooks {
+		hookName := hook.HookName
+		
+		// Check if hook is already applied
+		_, ok := hcp.Status.PostCreateHooks[hookName]
+		if ok {
+			// Hook is applied, check if resources are ready only if WaitForPostCreateHooks is enabled
+			if hcp.Spec.WaitForPostCreateHooks != nil && *hcp.Spec.WaitForPostCreateHooks {
+				logger.Info("Checking post-create hook resources", "hook", hookName)
+				if err := r.checkPostCreateHookResources(ctx, hcp, hookName, hook.Vars); err != nil {
+					errs = append(errs, fmt.Errorf("error checking post create hook resources for %s: %w", hookName, err))
+					allHooksApplied = false
+				}
+			}
+			continue
 		}
-		logger.Error(err, "Failed to apply post-create hook", "hook", *hcp.Spec.PostCreateHook)
+		
+		logger.Info("Processing post-create hook", "hook", hookName)
+		
+		// Get hook definition
+		pch := &v1alpha1.PostCreateHook{}
+		if err := r.Client.Get(ctx, client.ObjectKey{Name: hookName}, pch); err != nil {
+			errs = append(errs, fmt.Errorf("failed to get PostCreateHook %s: %w", hookName, err))
+			allHooksApplied = false
+			continue
+		}
+		
+		// Build variables with precedence: defaults -> global -> user vars -> system
+		vars := make(map[string]interface{})
+		
+		// 1. Default vars from hook spec
+		for _, dv := range pch.Spec.DefaultVars {
+			vars[dv.Name] = dv.Value
+		}
+		
+		// 2. Global variables from control plane
+		for key, val := range hcp.Spec.GlobalVars {
+			vars[key] = val
+		}
+		
+		// 3. User-provided vars from hook use
+		for key, val := range hook.Vars {
+			vars[key] = val
+		}
+		
+		// 4. System variables
+		vars["Namespace"] = namespace
+		vars["ControlPlaneName"] = hcp.Name
+		vars["HookName"] = hookName
+		
+		// Apply hook templates
+		if err := applyPostCreateHook(ctx, r.ClientSet, r.DynamicClient, pch, vars, hcp); err != nil {
+			if util.IsTransientError(err) {
+				errs = append(errs, fmt.Errorf("transient error applying hook %s: %w", hookName, err))
+			} else {
+				logger.Error(err, "Permanent error applying post-create hook", "hook", hookName)
+				errs = append(errs, fmt.Errorf("permanent error applying hook %s: %w", hookName, err))
+			}
+			allHooksApplied = false
+			continue
+		}
+		
+		// Update status
+		if hcp.Status.PostCreateHooks == nil {
+			hcp.Status.PostCreateHooks = make(map[string]bool)
+		}
+		hcp.Status.PostCreateHooks[hookName] = true
+		if err := r.Client.Status().Update(ctx, hcp); err != nil {
+			errs = append(errs, fmt.Errorf("failed to update status for hook %s: %w", hookName, err))
+			allHooksApplied = false
+			// Break on status update error to prevent inconsistent state
+			break
+		}
+		
+		// Propagate labels
+		if err := propagateLabels(pch, hcp, r.Client); err != nil {
+			logger.Error(err, "Failed to propagate labels from hook", "hook", hookName)
+		}
 	}
-
-	// Update status if hook was successfully applied
-	if hcp.Status.PostCreateHooks == nil {
-		hcp.Status.PostCreateHooks = make(map[string]bool)
+	
+	// Update PostCreateHookCompleted status based on all hooks and their resources
+	if hcp.Spec.WaitForPostCreateHooks != nil && *hcp.Spec.WaitForPostCreateHooks {
+		allResourcesReady := true
+		for _, hook := range hooks {
+			hookName := hook.HookName
+			if hcp.Status.PostCreateHooks[hookName] {
+				if err := r.checkPostCreateHookResources(ctx, hcp, hookName, hook.Vars); err != nil {
+					logger.Info("Hook resources not ready", "hook", hookName, "error", err)
+					allResourcesReady = false
+				}
+			} else {
+				allResourcesReady = false
+			}
+		}
+		hcp.Status.PostCreateHookCompleted = allResourcesReady && allHooksApplied
+	} else {
+		// If not waiting for resources, just check if all hooks are applied
+		hcp.Status.PostCreateHookCompleted = allHooksApplied
 	}
-	hcp.Status.PostCreateHooks[*hcp.Spec.PostCreateHook] = true
-
-	if err := r.Client.Status().Update(ctx, hcp, &client.SubResourceUpdateOptions{}); err != nil {
-		return fmt.Errorf("failed to update control plane status: %w", err)
+	
+	// Update final status
+	if err := r.Client.Status().Update(ctx, hcp); err != nil {
+		errs = append(errs, fmt.Errorf("failed to update final status: %w", err))
 	}
-
-	// Propagate labels from hook to control plane
-	if err := propagateLabels(hook, hcp, r.Client); err != nil {
-		return fmt.Errorf("failed to propagate labels: %w", err)
+	
+	if len(errs) > 0 {
+		return fmt.Errorf("errors processing hooks: %v", errs)
 	}
-
 	return nil
 }
 
-// checkPostCreateHookResources checks if all resources created by the post create hook are ready
-func (r *BaseReconciler) checkPostCreateHookResources(ctx context.Context, hcp *v1alpha1.ControlPlane) error {
+// checkPostCreateHookResources checks if all resources created by a specific post create hook are ready
+func (r *BaseReconciler) checkPostCreateHookResources(ctx context.Context, hcp *v1alpha1.ControlPlane, hookName string, hookVars map[string]string) error {
 	logger := clog.FromContext(ctx)
 	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
 
 	// Get the post create hook
 	hook := &v1alpha1.PostCreateHook{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: *hcp.Spec.PostCreateHook,
+			Name: hookName,
 		},
 	}
 	if err := r.Client.Get(ctx, client.ObjectKeyFromObject(hook), hook, &client.GetOptions{}); err != nil {
-		return fmt.Errorf("error retrieving post create hook %s: %w", *hcp.Spec.PostCreateHook, err)
+		return fmt.Errorf("error retrieving post create hook %s: %w", hookName, err)
 	}
 
-	// Build variables with proper precedence (same as in ReconcileUpdatePostCreateHook)
+	// Build variables with proper precedence
 	vars := make(map[string]interface{})
 
 	// Add default variables from hook spec
@@ -147,17 +212,21 @@ func (r *BaseReconciler) checkPostCreateHookResources(ctx context.Context, hcp *
 		vars[dv.Name] = dv.Value
 	}
 
-	// Override with user-provided variables from control plane
-	for key, val := range hcp.Spec.PostCreateHookVars {
+	// Add global variables from control plane
+	for key, val := range hcp.Spec.GlobalVars {
+		vars[key] = val
+	}
+
+	// Override with user-provided variables from hook use
+	for key, val := range hookVars {
 		vars[key] = val
 	}
 
 	// Add system variables (highest priority)
 	vars["Namespace"] = namespace
 	vars["ControlPlaneName"] = hcp.Name
-	vars["HookName"] = *hcp.Spec.PostCreateHook
+	vars["HookName"] = hookName
 
-	allResourcesReady := true
 	// Check each template's resource status
 	for _, template := range hook.Spec.Templates {
 		// Render the template with variables first
@@ -184,14 +253,12 @@ func (r *BaseReconciler) checkPostCreateHookResources(ctx context.Context, hcp *
 		}
 
 		if !ready {
-			logger.Info("Resource not ready", "kind", gvk.Kind, "name", obj.GetName())
-			allResourcesReady = false
+			logger.Info("Resource not ready", "kind", gvk.Kind, "name", obj.GetName(), "hook", hookName)
+			return fmt.Errorf("resource %s/%s not ready", gvk.Kind, obj.GetName())
 		}
 	}
 
-	// Update status only once after checking all resources
-	hcp.Status.PostCreateHookCompleted = allResourcesReady
-	return r.Client.Status().Update(ctx, hcp, &client.SubResourceUpdateOptions{})
+	return nil
 }
 
 // checkResourceStatus checks if a specific resource is ready based on its type
@@ -202,22 +269,24 @@ func (r *BaseReconciler) checkResourceStatus(ctx context.Context, gvr schema.Gro
 		if err := r.Client.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, deployment); err != nil {
 			return false, err
 		}
-		// Check for nil pointer before dereferencing
-		if deployment.Spec.Replicas == nil {
-			return false, nil
+		// Handle nil replicas (Kubernetes defaults to 1)
+		expectedReplicas := int32(1)
+		if deployment.Spec.Replicas != nil {
+			expectedReplicas = *deployment.Spec.Replicas
 		}
-		return deployment.Status.ReadyReplicas == *deployment.Spec.Replicas, nil
+		return deployment.Status.ReadyReplicas == expectedReplicas, nil
 
 	case "StatefulSet":
 		statefulset := &appsv1.StatefulSet{}
 		if err := r.Client.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, statefulset); err != nil {
 			return false, err
 		}
-		// Check for nil pointer before dereferencing
-		if statefulset.Spec.Replicas == nil {
-			return false, nil
+		// Handle nil replicas (Kubernetes defaults to 1)
+		expectedReplicas := int32(1)
+		if statefulset.Spec.Replicas != nil {
+			expectedReplicas = *statefulset.Spec.Replicas
 		}
-		return statefulset.Status.ReadyReplicas == *statefulset.Spec.Replicas, nil
+		return statefulset.Status.ReadyReplicas == expectedReplicas, nil
 
 	case "Job":
 		job := &batchv1.Job{}

@@ -32,12 +32,27 @@ type ControlPlaneSpec struct {
 	// +optional
 	// +kubebuilder:default:=31536000
 	TokenExpirationSeconds *int64            `json:"tokenExpirationSeconds,omitempty"`
+	// Keep the deprecated fields for backwards compatibility
+	// Deprecated: Use PostCreateHooks instead
 	PostCreateHook         *string           `json:"postCreateHook,omitempty"`
+	// Deprecated: Use PostCreateHooks instead
 	PostCreateHookVars     map[string]string `json:"postCreateHookVars,omitempty"`
+	// New multi-hook support
+	PostCreateHooks        []PostCreateHookUse `json:"postCreateHooks,omitempty"`
+	GlobalVars             map[string]string   `json:"globalVars,omitempty"`
 	// waitForPostCreateHooks determines if the control plane should wait for all post create hook resources to be ready before marking the control plane as ready
 	// +optional
 	// +kubebuilder:default:=false
 	WaitForPostCreateHooks *bool `json:"waitForPostCreateHooks,omitempty"`
+}
+
+// PostCreateHookUse defines a reference to a PostCreateHook with optional variables
+type PostCreateHookUse struct {
+	// Name of the PostCreateHook resource to execute
+	HookName string `json:"hookName"`
+	// Variables to pass to the hook template
+	// +optional
+	Vars map[string]string `json:"vars,omitempty"`
 }
 
 // ControlPlaneStatus defines the observed state of ControlPlane
