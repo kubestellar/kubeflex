@@ -32,17 +32,21 @@ source "${SRC_DIR}/setup-shell.sh"
 :
 echo "Verifying kubeconfig extensions for control plane cp1..."
 
-# Check that the context exists
-if ! kubectl config view --raw | grep -q "name: cp1"; then
-    echo "ERROR: Context cp1 not found in kubeconfig"
+context_name="cp1"
+cp_name="cp1"
+
+# Extract the controlplane-name from kubeconfig extensions using yq
+actual_cp_name=$(kubectl config view -o=yaml | yq -r '.contexts[] | select(.name == "'$context_name'") | .context.extensions[] | select(.name == "kubeflex") | .extension.data["controlplane-name"] // ""')
+
+if [ -z "$actual_cp_name" ]; then
+    echo "ERROR: Context $context_name not found or does not have kubeflex extension with controlplane-name"
+    echo "Available contexts:"
+    kubectl config view -o=yaml | yq -r '.contexts[].name'
     exit 1
 fi
 
-# Check that the context has the kubeflex extension with controlplane-name
-if ! kubectl config view --raw | grep -A 50 "name: cp1" | grep -A 20 "extensions:" | grep -q "controlplane-name: cp1"; then
-    echo "ERROR: Context cp1 does not have controlplane-name extension set to cp1"
-    echo "Showing the cp1 context section:"
-    kubectl config view --raw | grep -A 30 "name: cp1"
+if [ "$actual_cp_name" != "$cp_name" ]; then
+    echo "ERROR: Expected controlplane-name '$cp_name', but found '$actual_cp_name'"
     exit 1
 fi
 
