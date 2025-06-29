@@ -128,6 +128,7 @@ func ExecuteCreate(cp common.CP, controlPlaneType string, backendType string, ho
 		}
 	case string(tenancyv1alpha1.ControlPlaneTypeK3s):
 		// NOTE: different implementation
+		// NOTE: `kflex create` never stops because WaitForStatefulSetReady never finishes, as reconciler is not updating r.Status currently
 		if err := util.WaitForStatefulSetReady(clientset, k3s.ServerName, controlPlane.Name+k3s.SystemNamespaceSuffix); err != nil {
 			return fmt.Errorf("error waiting for stateful set to become ready: %v", err)
 		}
