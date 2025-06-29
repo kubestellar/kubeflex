@@ -45,6 +45,20 @@ contexts:
           name: kubeflex                               # same as below
       name: kubeflex                                   # change -> new extension name "kubeflex"
     name: kind-kubeflex
+  - context:
+      cluster: mysupercp-cluster 
+      extensions:
+      - extension:
+          data:
+            controlplane-name: mysupercp # change -> control plane name is saved under extension
+          metadata:
+            creationTimestamp: "2025-06-27T06:07:03Z"
+            name: kubeflex
+        name: kubeflex
+      namespace: default 
+      user: mysupercp-admin
+    name: mysupercp 
+  current-context: mysupercp
 ```
 
 Proceed to change the kubeconfig file to match `v0.9.0`, as follow:
