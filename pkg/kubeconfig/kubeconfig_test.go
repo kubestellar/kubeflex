@@ -30,14 +30,19 @@ func TestAssignControlPlaneToContext_Positive(t *testing.T) {
 		t.Fatalf("expected no error, got: %v", err)
 	}
 
-	ext, ok := kconf.Contexts[ctxName].Extensions[ExtensionKubeflexKey]
+	_, ok := kconf.Contexts[ctxName].Extensions[ExtensionKubeflexKey]
 	if !ok {
 		t.Fatalf("expected kubeflex extension to be set in context")
 	}
 
-	runtimeExt, ok := ext.(*RuntimeKubeflexExtension)
-	if !ok {
-		t.Fatalf("expected extension to be of type *RuntimeKubeflexExtension")
+	kflexConfig, err := NewKubeflexContextConfig(*kconf, ctxName)
+	if err != nil {
+		t.Fatalf("expected no error creating kubeflex context config, got: %v", err)
+	}
+	runtimeExt := NewRuntimeKubeflexExtension()
+	err = kflexConfig.ConvertExtensionsToRuntimeExtension(runtimeExt)
+	if err != nil {
+		t.Fatalf("expected no error converting extensions to runtime extension, got: %v", err)
 	}
 
 	if got := runtimeExt.Data[ExtensionControlPlaneName]; got != cpName {
