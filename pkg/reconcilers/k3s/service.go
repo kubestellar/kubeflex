@@ -18,6 +18,7 @@ package k3s
 
 import (
 	"context"
+	"fmt"
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/shared"
@@ -27,7 +28,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-const ServiceName = "k3s-svc"
+const ServiceName = "k3s"
 
 // K3s service
 type Service struct {
@@ -64,6 +65,11 @@ func NewService() (_ *v1.Service, err error) {
 			Selector: serverLabels(),
 		},
 	}, nil
+}
+
+// Get static DNS record in kubernetes form
+func GetStaticDNSRecord(namespace string) string {
+	return fmt.Sprintf("https://%s.%s.svc", ServiceName, namespace)
 }
 
 // Reconcile a service
