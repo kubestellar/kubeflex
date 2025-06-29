@@ -126,6 +126,8 @@ func AssignControlPlaneToContext(kconf *clientcmdapi.Config, cpName string, ctxN
 		if err != nil {
 			return fmt.Errorf("error while assigning control plane to context: %v", err)
 		}
+		// Step 3: Assign to the context kubeflex extension data the key ExtensionControlPlaneName const and controlplane name as value
+		kflexConfig.Extensions.ControlPlaneName = cpName
 		if parsed, err = kflexConfig.ParseToKubeconfigExtensions(); err != nil {
 			return fmt.Errorf("error while assigning control plane to context: %v", err)
 		}
