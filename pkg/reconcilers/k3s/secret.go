@@ -22,7 +22,6 @@ import (
 
 	"github.com/go-logr/logr"
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
-	"github.com/kubestellar/kubeflex/pkg/reconcilers/k3s"
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/shared"
 	"github.com/kubestellar/kubeflex/pkg/util"
 	v1 "k8s.io/api/core/v1"
@@ -58,14 +57,15 @@ func NewKubeconfigSecret(namespace string) (_ *v1.Secret, err error) {
 }
 
 func handleReconcileError(log logr.Logger, err error) (ctrl.Result, error) {
-	if util.IsTransientError(err) {
-		// Retry
-		log.Error(err, "secret reconcile is on transient err, retrying now")
-		return ctrl.Result{Requeue: true}, err // Retry transient errors
-	}
 	if err != nil {
-		log.Error(err, "secret reconcile is on err", "error", err)
-		return ctrl.Result{}, fmt.Errorf("failed to reconcile: %w", err)
+		if util.IsTransientError(err) {
+			// Retry
+			log.Error(err, "secret reconcile is on transient err, retrying now")
+			return ctrl.Result{Requeue: true}, err // Retry transient errors
+		} else {
+			log.Error(err, "secret reconcile is on err", "error", err)
+			return ctrl.Result{}, fmt.Errorf("failed to reconcile: %w", err)
+		}
 	}
 	return ctrl.Result{}, nil
 }
@@ -78,9 +78,20 @@ func (r *Secret) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlan
 	ksecret, _ := NewKubeconfigSecret(namespace)
 	// Get secret from cluster if existent
 	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(ksecret), ksecret, &client.GetOptions{})
-	if secretIsNotFound := apierrors.IsNotFound(err); !secretIsNotFound {
-		return handleReconcileError(log, err)
+	if err != nil {
+		// Secret does not exist
+		if apierrors.IsNotFound(err) {
+			// Create new secret
+			if err = r.Client.Create(context.TODO(), ksecret); err != nil {
+				return handleReconcileError(log, err)
+			}
+			log.Info("k3s secret is successfully created", "secretName", ksecret.Name)
+		} else {
+			return handleReconcileError(log, err)
+		}
+
 	}
+	// Secret exist
 	log.Info("secret is found on the kubernetes cluster", "secretName", ksecret.Name)
 	// Store hosting cluster kubeconfig
 	kconf, err := clientcmd.Load(ksecret.Data[KubeconfigSecretKey])
@@ -88,24 +99,27 @@ func (r *Secret) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlan
 		log.Error(err, "failed to load kubeconfig from secret", "secretName", KubeconfigSecretName, "secretKey", KubeconfigSecretKey)
 		return ctrl.Result{}, err
 	}
+	// TODO: ksecret.Data[KubeconfigSecretKey] is empty, how to populate?
+	if string(ksecret.Data[KubeconfigSecretKey]) == "" {
+		log.Info("secret data is empty, populating its value...", "secretName", ksecret.Name, "secretKey", KubeconfigSecretKey)
+	}
 	for cluster := range kconf.Clusters {
 		// Update cluster by adding
-		kconf.Clusters[cluster].Server = k3s.GetStaticDNSRecord(namespace)
+		kconf.Clusters[cluster].Server = GetStaticDNSRecord(namespace)
 	}
 	// Store k3s incluster kubeconfig
-	if inClusterConfigYAML, err := clientcmd.Write(*kconf); err == nil {
-		ksecret.Data[KubeconfigSecretKeyInCluster] = inClusterConfigYAML
-		log.Info("hosting cluster kubeconfig successfully saved")
-		log.Info("k3s in-cluster kubeconfig successfully saved")
-	} else {
+	inClusterConfigYAML, err := clientcmd.Write(*kconf)
+	if err != nil {
 		log.Error(err, "failed to write k3s kubeconfig")
 		return ctrl.Result{}, err
 	}
-	// Create new secret
-	err = r.Client.Update(context.TODO(), ksecret)
-	if res, err := handleReconcileError(log, err); err != nil {
-		return res, err
+	ksecret.Data[KubeconfigSecretKeyInCluster] = inClusterConfigYAML
+	log.Info("hosting cluster kubeconfig has new values, but not updated yet")
+	log.Info("k3s in-cluster kubeconfig has new values, but not updated yet")
+	if err = r.Client.Update(context.TODO(), ksecret); err != nil {
+		log.Error(err, "on failure during update attempt of secret", "secretName", ksecret.Name)
+		return handleReconcileError(log, err)
 	}
-	log.Info("secret is successfully created", "secretName", ksecret.Name)
+	log.Info("k3s secret is successfully updated", "secretName", ksecret.Name)
 	return r.BaseReconciler.Reconcile(ctx, hcp)
 }
