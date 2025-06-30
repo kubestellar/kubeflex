@@ -34,6 +34,7 @@ type K3sReconciler struct {
 	*Namespace             // k3s namespace
 	*Service               // k3s service
 	*Server                // k3s api server
+	*Secret                // k3s secret
 	*shared.BaseReconciler // shared base controller
 }
 
@@ -53,6 +54,7 @@ func New(cl client.Client, scheme *runtime.Scheme, version string, clientSet *ku
 		Namespace:      &Namespace{&br},
 		Service:        &Service{&br},
 		Server:         &Server{&br},
+		Secret:         &Secret{&br},
 	}
 }
 
@@ -60,9 +62,17 @@ func New(cl client.Client, scheme *runtime.Scheme, version string, clientSet *ku
 // implements ControlPlaneReconciler
 // TODO: to implement
 func (r *K3sReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
-	// Idempotent
+	// Reconcile mandatory k3s namespace
 	if result, err := r.Namespace.Reconcile(ctx, hcp); err != nil {
 		return result, err
 	}
-	return r.Server.Reconcile(ctx, hcp)
+	// Reconcile k3s secret
+	if result, err := r.Server.Reconcile(ctx, hcp); err != nil {
+		return result, err
+	}
+	// Reconcile k3s server
+	if result, err := r.Secret.Reconcile(ctx, hcp); err != nil {
+		return result, err
+	}
+	return r.BaseReconciler.Reconcile(ctx, hcp)
 }
