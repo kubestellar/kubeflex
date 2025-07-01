@@ -51,7 +51,7 @@ func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp 
 	seen := make(map[string]bool)
 
 	// Add legacy hook first if specified
-	if hcp.Spec.PostCreateHook != nil {
+	if hcp.Spec.PostCreateHook != nil && *hcp.Spec.PostCreateHook != "" {
 		hookName := *hcp.Spec.PostCreateHook
 		hooks = append(hooks, v1alpha1.PostCreateHookUse{
 			HookName: hcp.Spec.PostCreateHook,
@@ -62,7 +62,7 @@ func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp 
 
 	// Add new hooks in declared order, skipping duplicates
 	for _, hook := range hcp.Spec.PostCreateHooks {
-		if hook.HookName != nil {
+		if hook.HookName != nil && *hook.HookName != "" {
 			hookName := *hook.HookName
 			if !seen[hookName] {
 				hooks = append(hooks, hook)
@@ -75,12 +75,22 @@ func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp 
 
 	var errs []error
 	allHooksApplied := true
+	allResourcesReady := true
 
 	for _, hook := range hooks {
 		hookName := *hook.HookName
 
-		// Skip already applied hooks
-		if hcp.Status.PostCreateHooks != nil && hcp.Status.PostCreateHooks[hookName] {
+		// Check if hook is already applied
+		_, ok := hcp.Status.PostCreateHooks[hookName]
+		if ok {
+			// Hook is applied, check if resources are ready only if WaitForPostCreateHooks is enabled
+			if hcp.Spec.WaitForPostCreateHooks != nil && *hcp.Spec.WaitForPostCreateHooks {
+				logger.Info("Checking post-create hook resources", "hook", hookName)
+				if err := r.checkPostCreateHookResources(ctx, hcp, hookName, hook.Vars); err != nil {
+					logger.Info("Hook resources not ready", "hook", hookName, "error", err)
+					allResourcesReady = false
+				}
+			}
 			continue
 		}
 
@@ -142,11 +152,13 @@ func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp 
 					errs = append(errs, fmt.Errorf("error checking readiness for hook %s: %w", hookName, err))
 				}
 				allHooksApplied = false
+				allResourcesReady = false
 				continue
 			}
 			if !ready {
 				logger.Info("Resources not ready yet for hook", "hook", hookName)
-				allHooksApplied = false
+				allResourcesReady = false
+				// Don't mark hook as applied yet - will retry
 				continue
 			}
 		}
@@ -169,21 +181,110 @@ func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp 
 		}
 	}
 
-	// Update final "PostCreateHookCompleted" flag if all hooks are processed successfully
-	if allHooksApplied && len(errs) == 0 {
-		if !hcp.Status.PostCreateHookCompleted {
-			hcp.Status.PostCreateHookCompleted = true
-			if err := r.Client.Status().Update(ctx, hcp); err != nil {
-				errs = append(errs, fmt.Errorf("failed to update PostCreateHookCompleted status: %w", err))
-			} else {
-				logger.Info("All post-create hooks completed successfully")
-			}
-		}
+	// Update PostCreateHookCompleted status
+	if hcp.Spec.WaitForPostCreateHooks != nil && *hcp.Spec.WaitForPostCreateHooks {
+		// NEW BEHAVIOR: Complete only when all hooks applied AND all resources ready
+		hcp.Status.PostCreateHookCompleted = allHooksApplied && allResourcesReady && len(errs) == 0
+	} else {
+		// OLD BEHAVIOR: Complete when all hooks applied (don't wait for resources)
+		hcp.Status.PostCreateHookCompleted = allHooksApplied && len(errs) == 0
+	}
+
+	// Update final status
+	if err := r.Client.Status().Update(ctx, hcp); err != nil {
+		errs = append(errs, fmt.Errorf("failed to update final status: %w", err))
 	}
 
 	if len(errs) > 0 {
 		return fmt.Errorf("errors processing hooks: %v", errs)
 	}
+	return nil
+}
+
+// checkPostCreateHookResources checks if all resources created by a specific post create hook are ready
+func (r *BaseReconciler) checkPostCreateHookResources(ctx context.Context, hcp *v1alpha1.ControlPlane, hookName string, hookVars map[string]string) error {
+	logger := clog.FromContext(ctx)
+	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
+
+	// Get the post create hook
+	hook := &v1alpha1.PostCreateHook{}
+	if err := r.Client.Get(ctx, client.ObjectKey{Name: hookName}, hook); err != nil {
+		return fmt.Errorf("error retrieving post create hook %s: %w", hookName, err)
+	}
+
+	// Build variables with proper precedence (same as in main function)
+	vars := make(map[string]interface{})
+
+	// Add default variables from hook spec
+	for _, dv := range hook.Spec.DefaultVars {
+		vars[dv.Name] = dv.Value
+	}
+
+	// Add global variables from control plane
+	for key, val := range hcp.Spec.GlobalVars {
+		vars[key] = val
+	}
+
+	// Override with user-provided variables from hook use
+	for key, val := range hookVars {
+		vars[key] = val
+	}
+
+	// Add system variables (highest priority)
+	vars["Namespace"] = namespace
+	vars["ControlPlaneName"] = hcp.Name
+	vars["HookName"] = hookName
+
+	// Check each template's resource status
+	for _, template := range hook.Spec.Templates {
+		// Render the template with variables first
+		rendered, err := util.RenderYAML(template.Raw, vars)
+		if err != nil {
+			return fmt.Errorf("error rendering template: %w", err)
+		}
+
+		obj, err := util.ToUnstructured(rendered)
+		if err != nil {
+			return fmt.Errorf("error converting rendered template to unstructured: %w", err)
+		}
+
+		gvk := util.GetGroupVersionKindFromObject(obj)
+		gvr, err := util.GVKToGVR(r.ClientSet, gvk)
+		if err != nil {
+			return fmt.Errorf("error getting GVR: %w", err)
+		}
+
+		// Check if the resource is cluster scoped
+		apiResourceLists, err := r.ClientSet.DiscoveryClient.ServerPreferredResources()
+		if err != nil {
+			return fmt.Errorf("error getting API resources: %w", err)
+		}
+
+		clusterScoped, err := util.IsClusterScoped(gvk, apiResourceLists)
+		if err != nil {
+			return fmt.Errorf("error checking if resource is cluster scoped: %w", err)
+		}
+
+		// Create ResourceInfo for readiness checking
+		resourceInfo := ResourceInfo{
+			Name:            obj.GetName(),
+			Namespace:       namespace,
+			GVR:             gvr,
+			IsClusterScoped: clusterScoped,
+		}
+
+		// Use the existing isResourceReady function
+		ready, err := isResourceReady(ctx, r.ClientSet, r.DynamicClient, resourceInfo)
+		if err != nil {
+			return fmt.Errorf("error checking resource status: %w", err)
+		}
+
+		if !ready {
+			logger.Info("Resource not ready", "kind", gvk.Kind, "name", obj.GetName(), "hook", hookName)
+			return fmt.Errorf("resource %s/%s not ready", gvk.Kind, obj.GetName())
+		}
+	}
+
 	return nil
 }
 
