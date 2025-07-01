@@ -50,7 +50,7 @@ type ControlPlaneSpec struct {
 
 type PostCreateHookUse struct {
 	// Name of the PostCreateHook resource to execute
-	HookName string `json:"hookName"`
+	HookName *string `json:"hookName"`
 	// Variables to pass to the hook template
 	// +optional
 	Vars map[string]string `json:"vars,omitempty"`
