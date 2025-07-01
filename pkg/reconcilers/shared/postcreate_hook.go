@@ -20,6 +20,10 @@ import (
 	"context"
 	"fmt"
 
+	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -42,6 +46,8 @@ type Vars struct {
 	HookName         string
 }
 
+// ReconcileUpdatePostCreateHook is the main orchestrator that processes all post-create hooks
+// and implements conditional completion logic based on WaitForPostCreateHooks flag
 func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp *v1alpha1.ControlPlane) error {
 	logger := clog.FromContext(ctx)
 	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
@@ -50,7 +56,7 @@ func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp 
 	hooks := make([]v1alpha1.PostCreateHookUse, 0)
 	seen := make(map[string]bool)
 
-	// Add legacy hook first if specified
+	// Add legacy hook first if specified (backward compatibility)
 	if hcp.Spec.PostCreateHook != nil && *hcp.Spec.PostCreateHook != "" {
 		hookName := *hcp.Spec.PostCreateHook
 		hooks = append(hooks, v1alpha1.PostCreateHookUse{
@@ -77,6 +83,7 @@ func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp 
 	allHooksApplied := true
 	allResourcesReady := true
 
+	// Process each hook
 	for _, hook := range hooks {
 		hookName := *hook.HookName
 
@@ -122,13 +129,13 @@ func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp 
 			vars[key] = val
 		}
 
-		// 4. System variables
+		// 4. System variables (highest priority)
 		vars["Namespace"] = namespace
 		vars["ControlPlaneName"] = hcp.Name
 		vars["HookName"] = hookName
 
 		// Apply hook templates
-		appliedResources, err := applyPostCreateHook(ctx, r.ClientSet, r.DynamicClient, pch, vars, hcp)
+		appliedResources, err := r.applyPostCreateHook(ctx, r.ClientSet, r.DynamicClient, pch, vars, hcp)
 		if err != nil {
 			if util.IsTransientError(err) {
 				errs = append(errs, fmt.Errorf("transient error applying hook %s: %w", hookName, err))
@@ -141,9 +148,9 @@ func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp 
 			continue
 		}
 
-		// Check if resources are ready (if enabled)
+		// Check if newly applied resources are ready (if enabled)
 		if hcp.Spec.WaitForPostCreateHooks != nil && *hcp.Spec.WaitForPostCreateHooks {
-			ready, err := checkResourcesReady(ctx, r.ClientSet, r.DynamicClient, appliedResources, namespace)
+			ready, err := r.checkAppliedResourcesReady(ctx, appliedResources, namespace)
 			if err != nil {
 				if util.IsTransientError(err) {
 					errs = append(errs, fmt.Errorf("transient error checking readiness for hook %s: %w", hookName, err))
@@ -163,7 +170,7 @@ func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp 
 			}
 		}
 
-		// Update status
+		// Update status - mark hook as applied
 		if hcp.Status.PostCreateHooks == nil {
 			hcp.Status.PostCreateHooks = make(map[string]bool)
 		}
@@ -175,8 +182,8 @@ func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp 
 			break
 		}
 
-		// Propagate labels
-		if err := propagateLabels(pch, hcp, r.Client); err != nil {
+		// Propagate labels from hook to control plane
+		if err := r.propagateLabels(pch, hcp, r.Client); err != nil {
 			logger.Error(err, "Failed to propagate labels from hook", "hook", hookName)
 		}
 	}
@@ -201,18 +208,17 @@ func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp 
 	return nil
 }
 
-// checkPostCreateHookResources checks if all resources created by a specific post create hook are ready
+// checkPostCreateHookResources checks if all resources created by a specific already-applied hook are ready
 func (r *BaseReconciler) checkPostCreateHookResources(ctx context.Context, hcp *v1alpha1.ControlPlane, hookName string, hookVars map[string]string) error {
-	logger := clog.FromContext(ctx)
 	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
 
-	// Get the post create hook
+	// Get the post create hook definition
 	hook := &v1alpha1.PostCreateHook{}
 	if err := r.Client.Get(ctx, client.ObjectKey{Name: hookName}, hook); err != nil {
 		return fmt.Errorf("error retrieving post create hook %s: %w", hookName, err)
 	}
 
-	// Build variables with proper precedence (same as in main function)
+	// Build variables with proper precedence (same as main function)
 	vars := make(map[string]interface{})
 
 	// Add default variables from hook spec
@@ -237,7 +243,7 @@ func (r *BaseReconciler) checkPostCreateHookResources(ctx context.Context, hcp *
 
 	// Check each template's resource status
 	for _, template := range hook.Spec.Templates {
-		// Render the template with variables first
+		// Render the template with variables
 		rendered, err := util.RenderYAML(template.Raw, vars)
 		if err != nil {
 			return fmt.Errorf("error rendering template: %w", err)
@@ -254,33 +260,13 @@ func (r *BaseReconciler) checkPostCreateHookResources(ctx context.Context, hcp *
 			return fmt.Errorf("error getting GVR: %w", err)
 		}
 
-		// Check if the resource is cluster scoped
-		apiResourceLists, err := r.ClientSet.DiscoveryClient.ServerPreferredResources()
-		if err != nil {
-			return fmt.Errorf("error getting API resources: %w", err)
-		}
-
-		clusterScoped, err := util.IsClusterScoped(gvk, apiResourceLists)
-		if err != nil {
-			return fmt.Errorf("error checking if resource is cluster scoped: %w", err)
-		}
-
-		// Create ResourceInfo for readiness checking
-		resourceInfo := ResourceInfo{
-			Name:            obj.GetName(),
-			Namespace:       namespace,
-			GVR:             gvr,
-			IsClusterScoped: clusterScoped,
-		}
-
-		// Use the existing isResourceReady function
-		ready, err := isResourceReady(ctx, r.ClientSet, r.DynamicClient, resourceInfo)
+		// Check resource readiness
+		ready, err := r.checkResourceStatus(ctx, gvr, obj.GetName(), namespace, gvk.Kind)
 		if err != nil {
 			return fmt.Errorf("error checking resource status: %w", err)
 		}
 
 		if !ready {
-			logger.Info("Resource not ready", "kind", gvk.Kind, "name", obj.GetName(), "hook", hookName)
 			return fmt.Errorf("resource %s/%s not ready", gvk.Kind, obj.GetName())
 		}
 	}
@@ -293,12 +279,15 @@ type ResourceInfo struct {
 	Name            string
 	Namespace       string
 	GVR             schema.GroupVersionResource
+	Kind            string
 	IsClusterScoped bool
 }
 
-func applyPostCreateHook(ctx context.Context, clientSet *kubernetes.Clientset, dynamicClient *dynamic.DynamicClient, hook *v1alpha1.PostCreateHook, vars map[string]interface{}, hcp *v1alpha1.ControlPlane) ([]ResourceInfo, error) {
+// applyPostCreateHook applies all templates in a hook and returns info about applied resources
+func (r *BaseReconciler) applyPostCreateHook(ctx context.Context, clientSet *kubernetes.Clientset, dynamicClient *dynamic.DynamicClient, hook *v1alpha1.PostCreateHook, vars map[string]interface{}, hcp *v1alpha1.ControlPlane) ([]ResourceInfo, error) {
 	logger := clog.FromContext(ctx)
 	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
+
 	apiResourceLists, err := clientSet.DiscoveryClient.ServerPreferredResources()
 	if err != nil {
 		return nil, err
@@ -307,8 +296,8 @@ func applyPostCreateHook(ctx context.Context, clientSet *kubernetes.Clientset, d
 	var appliedResources []ResourceInfo
 
 	for _, template := range hook.Spec.Templates {
-		raw := template.Raw
-		rendered, err := util.RenderYAML(raw, vars)
+		// Render template
+		rendered, err := util.RenderYAML(template.Raw, vars)
 		if err != nil {
 			return nil, err
 		}
@@ -335,35 +324,35 @@ func applyPostCreateHook(ctx context.Context, clientSet *kubernetes.Clientset, d
 
 		logger.Info("Applying", "object", util.GenerateObjectInfoString(*obj), "cpNamespace", namespace)
 
+		// Apply the resource
 		if clusterScoped {
-			setTrackingLabelsAndAnnotations(obj, hcp.Name)
-			_, err = dynamicClient.Resource(gvr).Apply(context.TODO(), obj.GetName(), obj, metav1.ApplyOptions{FieldManager: FieldManager})
+			r.setTrackingLabelsAndAnnotations(obj, hcp.Name)
+			_, err = dynamicClient.Resource(gvr).Apply(ctx, obj.GetName(), obj, metav1.ApplyOptions{FieldManager: FieldManager})
 		} else {
-			_, err = dynamicClient.Resource(gvr).Namespace(namespace).Apply(context.TODO(), obj.GetName(), obj, metav1.ApplyOptions{FieldManager: FieldManager})
+			_, err = dynamicClient.Resource(gvr).Namespace(namespace).Apply(ctx, obj.GetName(), obj, metav1.ApplyOptions{FieldManager: FieldManager})
 		}
 		if err != nil {
 			return nil, err
 		}
 
-		// Add to applied resources for readiness checking
+		// Track applied resource for readiness checking
 		resourceInfo := ResourceInfo{
 			Name:            obj.GetName(),
 			Namespace:       namespace,
 			GVR:             gvr,
+			Kind:            gvk.Kind,
 			IsClusterScoped: clusterScoped,
-		}
-		if !clusterScoped {
-			resourceInfo.Namespace = namespace
 		}
 		appliedResources = append(appliedResources, resourceInfo)
 	}
+
 	return appliedResources, nil
 }
 
-// checkResourcesReady checks if all applied resources are ready
-func checkResourcesReady(ctx context.Context, clientSet *kubernetes.Clientset, dynamicClient *dynamic.DynamicClient, resources []ResourceInfo, namespace string) (bool, error) {
+// checkAppliedResourcesReady checks if all newly applied resources are ready
+func (r *BaseReconciler) checkAppliedResourcesReady(ctx context.Context, resources []ResourceInfo, namespace string) (bool, error) {
 	for _, resource := range resources {
-		ready, err := isResourceReady(ctx, clientSet, dynamicClient, resource)
+		ready, err := r.checkResourceStatus(ctx, resource.GVR, resource.Name, namespace, resource.Kind)
 		if err != nil {
 			return false, err
 		}
@@ -374,226 +363,91 @@ func checkResourcesReady(ctx context.Context, clientSet *kubernetes.Clientset, d
 	return true, nil
 }
 
-// isResourceReady checks if a specific resource is ready based on its type
-func isResourceReady(ctx context.Context, clientSet *kubernetes.Clientset, dynamicClient *dynamic.DynamicClient, resource ResourceInfo) (bool, error) {
-	var obj *unstructured.Unstructured
-	var err error
-
-	if resource.IsClusterScoped {
-		obj, err = dynamicClient.Resource(resource.GVR).Get(ctx, resource.Name, metav1.GetOptions{})
-	} else {
-		obj, err = dynamicClient.Resource(resource.GVR).Namespace(resource.Namespace).Get(ctx, resource.Name, metav1.GetOptions{})
-	}
-
-	if err != nil {
-		return false, err
-	}
-
-	// Check readiness based on resource type
-	switch resource.GVR.Resource {
-	case "deployments":
-		return isDeploymentReady(obj)
-	case "statefulsets":
-		return isStatefulSetReady(obj)
-	case "daemonsets":
-		return isDaemonSetReady(obj)
-	case "jobs":
-		return isJobReady(obj)
-	case "pods":
-		return isPodReady(obj)
-	case "services":
-		// Services are typically ready immediately
-		return true, nil
-	case "configmaps", "secrets":
-		// ConfigMaps and Secrets are ready when they exist
-		return true, nil
-	case "customresourcedefinitions":
-		return isCRDReady(obj)
-	default:
-		// For unknown resource types, check if they have a ready condition
-		return hasReadyCondition(obj), nil
-	}
-}
-
-func isDeploymentReady(obj *unstructured.Unstructured) (bool, error) {
-	status, found, err := unstructured.NestedMap(obj.Object, "status")
-	if err != nil || !found {
-		return false, err
-	}
-
-	spec, found, err := unstructured.NestedMap(obj.Object, "spec")
-	if err != nil || !found {
-		return false, err
-	}
-
-	replicas, found, err := unstructured.NestedInt64(spec, "replicas")
-	if err != nil || !found {
-		replicas = 1 // Default replicas
-	}
-
-	readyReplicas, _, _ := unstructured.NestedInt64(status, "readyReplicas")
-	availableReplicas, _, _ := unstructured.NestedInt64(status, "replicas")
-
-	return readyReplicas == replicas && availableReplicas == replicas && replicas > 0, nil
-}
-
-func isStatefulSetReady(obj *unstructured.Unstructured) (bool, error) {
-	status, found, err := unstructured.NestedMap(obj.Object, "status")
-	if err != nil || !found {
-		return false, err
-	}
-
-	spec, found, err := unstructured.NestedMap(obj.Object, "spec")
-	if err != nil || !found {
-		return false, err
-	}
-
-	replicas, found, err := unstructured.NestedInt64(spec, "replicas")
-	if err != nil || !found {
-		replicas = 1 // Default replicas
-	}
-
-	readyReplicas, _, _ := unstructured.NestedInt64(status, "readyReplicas")
-	availableReplicas, _, _ := unstructured.NestedInt64(status, "replicas")
-
-	return readyReplicas == replicas && availableReplicas == replicas && replicas > 0, nil
-}
-
-func isDaemonSetReady(obj *unstructured.Unstructured) (bool, error) {
-	status, found, err := unstructured.NestedMap(obj.Object, "status")
-	if err != nil || !found {
-		return false, err
-	}
-
-	desiredNumberScheduled, _, _ := unstructured.NestedInt64(status, "desiredNumberScheduled")
-	numberReady, _, _ := unstructured.NestedInt64(status, "numberReady")
-
-	return desiredNumberScheduled > 0 && numberReady == desiredNumberScheduled, nil
-}
-
-func isJobReady(obj *unstructured.Unstructured) (bool, error) {
-	status, found, err := unstructured.NestedMap(obj.Object, "status")
-	if err != nil || !found {
-		return false, err
-	}
-
-	// Check if job has completed successfully
-	conditions, found, err := unstructured.NestedSlice(status, "conditions")
-	if err != nil || !found {
-		return false, err
-	}
-
-	for _, condition := range conditions {
-		condMap, ok := condition.(map[string]interface{})
-		if !ok {
-			continue
+// checkResourceStatus checks if a specific resource is ready based on its type
+// This uses the proven approach from the old code with minimal essential additions
+func (r *BaseReconciler) checkResourceStatus(ctx context.Context, gvr schema.GroupVersionResource, name, namespace, kind string) (bool, error) {
+	switch kind {
+	// Core workload resources that need actual readiness checking
+	case "Deployment":
+		deployment := &appsv1.Deployment{}
+		if err := r.Client.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, deployment); err != nil {
+			return false, err
 		}
-
-		condType, _, _ := unstructured.NestedString(condMap, "type")
-		condStatus, _, _ := unstructured.NestedString(condMap, "status")
-
-		if condType == "Complete" && condStatus == "True" {
-			return true, nil
+		// Handle nil replicas (Kubernetes defaults to 1)
+		expectedReplicas := int32(1)
+		if deployment.Spec.Replicas != nil {
+			expectedReplicas = *deployment.Spec.Replicas
 		}
-		if condType == "Failed" && condStatus == "True" {
-			return false, fmt.Errorf("job failed")
+		return deployment.Status.ReadyReplicas == expectedReplicas, nil
+
+	case "StatefulSet":
+		statefulset := &appsv1.StatefulSet{}
+		if err := r.Client.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, statefulset); err != nil {
+			return false, err
 		}
-	}
-
-	return false, nil
-}
-
-func isPodReady(obj *unstructured.Unstructured) (bool, error) {
-	status, found, err := unstructured.NestedMap(obj.Object, "status")
-	if err != nil || !found {
-		return false, err
-	}
-
-	phase, _, _ := unstructured.NestedString(status, "phase")
-	if phase == "Running" || phase == "Succeeded" {
-		// Also check ready condition
-		conditions, found, err := unstructured.NestedSlice(status, "conditions")
-		if err != nil || !found {
-			return phase == "Succeeded", nil // If no conditions, consider Succeeded phase as ready
+		// Handle nil replicas (Kubernetes defaults to 1)
+		expectedReplicas := int32(1)
+		if statefulset.Spec.Replicas != nil {
+			expectedReplicas = *statefulset.Spec.Replicas
 		}
+		return statefulset.Status.ReadyReplicas == expectedReplicas, nil
 
-		for _, condition := range conditions {
-			condMap, ok := condition.(map[string]interface{})
-			if !ok {
-				continue
-			}
+	case "Job":
+		job := &batchv1.Job{}
+		if err := r.Client.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, job); err != nil {
+			return false, err
+		}
+		return job.Status.Succeeded > 0, nil
 
-			condType, _, _ := unstructured.NestedString(condMap, "type")
-			condStatus, _, _ := unstructured.NestedString(condMap, "status")
+	case "DaemonSet":
+		daemonset := &appsv1.DaemonSet{}
+		if err := r.Client.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, daemonset); err != nil {
+			return false, err
+		}
+		return daemonset.Status.NumberReady == daemonset.Status.DesiredNumberScheduled, nil
 
-			if condType == "Ready" && condStatus == "True" {
+	// Only add CRD support if hooks actually create them
+	case "CustomResourceDefinition":
+		crd := &apiextensionsv1.CustomResourceDefinition{}
+		if err := r.Client.Get(ctx, client.ObjectKey{Name: name}, crd); err != nil {
+			return false, err
+		}
+		// Check if CRD is established
+		for _, condition := range crd.Status.Conditions {
+			if condition.Type == apiextensionsv1.Established && condition.Status == apiextensionsv1.ConditionTrue {
 				return true, nil
 			}
 		}
-	}
+		return false, nil
 
-	return false, nil
+	// Add Pod support for standalone pods (less common but possible)
+	case "Pod":
+		pod := &corev1.Pod{}
+		if err := r.Client.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, pod); err != nil {
+			return false, err
+		}
+		return pod.Status.Phase == corev1.PodRunning || pod.Status.Phase == corev1.PodSucceeded, nil
+
+	default:
+		// For everything else (Services, ConfigMaps, Secrets, etc.)
+		// Just check if they exist - they're ready immediately when created
+		if namespace != "" {
+			_, err := r.DynamicClient.Resource(gvr).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+			if err != nil {
+				// Try cluster-scoped if namespaced fails
+				_, err = r.DynamicClient.Resource(gvr).Get(ctx, name, metav1.GetOptions{})
+			}
+			return err == nil, nil
+		} else {
+			// Cluster-scoped resource
+			_, err := r.DynamicClient.Resource(gvr).Get(ctx, name, metav1.GetOptions{})
+			return err == nil, nil
+		}
+	}
 }
 
-func isCRDReady(obj *unstructured.Unstructured) (bool, error) {
-	status, found, err := unstructured.NestedMap(obj.Object, "status")
-	if err != nil || !found {
-		return false, err
-	}
-
-	conditions, found, err := unstructured.NestedSlice(status, "conditions")
-	if err != nil || !found {
-		return false, err
-	}
-
-	for _, condition := range conditions {
-		condMap, ok := condition.(map[string]interface{})
-		if !ok {
-			continue
-		}
-
-		condType, _, _ := unstructured.NestedString(condMap, "type")
-		condStatus, _, _ := unstructured.NestedString(condMap, "status")
-
-		if condType == "Established" && condStatus == "True" {
-			return true, nil
-		}
-	}
-
-	return false, nil
-}
-
-func hasReadyCondition(obj *unstructured.Unstructured) bool {
-	status, found, err := unstructured.NestedMap(obj.Object, "status")
-	if err != nil || !found {
-		return true // Assume ready if no status
-	}
-
-	conditions, found, err := unstructured.NestedSlice(status, "conditions")
-	if err != nil || !found {
-		return true // Assume ready if no conditions
-	}
-
-	for _, condition := range conditions {
-		condMap, ok := condition.(map[string]interface{})
-		if !ok {
-			continue
-		}
-
-		condType, _, _ := unstructured.NestedString(condMap, "type")
-		condStatus, _, _ := unstructured.NestedString(condMap, "status")
-
-		if condType == "Ready" && condStatus == "True" {
-			return true
-		}
-	}
-
-	return true // Default to ready for unknown resource types
-}
-
-// set the same labels used by helm install so that we can use the same
-// approach to GC
-func setTrackingLabelsAndAnnotations(obj *unstructured.Unstructured, cpName string) {
+// setTrackingLabelsAndAnnotations sets labels used by helm for garbage collection
+func (r *BaseReconciler) setTrackingLabelsAndAnnotations(obj *unstructured.Unstructured, cpName string) {
 	namespace := util.GenerateNamespaceFromControlPlaneName(cpName)
 
 	labels := obj.GetLabels()
@@ -611,7 +465,8 @@ func setTrackingLabelsAndAnnotations(obj *unstructured.Unstructured, cpName stri
 	obj.SetAnnotations(annotations)
 }
 
-func propagateLabels(hook *v1alpha1.PostCreateHook, hcp *v1alpha1.ControlPlane, c client.Client) error {
+// propagateLabels copies labels from PostCreateHook to ControlPlane for consistency
+func (r *BaseReconciler) propagateLabels(hook *v1alpha1.PostCreateHook, hcp *v1alpha1.ControlPlane, c client.Client) error {
 	hookLabels := hook.GetLabels()
 	if len(hookLabels) == 0 {
 		return nil
@@ -624,15 +479,14 @@ func propagateLabels(hook *v1alpha1.PostCreateHook, hcp *v1alpha1.ControlPlane, 
 
 	updateRequired := false
 	for key, value := range hookLabels {
-		v, ok := hcpLabels[key]
-		if !ok || ok && !(v == value) {
+		if existingValue, exists := hcpLabels[key]; !exists || existingValue != value {
 			updateRequired = true
+			hcpLabels[key] = value
 		}
-		hcpLabels[key] = value
 	}
-	hcp.SetLabels(hcpLabels)
 
 	if updateRequired {
+		hcp.SetLabels(hcpLabels)
 		if err := c.Update(context.TODO(), hcp, &client.SubResourceUpdateOptions{}); err != nil {
 			return err
 		}
