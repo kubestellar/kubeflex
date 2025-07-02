@@ -86,7 +86,8 @@ spec:
               globalVars:
                 additionalProperties:
                   type: string
-                description: GlobalVars defines shared variables for all post-creation hooks
+                description: GlobalVars defines shared variables for all post-creation
+                  hooks
                 type: object
               postCreateHook:
                 description: 'Deprecated: Use PostCreateHooks instead'
@@ -127,6 +128,12 @@ spec:
                 - host
                 - external
                 type: string
+              waitForPostCreateHooks:
+                default: false
+                description: |-
+                  WaitForPostCreateHooks determines if the control plane should wait for all
+                  post create hook resources to be ready before marking the control plane as ready
+                type: boolean
             type: object
           status:
             description: ControlPlaneStatus defines the observed state of ControlPlane
@@ -162,6 +169,8 @@ spec:
               observedGeneration:
                 format: int64
                 type: integer
+              postCreateHookCompleted:
+                type: boolean
               postCreateHooks:
                 additionalProperties:
                   type: boolean
@@ -202,4 +211,4 @@ spec:
     served: true
     storage: true
     subresources:
-        status: {}
+      status: {}
