@@ -20,8 +20,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/kubestellar/kubeflex/pkg/reconcilers/shared"
-	"github.com/kubestellar/kubeflex/pkg/util"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -32,6 +30,8 @@ import (
 
 	"github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/certs"
+	"github.com/kubestellar/kubeflex/pkg/reconcilers/shared"
+	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
 // K8sReconciler reconciles a k8s ControlPlane
@@ -53,7 +53,7 @@ func New(cl client.Client, scheme *runtime.Scheme, version string, clientSet *ku
 
 func (r *K8sReconciler) Reconcile(ctx context.Context, hcp *v1alpha1.ControlPlane) (ctrl.Result, error) {
 	var routeURL string
-	_ = clog.FromContext(ctx)
+	log := clog.FromContext(ctx)
 
 	cfg, err := r.BaseReconciler.GetConfig(ctx)
 	if err != nil {
@@ -120,10 +120,24 @@ func (r *K8sReconciler) Reconcile(ctx context.Context, hcp *v1alpha1.ControlPlan
 
 	r.UpdateStatusWithSecretRef(hcp, util.AdminConfSecret, util.KubeconfigSecretKeyDefault, util.KubeconfigSecretKeyInCluster)
 
-	if hcp.Spec.PostCreateHook != nil &&
-		v1alpha1.HasConditionAvailable(hcp.Status.Conditions) {
+	// FIXED: Process hooks regardless of Ready condition to break chicken-and-egg cycle
+	// The main controller will handle the Ready logic based on waitForPostCreateHooks
+	if hcp.Spec.PostCreateHook != nil || len(hcp.Spec.PostCreateHooks) > 0 {
+		log.Info("Processing post-create hooks", "controlPlane", hcp.Name,
+			"legacyHook", hcp.Spec.PostCreateHook,
+			"newHooks", len(hcp.Spec.PostCreateHooks))
+
 		if err := r.ReconcileUpdatePostCreateHook(ctx, hcp); err != nil {
-			return r.UpdateStatusForSyncingError(hcp, err)
+			// For transient errors, log and requeue but don't fail completely
+			if util.IsTransientError(err) {
+				log.Info("Transient error processing hooks, will retry", "error", err)
+				return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
+			}
+			// For permanent errors, log but continue - let main controller handle final status
+			log.Error(err, "Failed to process post-create hooks")
+			// Don't return error here - let the main controller decide final readiness
+		} else {
+			log.Info("Successfully processed post-create hooks", "controlPlane", hcp.Name)
 		}
 	}
 

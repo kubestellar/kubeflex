@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
@@ -144,21 +145,88 @@ func (r *ControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
-	// check if API server is already in a ready state
-	ready, _ := util.IsAPIServerDeploymentReady(log, r.Client, *hcp)
+	// Check API server readiness
+	log.Info("Checking API server readiness [v2]", "controlPlane", hcp.Name, "type", hcp.Spec.Type)
+	apiServerReady, err := util.IsAPIServerDeploymentReady(log, r.Client, *hcp)
+	if err != nil {
+		log.Error(err, "Error checking API server readiness", "controlPlane", hcp.Name)
+	}
+	log.Info("API server readiness check result [v2]", "controlPlane", hcp.Name, "apiServerReady", apiServerReady, "error", err)
 
-	// If waitForPostCreateHooks is enabled, also check if PostCreateHook resources are ready
-	if ready && hcp.Spec.WaitForPostCreateHooks != nil && *hcp.Spec.WaitForPostCreateHooks {
-		// Only mark as ready if PostCreateHook resources are also ready
-		if !hcp.Status.PostCreateHookCompleted {
-			ready = false
+	// Process PostCreateHooks if API server is ready and hooks are specified
+	if apiServerReady && (hcp.Spec.PostCreateHook != nil || len(hcp.Spec.PostCreateHooks) > 0) {
+		log.Info("API server is ready, checking PostCreateHook processing", "apiServerReady", apiServerReady)
+
+		// Get the appropriate reconciler to process hooks
+		var baseReconciler interface {
+			ReconcileUpdatePostCreateHook(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error
+		}
+
+		switch hcp.Spec.Type {
+		case tenancyv1alpha1.ControlPlaneTypeK8S:
+			reconciler := k8s.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
+			baseReconciler = reconciler
+		case tenancyv1alpha1.ControlPlaneTypeOCM:
+			reconciler := ocm.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
+			baseReconciler = reconciler
+		case tenancyv1alpha1.ControlPlaneTypeVCluster:
+			reconciler := vcluster.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
+			baseReconciler = reconciler
+		case tenancyv1alpha1.ControlPlaneTypeHost:
+			reconciler := host.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
+			baseReconciler = reconciler
+		case tenancyv1alpha1.ControlPlaneTypeExternal:
+			reconciler := external.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
+			baseReconciler = reconciler
+		}
+
+		if baseReconciler != nil {
+			log.Info("Processing PostCreateHooks", "controlPlane", hcp.Name)
+			if err := baseReconciler.ReconcileUpdatePostCreateHook(ctx, hcp); err != nil {
+				log.Error(err, "Failed to process PostCreateHooks")
+				// Don't return error, just log it and continue with status logic
+			}
+			// After processing hooks, refresh the hcp object to get updated status
+			if err := r.Get(ctx, client.ObjectKey{Name: hcp.Name}, hcp); err != nil {
+				log.Error(err, "Failed to refresh ControlPlane after hook processing")
+			}
 		}
 	}
 
-	if ready {
-		tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionAvailable())
+	if apiServerReady {
+		// Determine overall readiness
+		if hcp.Spec.WaitForPostCreateHooks != nil && *hcp.Spec.WaitForPostCreateHooks {
+			// If waitForPostCreateHooks is enabled, check hook completion
+			log.Info("Checking PostCreateHook completion", "postCreateHookCompleted", hcp.Status.PostCreateHookCompleted)
+			if hcp.Status.PostCreateHookCompleted {
+				log.Info("PostCreateHooks completed, marking control plane as ready")
+				tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionAvailable())
+			} else {
+				log.Info("Waiting for post-create hooks to complete")
+				tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionWaitingForPostCreateHooks())
+				// Update status and return early when waiting for hooks
+				err := r.Status().Update(ctx, hcp)
+				if err != nil {
+					log.Error(err, "Failed to update ControlPlane status")
+					return ctrl.Result{}, err
+				}
+				// Requeue to check hook completion later
+				return ctrl.Result{RequeueAfter: time.Second * 30}, nil
+			}
+		} else {
+			// Normal behavior - mark as ready when API server is ready
+			log.Info("Not waiting for post-create hooks, marking control plane as ready")
+			tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionAvailable())
+		}
 	} else {
 		tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionUnavailable())
+	}
+
+	// Update status before proceeding to type-specific reconciler
+	err = r.Status().Update(ctx, hcp)
+	if err != nil {
+		log.Error(err, "Failed to update ControlPlane status")
+		return ctrl.Result{}, err
 	}
 
 	// select the reconciler to use for the type of control plane

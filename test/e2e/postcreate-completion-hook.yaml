@@ -1,0 +1,33 @@
+apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
+kind: PostCreateHook
+metadata:
+  name: e2e-completion-test
+  labels:
+    test-type: e2e
+    feature: postcreate-completion
+spec:
+  templates:
+  - apiVersion: batch/v1
+    kind: Job
+    metadata:
+      name: completion-test-job-{{.ControlPlaneName}}
+      labels:
+        test: postcreate-completion
+    spec:
+      template:
+        spec:
+          containers:
+          - name: completion-test
+            image: public.ecr.aws/docker/library/busybox:1.36
+            command: 
+              - "sh"
+              - "-c"
+              - |
+                echo "Starting PostCreateHook completion test..."
+                echo "Control Plane: {{.ControlPlaneName}}"
+                echo "Hook Name: {{.HookName}}"
+                echo "Namespace: {{.Namespace}}"
+                sleep 15
+                echo "PostCreateHook test completed successfully!"
+          restartPolicy: Never
+      backoffLimit: 1
