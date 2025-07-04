@@ -33,7 +33,7 @@ func TestDeleteOk(t *testing.T) {
 
 	// Start test
 	cp := common.NewCP(kubeconfigPath, common.WithName(ctxName))
-	err := ExecuteCtxDelete(cp, ctxName, false, false)
+	err := ExecuteCtxDelete(cp, ctxName, false)
 	if err != nil {
 		t.Errorf("failed to run 'kflex ctx delete %s': %v", ctxName, err)
 	}
@@ -71,7 +71,7 @@ func TestDeleteNonExistentContext(t *testing.T) {
 		t.Errorf("error loading kubeconfig: %v", err)
 	}
 	nCtx := len(kconf.Contexts)
-	err = ExecuteCtxDelete(cp, noneCtxName, false, false)
+	err = ExecuteCtxDelete(cp, noneCtxName, false)
 	if err == nil {
 		t.Errorf("expect ExecuteCtxDelete to fail but it succeeded")
 	}
@@ -88,7 +88,7 @@ func TestDeleteNonKubeflexContext(t *testing.T) {
 
 	// Start test
 	cp := common.NewCP(kubeconfigPath, common.WithName(ctxName))
-	err := ExecuteCtxDelete(cp, ctxName, false, true)
+	err := ExecuteCtxDelete(cp, ctxName, false, WithForce())
 	if err != nil {
 		t.Errorf("failed to run 'kflex ctx delete %s': %v", ctxName, err)
 	}

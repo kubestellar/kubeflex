@@ -31,6 +31,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
+type DeleteOptions struct {
+	Force bool
+}
+
+type DeleteOption func(*DeleteOptions)
+
+// WithForce sets the force option to bypass confirmation
+func WithForce() DeleteOption {
+	return func(opts *DeleteOptions) {
+		opts.Force = true
+	}
+}
+
 func CommandDelete() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete CONTEXT",
@@ -43,7 +56,13 @@ func CommandDelete() *cobra.Command {
 			chattyStatus, _ := cmd.Flags().GetBool(common.ChattyStatusFlag)
 			force, _ := cmd.Flags().GetBool("force")
 			cp := common.NewCP(kubeconfig)
-			return ExecuteCtxDelete(cp, args[0], chattyStatus, force)
+
+			var options []DeleteOption
+			if force {
+				options = append(options, WithForce())
+			}
+
+			return ExecuteCtxDelete(cp, args[0], chattyStatus, options...)
 		},
 	}
 	cmd.Flags().BoolP("force", "f", false, "Force deletion without confirmation")
@@ -51,7 +70,12 @@ func CommandDelete() *cobra.Command {
 }
 
 // Execute kflex ctx delete
-func ExecuteCtxDelete(cp common.CP, ctxName string, chattyStatus bool, force bool) error {
+func ExecuteCtxDelete(cp common.CP, ctxName string, chattyStatus bool, options ...DeleteOption) error {
+	opts := &DeleteOptions{}
+	for _, option := range options {
+		option(opts)
+	}
+
 	var wg sync.WaitGroup
 	done := make(chan bool)
 
@@ -60,23 +84,21 @@ func ExecuteCtxDelete(cp common.CP, ctxName string, chattyStatus bool, force boo
 		return fmt.Errorf("error loading kubeconfig: %v", err)
 	}
 
-	// Check if context is managed by KubeFlex
-	if !kubeconfig.IsContextManagedByKubeflex(kconf, ctxName) {
-		if !force {
-			fmt.Printf("Warning: Context '%s' is not managed by KubeFlex.\n", ctxName)
-			fmt.Print("Are you sure you want to delete this context? (y/N): ")
+	// Check if context is managed by KubeFlex and force is not set
+	if !kubeconfig.IsContextManagedByKubeflex(kconf, ctxName) && !opts.Force {
+		fmt.Printf("Warning: Context '%s' is not managed by KubeFlex.\n", ctxName)
+		fmt.Print("Are you sure you want to delete this context? (y/N): ")
 
-			reader := bufio.NewReader(os.Stdin)
-			response, err := reader.ReadString('\n')
-			if err != nil {
-				return fmt.Errorf("error reading user input: %v", err)
-			}
+		reader := bufio.NewReader(os.Stdin)
+		response, err := reader.ReadString('\n')
+		if err != nil {
+			return fmt.Errorf("error reading user input: %v", err)
+		}
 
-			response = strings.TrimSpace(strings.ToLower(response))
-			if response != "y" && response != "yes" {
-				fmt.Println("Deletion cancelled.")
-				return nil
-			}
+		response = strings.TrimSpace(strings.ToLower(response))
+		if response != "y" && response != "yes" {
+			fmt.Println("Deletion cancelled.")
+			return nil
 		}
 	}
 
