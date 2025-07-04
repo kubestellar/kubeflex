@@ -33,7 +33,7 @@ func TestDeleteOk(t *testing.T) {
 
 	// Start test
 	cp := common.NewCP(kubeconfigPath, common.WithName(ctxName))
-	err := ExecuteCtxDelete(cp, ctxName, false)
+	err := ExecuteCtxDelete(cp, ctxName, false, false)
 	if err != nil {
 		t.Errorf("failed to run 'kflex ctx delete %s': %v", ctxName, err)
 	}
@@ -71,11 +71,43 @@ func TestDeleteNonExistentContext(t *testing.T) {
 		t.Errorf("error loading kubeconfig: %v", err)
 	}
 	nCtx := len(kconf.Contexts)
-	err = ExecuteCtxDelete(cp, noneCtxName, false)
+	err = ExecuteCtxDelete(cp, noneCtxName, false, false)
 	if err == nil {
 		t.Errorf("expect ExecuteCtxDelete to fail but it succeeded")
 	}
 	if nCtx != len(kconf.Contexts) {
 		t.Errorf("expect ExecuteCtxDelete to not delete any context but it did")
+	}
+}
+
+// Test delete a context that is not managed by KubeFlex
+func TestDeleteNonKubeflexContext(t *testing.T) {
+	ctxName := "cptobedeleted"
+	setupMockContextWithoutKubeflex(t, kubeconfigPath, ctxName)
+	defer teardown(t, kubeconfigPath)
+
+	// Start test
+	cp := common.NewCP(kubeconfigPath, common.WithName(ctxName))
+	err := ExecuteCtxDelete(cp, ctxName, false, true)
+	if err != nil {
+		t.Errorf("failed to run 'kflex ctx delete %s': %v", ctxName, err)
+	}
+	kconf, err := kubeconfig.LoadKubeconfig(kubeconfigPath)
+	if err != nil {
+		t.Errorf("error loading kubeconfig: %v", err)
+	}
+	clusterName := certs.GenerateClusterName(ctxName)
+	authInfoName := certs.GenerateAuthInfoAdminName(ctxName)
+	if c, ok := kconf.Contexts[ctxName]; ok {
+		t.Errorf("context '%v' still present in kubeconfig", c)
+	}
+	if c, ok := kconf.Clusters[clusterName]; ok {
+		t.Errorf("cluster '%v' still present in kubeconfig", c)
+	}
+	if c, ok := kconf.AuthInfos[authInfoName]; ok {
+		t.Errorf("user '%v' still present in kubeconfig", c)
+	}
+	if kconf.CurrentContext == ctxName {
+		t.Errorf("current context must not be set as the deleted context %s", ctxName)
 	}
 }

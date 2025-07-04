@@ -17,7 +17,10 @@ limitations under the License.
 package ctx
 
 import (
+	"bufio"
 	"fmt"
+	"os"
+	"strings"
 	"sync"
 
 	// "sync"
@@ -29,7 +32,7 @@ import (
 )
 
 func CommandDelete() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "delete CONTEXT",
 		Short: "Delete a context",
 		Long:  `Delete a context in the kubeconfig file`,
@@ -38,21 +41,47 @@ func CommandDelete() *cobra.Command {
 			cmd.SilenceUsage = true
 			kubeconfig, _ := cmd.Flags().GetString(common.KubeconfigFlag)
 			chattyStatus, _ := cmd.Flags().GetBool(common.ChattyStatusFlag)
+			force, _ := cmd.Flags().GetBool("force")
 			cp := common.NewCP(kubeconfig)
-			return ExecuteCtxDelete(cp, args[0], chattyStatus)
+			return ExecuteCtxDelete(cp, args[0], chattyStatus, force)
 		},
 	}
+	cmd.Flags().BoolP("force", "f", false, "Force deletion without confirmation")
+	return cmd
 }
 
 // Execute kflex ctx delete
-func ExecuteCtxDelete(cp common.CP, ctxName string, chattyStatus bool) error {
+func ExecuteCtxDelete(cp common.CP, ctxName string, chattyStatus bool, force bool) error {
 	var wg sync.WaitGroup
 	done := make(chan bool)
-	util.PrintStatus("Deleting context", done, &wg, chattyStatus)
+
 	kconf, err := kubeconfig.LoadKubeconfig(cp.Kubeconfig)
 	if err != nil {
 		return fmt.Errorf("error loading kubeconfig: %v", err)
 	}
+
+	// Check if context is managed by KubeFlex
+	if !kubeconfig.IsContextManagedByKubeflex(kconf, ctxName) {
+		if !force {
+			fmt.Printf("Warning: Context '%s' is not managed by KubeFlex.\n", ctxName)
+			fmt.Print("Are you sure you want to delete this context? (y/N): ")
+
+			reader := bufio.NewReader(os.Stdin)
+			response, err := reader.ReadString('\n')
+			if err != nil {
+				return fmt.Errorf("error reading user input: %v", err)
+			}
+
+			response = strings.TrimSpace(strings.ToLower(response))
+			if response != "y" && response != "yes" {
+				fmt.Println("Deletion cancelled.")
+				return nil
+			}
+		}
+	}
+
+	util.PrintStatus("Deleting context", done, &wg, chattyStatus)
+
 	if err = kubeconfig.DeleteAll(kconf, ctxName); err != nil {
 		return fmt.Errorf("error deleting context %s from kubeconfig: %v", ctxName, err)
 	}
