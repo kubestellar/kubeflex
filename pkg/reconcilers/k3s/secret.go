@@ -33,9 +33,11 @@ import (
 	clog "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-const KubeconfigSecretName = "k3s-config"
-const KubeconfigSecretKey = "config"
-const KubeconfigSecretKeyInCluster = "config-incluster"
+const (
+	KubeconfigSecretName         = "k3s-config"
+	KubeconfigSecretKey          = "config"
+	KubeconfigSecretKeyInCluster = "config-incluster"
+)
 
 // K3s service
 type Secret struct {
@@ -89,7 +91,6 @@ func (r *Secret) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlan
 		} else {
 			return handleReconcileError(log, err)
 		}
-
 	}
 	// Secret exist
 	log.Info("secret is found on the kubernetes cluster", "secretName", ksecret.Name)
