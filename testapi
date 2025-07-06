@@ -1,0 +1,4 @@
+#!/bin/bash
+
+apiserver="https://testk3s.localtest.me:6443"
+curl -k -H "Authorization: Bearer 0123456789abcdef" $apiserver/api/v1/namespaces/default/pods
