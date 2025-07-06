@@ -119,8 +119,6 @@ func (r *K8sReconciler) Reconcile(ctx context.Context, hcp *v1alpha1.ControlPlan
 
 	r.UpdateStatusWithSecretRef(hcp, util.AdminConfSecret, util.KubeconfigSecretKeyDefault, util.KubeconfigSecretKeyInCluster)
 
-	// REMOVED: Hook processing is now handled independently by the main controller
-	// This eliminates the double-processing race condition and chicken-egg cycle
 	log.Info("K8s reconciler completed - hook processing delegated to main controller", "controlPlane", hcp.Name)
 
 	return r.UpdateStatusForSyncingSuccess(ctx, hcp)
