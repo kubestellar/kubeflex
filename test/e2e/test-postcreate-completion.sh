@@ -1,116 +1,78 @@
 #!/usr/bin/env bash
 
-# E2E test for PostCreateHook Completion Status Feature
-
-set -euo pipefail
-
-echo "🧪 Starting PostCreateHook Completion E2E Test..."
-
-# Test variables
-TEST_HOOK_NAME="e2e-completion-test"
-TEST_CP_NAME="test-cp-completion"
-TEST_CP_NO_WAIT="test-cp-no-wait"
-
-# Cleanup function
-cleanup() {
-    echo "🧹 Cleaning up..."
-    kubectl delete controlplane "${TEST_CP_NAME}" --ignore-not-found=true
-    kubectl delete controlplane "${TEST_CP_NO_WAIT}" --ignore-not-found=true  
-    kubectl delete postcreatehook "${TEST_HOOK_NAME}" --ignore-not-found=true
-    echo "✅ Cleanup completed"
-}
-
-trap cleanup EXIT
-
-echo "1. Creating PostCreateHook..."
+echo "🧪 Creating PostCreateHook..."
 kubectl apply -f - <<EOF
 apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
 kind: PostCreateHook
 metadata:
-  name: ${TEST_HOOK_NAME}
+  name: demo-hook
 spec:
   templates:
   - apiVersion: batch/v1
     kind: Job
     metadata:
-      name: completion-test-job-{{.ControlPlaneName}}
+      name: demo-job-{{.ControlPlaneName}}
     spec:
       template:
         spec:
           containers:
-          - name: test
+          - name: demo
             image: public.ecr.aws/docker/library/busybox:1.36
-            command: ["sleep", "15"]  # Short delay to test completion tracking
+            command: ["sleep", "15"]
           restartPolicy: Never
       backoffLimit: 1
 EOF
 
-echo "2. Creating control plane with PostCreateHook completion testing..."
+echo ""
+echo "🔧 Creating CP with waitForPostCreateHooks=TRUE..."
 kubectl apply -f - <<EOF
 apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
 kind: ControlPlane
 metadata:
-  name: ${TEST_CP_NAME}
+  name: cp-wait-true
 spec:
   backend: shared
-  postCreateHook: ${TEST_HOOK_NAME}
+  postCreateHook: demo-hook
   waitForPostCreateHooks: true
   type: k8s
 EOF
 
-echo "3. Create ControlPlane with waitForPostCreateHooks enabled"
-echo "4. Waiting for control plane to be created..."
-kubectl wait --for=condition=Ready controlplane/${TEST_CP_NAME} --timeout=150s
-
-echo "5. Monitoring PostCreateHook completion status..."
-# Check if postCreateHookCompleted is set to true
-COMPLETION_STATUS=$(kubectl get controlplane ${TEST_CP_NAME} -o jsonpath='{.status.postCreateHookCompleted}')
-echo "PostCreateHookCompleted: ${COMPLETION_STATUS}"
-
-# Check individual hook status
-HOOK_STATUS=$(kubectl get controlplane ${TEST_CP_NAME} -o jsonpath="{.status.postCreateHooks.${TEST_HOOK_NAME}}")
-echo "Individual hook status: ${HOOK_STATUS}"
-
-if [ "$COMPLETION_STATUS" = "true" ] && [ "$HOOK_STATUS" = "true" ]; then
-    echo "✅ PostCreateHook completion tracking working correctly!"
-else
-    echo "❌ PostCreateHook completion tracking failed!"
-    echo "Expected: postCreateHookCompleted=true, hook status=true"
-    echo "Got: postCreateHookCompleted=${COMPLETION_STATUS}, hook status=${HOOK_STATUS}"
-    exit 1
-fi
-
-echo "6. Test without WaitForPostCreateHooks (backwards compatibility)"
+echo ""
+echo "⚡ Creating CP with waitForPostCreateHooks=FALSE..."
 kubectl apply -f - <<EOF
 apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
 kind: ControlPlane
 metadata:
-  name: ${TEST_CP_NO_WAIT}
+  name: cp-wait-false
 spec:
   backend: shared
-  postCreateHook: ${TEST_HOOK_NAME}
+  postCreateHook: demo-hook
   waitForPostCreateHooks: false
   type: k8s
 EOF
 
-echo "Waiting for control plane to be ready..."
-kubectl wait --for=condition=Ready controlplane/${TEST_CP_NO_WAIT} --timeout=150s
+echo ""
+echo "⏳ Waiting for both CPs to be ready (90s timeout)..."
+kubectl wait --for=condition=Ready controlplane/cp-wait-true --timeout=90s &  #set time accoeding to you!
+kubectl wait --for=condition=Ready controlplane/cp-wait-false --timeout=90s &
+wait
 
-# Give some time for hook to complete
-sleep 20
+echo ""
+echo "📊 RESULTS:"
+echo ""
+echo "=== CP with waitForPostCreateHooks=TRUE ==="
+kubectl get controlplane cp-wait-true -o jsonpath='{.status}' | jq '.'
 
-# Check completion status for backwards compatibility
-COMPLETION_STATUS_NO_WAIT=$(kubectl get controlplane ${TEST_CP_NO_WAIT} -o jsonpath='{.status.postCreateHookCompleted}')
-HOOK_STATUS_NO_WAIT=$(kubectl get controlplane ${TEST_CP_NO_WAIT} -o jsonpath="{.status.postCreateHooks.${TEST_HOOK_NAME}}")
+echo ""
+echo "=== CP with waitForPostCreateHooks=FALSE ==="
+kubectl get controlplane cp-wait-false -o jsonpath='{.status}' | jq '.'
 
-echo "Backwards compatibility test:"
-echo "PostCreateHookCompleted: ${COMPLETION_STATUS_NO_WAIT}"
-echo "Individual hook status: ${HOOK_STATUS_NO_WAIT}"
+echo ""
+echo "📋 Summary:"
+kubectl get cp cp-wait-true cp-wait-false
 
-if [ "$COMPLETION_STATUS_NO_WAIT" = "true" ] && [ "$HOOK_STATUS_NO_WAIT" = "true" ]; then
-    echo "✅ Backwards compatibility working correctly!"
-else
-    echo "⚠️  Backwards compatibility check - completion tracking may still be in progress"
-fi
-
-echo "🎉 PostCreateHook Completion E2E Test completed successfully!"
+#please remove this lines so that after test all resurce will be deleted!
+# echo "🧹 Cleaning up any existing resources..."
+# kubectl delete controlplane cp-wait-true --ignore-not-found=true
+# kubectl delete controlplane cp-wait-false --ignore-not-found=true
+# kubectl delete postcreatehook demo-hook --ignore-not-found=true

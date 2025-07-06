@@ -50,7 +50,6 @@ func New(cl client.Client, scheme *runtime.Scheme, version string, clientSet *ku
 		},
 	}
 }
-
 func (r *K8sReconciler) Reconcile(ctx context.Context, hcp *v1alpha1.ControlPlane) (ctrl.Result, error) {
 	var routeURL string
 	log := clog.FromContext(ctx)
@@ -120,26 +119,9 @@ func (r *K8sReconciler) Reconcile(ctx context.Context, hcp *v1alpha1.ControlPlan
 
 	r.UpdateStatusWithSecretRef(hcp, util.AdminConfSecret, util.KubeconfigSecretKeyDefault, util.KubeconfigSecretKeyInCluster)
 
-	// FIXED: Process hooks regardless of Ready condition to break chicken-and-egg cycle
-	// The main controller will handle the Ready logic based on waitForPostCreateHooks
-	if hcp.Spec.PostCreateHook != nil || len(hcp.Spec.PostCreateHooks) > 0 {
-		log.Info("Processing post-create hooks", "controlPlane", hcp.Name,
-			"legacyHook", hcp.Spec.PostCreateHook,
-			"newHooks", len(hcp.Spec.PostCreateHooks))
-
-		if err := r.ReconcileUpdatePostCreateHook(ctx, hcp); err != nil {
-			// For transient errors, log and requeue but don't fail completely
-			if util.IsTransientError(err) {
-				log.Info("Transient error processing hooks, will retry", "error", err)
-				return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
-			}
-			// For permanent errors, log but continue - let main controller handle final status
-			log.Error(err, "Failed to process post-create hooks")
-			// Don't return error here - let the main controller decide final readiness
-		} else {
-			log.Info("Successfully processed post-create hooks", "controlPlane", hcp.Name)
-		}
-	}
+	// REMOVED: Hook processing is now handled independently by the main controller
+	// This eliminates the double-processing race condition and chicken-egg cycle
+	log.Info("K8s reconciler completed - hook processing delegated to main controller", "controlPlane", hcp.Name)
 
 	return r.UpdateStatusForSyncingSuccess(ctx, hcp)
 }
