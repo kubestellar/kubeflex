@@ -90,36 +90,34 @@ func ExecuteCtxList(cp common.CP) {
 		return
 	}
 
-	currentContext := config.CurrentContext
-	printer := NewBasicTablePrinter(config, currentContext)
+	printer := NewBasicTablePrinter(config)
 	fmt.Print(printer.String())
 }
 
 // NewBasicTablePrinter constructs a BasicTable from kubeconfig and current context.
-func NewBasicTablePrinter(config *api.Config, currentContext string) BasicTable {
-	table := BasicTable{}
+func NewBasicTablePrinter(config *api.Config) BasicTable {
+	table := BasicTable{Rows: make([]BasicTableRow, len(config.Contexts))}
+	currentContext := config.CurrentContext
+	i := 0
 	for name := range config.Contexts {
-		prefix := " "
+		row := BasicTableRow{}
 		if name == currentContext {
-			prefix = "*"
+			row.Prefix = "*"
+		} else {
+			row.Prefix = " "
 		}
-		managed := ""
-		controlPlane := ""
 		kflexCtx, err := kubeconfig.NewKubeflexContextConfig(*config, name)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error extracting KubeFlex extension for context '%s': %v\n", name, err)
 			os.Exit(1)
 		}
 		if kflexCtx.Extensions != nil && kflexCtx.Extensions.ControlPlaneName != "" {
-			managed = "yes"
-			controlPlane = kflexCtx.Extensions.ControlPlaneName
+			row.IsKflex = "yes"
+			row.CPName = kflexCtx.Extensions.ControlPlaneName
 		}
-		table.Rows = append(table.Rows, BasicTableRow{
-			Prefix:  prefix,
-			CtxName: name,
-			IsKflex: managed,
-			CPName:  controlPlane,
-		})
+		row.CtxName = name
+		table.Rows[i] = row
+		i++
 	}
 	return table
 }
