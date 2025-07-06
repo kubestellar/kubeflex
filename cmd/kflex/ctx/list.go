@@ -97,14 +97,11 @@ func ExecuteCtxList(cp common.CP) {
 // NewBasicTablePrinter constructs a BasicTable from kubeconfig and current context.
 func NewBasicTablePrinter(config *api.Config) BasicTable {
 	table := BasicTable{Rows: make([]BasicTableRow, len(config.Contexts))}
-	currentContext := config.CurrentContext
 	i := 0
 	for name := range config.Contexts {
 		row := BasicTableRow{}
-		if name == currentContext {
+		if name == config.CurrentContext {
 			row.Prefix = "*"
-		} else {
-			row.Prefix = " "
 		}
 		kflexCtx, err := kubeconfig.NewKubeflexContextConfig(*config, name)
 		if err != nil {
