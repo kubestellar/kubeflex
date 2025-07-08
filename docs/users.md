@@ -914,8 +914,6 @@ EOF
 
 ### Hook execution and timing
 
-#### waitForPostCreateHooks
-
 The `waitForPostCreateHooks` field controls whether the control plane waits for all post-create hooks to complete before marking itself as Ready:
 
 - `waitForPostCreateHooks: true` (recommended): The control plane will not be marked as Ready until ALL specified hooks complete successfully. This ensures your automation completes before the control plane is considered available.
