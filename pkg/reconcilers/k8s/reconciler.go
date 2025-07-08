@@ -20,8 +20,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/kubestellar/kubeflex/pkg/reconcilers/shared"
-	"github.com/kubestellar/kubeflex/pkg/util"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -32,6 +30,8 @@ import (
 
 	"github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/certs"
+	"github.com/kubestellar/kubeflex/pkg/reconcilers/shared"
+	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
 // K8sReconciler reconciles a k8s ControlPlane
@@ -50,10 +50,9 @@ func New(cl client.Client, scheme *runtime.Scheme, version string, clientSet *ku
 		},
 	}
 }
-
 func (r *K8sReconciler) Reconcile(ctx context.Context, hcp *v1alpha1.ControlPlane) (ctrl.Result, error) {
 	var routeURL string
-	_ = clog.FromContext(ctx)
+	log := clog.FromContext(ctx)
 
 	cfg, err := r.BaseReconciler.GetConfig(ctx)
 	if err != nil {
@@ -120,12 +119,7 @@ func (r *K8sReconciler) Reconcile(ctx context.Context, hcp *v1alpha1.ControlPlan
 
 	r.UpdateStatusWithSecretRef(hcp, util.AdminConfSecret, util.KubeconfigSecretKeyDefault, util.KubeconfigSecretKeyInCluster)
 
-	if hcp.Spec.PostCreateHook != nil &&
-		v1alpha1.HasConditionAvailable(hcp.Status.Conditions) {
-		if err := r.ReconcileUpdatePostCreateHook(ctx, hcp); err != nil {
-			return r.UpdateStatusForSyncingError(hcp, err)
-		}
-	}
+	log.Info("K8s reconciler completed - hook processing delegated to main controller", "controlPlane", hcp.Name)
 
 	return r.UpdateStatusForSyncingSuccess(ctx, hcp)
 }

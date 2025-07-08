@@ -165,19 +165,61 @@ func IsAPIServerDeploymentReady(log logr.Logger, c client.Client, hcp tenancyv1a
 		}
 
 		if err := c.Get(context.Background(), types.NamespacedName{Name: d.Name, Namespace: d.Namespace}, d); err != nil {
+			log.Error(err, "Failed to get deployment", "name", d.Name, "namespace", d.Namespace)
 			return false, err
 		}
+
+		log.Info("Deployment status check", "name", d.Name, "namespace", d.Namespace, 
+			"readyReplicas", d.Status.ReadyReplicas, "replicas", d.Status.Replicas, 
+			"specReplicas", *d.Spec.Replicas)
 
 		// we need to ensure that there is al least one replica in the spec
 		if d.Status.ReadyReplicas == d.Status.Replicas &&
 			d.Status.Replicas == *d.Spec.Replicas &&
 			*d.Spec.Replicas > 0 {
+			log.Info("Deployment is ready", "name", d.Name)
 			return true, nil
 		}
+		log.Info("Deployment is not ready", "name", d.Name)
 	default:
 		log.Error(fmt.Errorf("control plane type not supported"), "type", hcp.Spec.Type)
 		return false, nil
 	}
 
+	return false, nil
+}
+
+func IsAPIServerDeploymentExists(c client.Client, hcp tenancyv1alpha1.ControlPlane) (bool, error) {
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: GenerateNamespaceFromControlPlaneName(hcp.Name),
+		},
+	}
+	if err := c.Get(context.Background(), types.NamespacedName{Name: ns.Name}, ns); err != nil {
+		return false, err
+	}
+
+	switch hcp.Spec.Type {
+	case tenancyv1alpha1.ControlPlaneTypeHost, tenancyv1alpha1.ControlPlaneTypeExternal:
+		return true, nil
+	case tenancyv1alpha1.ControlPlaneTypeK8S, tenancyv1alpha1.ControlPlaneTypeOCM:
+		d := &v1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      GetAPIServerDeploymentNameByControlPlaneType(string(hcp.Spec.Type)),
+				Namespace: ns.Name,
+			},
+		}
+		err := c.Get(context.Background(), types.NamespacedName{Name: d.Name, Namespace: d.Namespace}, d)
+		return err == nil, nil // Just check if it exists, not if it's ready
+	case tenancyv1alpha1.ControlPlaneTypeVCluster:
+		s := &v1.StatefulSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      GetAPIServerDeploymentNameByControlPlaneType(string(hcp.Spec.Type)),
+				Namespace: ns.Name,
+			},
+		}
+		err := c.Get(context.Background(), types.NamespacedName{Name: s.Name, Namespace: s.Namespace}, s)
+		return err == nil, nil // Just check if it exists, not if it's ready
+	}
 	return false, nil
 }
