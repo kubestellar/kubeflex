@@ -1,5 +1,78 @@
 # User's Guide
 
+## Breaking changes
+
+### v0.9.0 
+
+Kubeflex configuration is stored within Kubeconfig file. Prior this version, `kflex` put its configuration under 
+
+```yaml
+preferences:
+  extensions:
+  - extension:
+      data:
+        kflex-initial-ctx-name: kind-kubeflex  # indicates to kflex the hosting cluster context
+      metadata:
+        creationTimestamp: null
+        name: kflex-config-extension-name
+    name: kflex-config-extension-name          # indicates to kflex that this extension belongs to it
+```
+
+Starting `v0.9.0`, configuration remains within kubeconfig file but leverages `extensions:` and context-scope extension. For instance, the previous example would be translated as follow:
+
+```yaml
+extensions:                                          # change -> no longer preferences. See https://kubernetes.io/docs/reference/config-api/kubeconfig.v1/#Config
+  - extension:
+      data:
+        hosting-cluster-ctx-name: kind-kubeflex      # change -> key name "hosting-cluster-ctx-name"
+      metadata:
+        creationTimestamp: 2025-06-09T22:36:17+02:00 # creation timestamp using ISO 8601 seconds
+        name: kubeflex                               # same as below
+    name: kubeflex                                   # change -> new extension name "kubeflex"
+# ...
+# Find the context corresponding to "hosting-cluster-ctx-name" (here "kind-kubeflex")
+contexts:
+  - context:
+      cluster: kind-kubeflex
+      user: kind-kubeflex
+      # add extensions below and its information
+      extensions:
+      - extension:
+        data:
+          is-hosting-cluster-ctx: true                 # change -> key name "is-hosting-cluster-ctx" with "true"
+        metadata:
+          creationTimestamp: 2025-06-09T22:36:17+02:00 # creation timestamp using ISO 8601 seconds
+          name: kubeflex                               # same as below
+      name: kubeflex                                   # change -> new extension name "kubeflex"
+    name: kind-kubeflex
+  - context:
+      cluster: mysupercp-cluster 
+      extensions:
+      - extension:
+          data:
+            controlplane-name: mysupercp # change -> control plane name is saved under extension
+          metadata:
+            creationTimestamp: "2025-06-27T06:07:03Z"
+            name: kubeflex
+        name: kubeflex
+      namespace: default 
+      user: mysupercp-admin
+    name: mysupercp 
+  current-context: mysupercp
+```
+
+Proceed to change the kubeconfig file to match `v0.9.0`, as follow:
+
+1. Set new hosting cluster context name running:
+```bash
+kflex config set-hosting $ctx_name
+```
+where `$ctx_name` represents the desired hosting context name 
+
+2. Delete `preferences:` related to **kubeflex** by editing your kubeconfig file manually.
+
+At the moment, the change must be done manually until issue [#389](https://github.com/kubestellar/kubeflex/issues/389) is implemented.
+
 ## Installation
 
 [kind](https://kind.sigs.k8s.io) and [kubectl](https://kubernetes.io/docs/tasks/tools/) are
@@ -30,7 +103,7 @@ If you have [Homebrew](https://brew.sh), use the following commands to install k
 
 ```shell
 brew tap kubestellar/kubeflex https://github.com/kubestellar/kubeflex
-brew install kubeflex
+brew install kflex
 ```
 
 ## Starting Kubeflex
@@ -79,7 +152,7 @@ helm install ingress-nginx ingress-nginx --set "controller.extraArgs.enable-ssl-
 
 
 ```shell
-kflex init --hostContainerName k3d-kubeflex-server-0
+kflex init --host-container-name k3d-kubeflex-server-0
 ```
 
 ### Installing on OpenShift
@@ -128,7 +201,7 @@ helm upgrade --install kubeflex-operator oci://ghcr.io/kubestellar/kubeflex/char
 
 ## Upgrading Kubeflex
 
-The KubeFlex CLI can be upgraded with `brew upgrade kubeflex` (for brew installs). For linux
+The KubeFlex CLI can be upgraded with `brew upgrade kflex` (for brew installs). For linux
 systems, manually download and update the binary. To upgrade the KubeFlex controller, just
 upgrade the helm chart according to the instructions for [kubernetes](#installing-kubeflex-with-helm)
 or for [OpenShift](#installing-kubeflex-with-helm-on-openshift).
@@ -642,7 +715,7 @@ docker inspect ext1-control-plane | jq '.[].NetworkSettings.Networks | keys[]'
 docker inspect kubeflex-control-plane | jq '.[].NetworkSettings.Networks | keys[]'
 ```
 
-### Adopting the external cluster
+## Adopting the external cluster
 
 To set up the external cluster ext1 as a control plane named cpe, use the following command:
 
@@ -664,6 +737,44 @@ Explanation of command parameters:
 ### External clusters with reachable network address
 
 If the network address of the external cluster's API server in the bootstrap Kubeconfig is accessible by the controllers operating within the KubeFlex hosting cluster, there is no need to specify a `url-override`.
+
+## Manipulate contexts
+
+Kubeflex offers the ability to manipulate context through `kflex ctx`. The available commands are:
+
+### `kflex ctx` 
+
+Switch to the hosting cluster context (default name `*-kubeflex`)
+
+### `kflex ctx CONTEXT` 
+
+Switch context to the one provided `CONTEXT`
+
+### `kflex ctx get` 
+
+Return the current context (alias command of `kubectl config current-context`)
+
+### `kflex ctx rename OLD_CONTEXT NEW_CONTEXT`
+
+Rename a context within your kubeconfig file. By default, when creating a control plane `mycp`, the context, user, and cluster name are named as such:
+
+```
+context: mycp
+cluster: mycp-cluster
+user: mycp-admin
+```
+
+Therefore, applying the context rename command `kflex ctx rename mycp mycp-renamed` will change these 3 values as follow:
+
+```
+context: mycp-renamed
+cluster: mycp-renamed-cluster
+user: mycp-renamed-admin
+```
+
+### `kflex ctx delete CONTEXT`
+
+Delete a context within your kubeconfig file. If the context deleted is your current context, `kflex` automatically switch your current context to the hosting cluster.
 
 ## Post-create hooks
 
@@ -738,7 +849,6 @@ A complete example for installing OpenShift CRDs on a control plane is available
 [here](../config/samples/postcreate-hooks/openshift-crds.yaml). More examples
 are available [here](../config/samples/postcreate-hooks).
 
-
 ### Labels propagation
 
 There are scenarios where you may need to setup labels on control planes based on the
@@ -761,15 +871,13 @@ kubectl apply -f <hook-file.yaml> # e.g. kubectl apply -f hello.yaml
 
 You can then reference the hook by name when you create a new control plane.
 
+#### Single PostCreateHook (Legacy)
+
 With kflex CLI (you can use --postcreate-hook or -p):
 
 ```shell
 kflex create cp1 --postcreate-hook <my-hook-name> # e.g. kflex create cp1 -p hello
 ```
-
-While `kflex create` waits for the control plane to be available, it does not guarantee 
-the hook's completion. Use `kubectl` commands to verify the status of resources created 
-by the hook.
 
 If you are using directly a ControlPlane CRD with kubectl, you can create a control plane
 with the post-create hook as in the following example:
@@ -786,6 +894,71 @@ spec:
   type: k8s
 EOF
 ```
+
+**Note**: The `postCreateHook` field is deprecated. Use `postCreateHooks` instead for better functionality.
+
+#### Multiple PostCreateHooks (Recommended)
+
+You can now specify multiple post-create hooks for a single control plane, allowing for more complex automation workflows. Each hook can have its own variables and will be executed when the control plane is created.
+
+**Using kubectl:**
+
+```shell
+kubectl apply -f - <<EOF
+apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
+kind: ControlPlane
+metadata:
+  name: cp1
+spec:
+  backend: shared
+  postCreateHooks:
+    - hookName: openshift-crds
+      vars:
+        version: "4.14"
+    - hookName: install-operator
+      vars:
+        namespace: "operators"
+    - hookName: configure-rbac
+  waitForPostCreateHooks: true
+  type: k8s
+EOF
+```
+
+**CLI support for multiple hooks:** *Coming soon - CLI enhancement to support multiple hooks is planned.*
+
+### Hook execution and timing
+
+The `waitForPostCreateHooks` field controls whether the control plane waits for all post-create hooks to complete before marking itself as Ready:
+
+- `waitForPostCreateHooks: true` (recommended): The control plane will not be marked as Ready until ALL specified hooks complete successfully. This ensures your automation completes before the control plane is considered available.
+
+- `waitForPostCreateHooks: false` (default): The control plane is marked as Ready as soon as the API server is available, without waiting for hooks to complete. Hooks run in the background.
+
+**Example with waiting:**
+
+```yaml
+apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
+kind: ControlPlane
+metadata:
+  name: cp-wait-example
+spec:
+  backend: shared
+  postCreateHooks:
+    - hookName: setup-hook
+    - hookName: config-hook
+  waitForPostCreateHooks: true  # Wait for all hooks to complete
+  type: k8s
+```
+
+**Status tracking:** You can monitor hook completion in the control plane status:
+
+```shell
+kubectl get controlplane cp1 -o jsonpath='{.status.postCreateHooks}'
+```
+
+This shows the completion status of each individual hook.
+
+While `kflex create` waits for the control plane to be available, when `waitForPostCreateHooks: false` it does not guarantee the hook's completion. Use `kubectl` commands to verify the status of resources created by the hook.
 
 ### Built-in objects
 
@@ -814,8 +987,41 @@ helm-like syntax as well:
 "{{.<Your Object Name>}}"
 ```
 
-You can then specify the value to assign to these objects in a `ControlPlane`
-yaml using key/value pairs under `postCreateHookVars`. For example:
+#### Per-hook variables (Multiple PostCreateHooks)
+
+When using multiple PostCreateHooks, you can specify different variables for each hook:
+
+```yaml
+apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
+kind: ControlPlane
+metadata:
+  name: cp1
+spec:
+  backend: shared
+  postCreateHooks:
+    - hookName: setup-namespace
+      vars:
+        namespace: "my-app"
+        environment: "production"
+    - hookName: deploy-operator
+      vars:
+        version: "v1.2.3"
+        replicas: "3"
+  globalVars:
+    cluster: "production"
+    region: "us-west-2"
+  type: k8s
+```
+
+Variables are resolved with the following precedence:
+1. **Built-in variables** (highest priority): Namespace, ControlPlaneName, HookName
+2. **Per-hook variables**: Defined in `postCreateHooks[].vars`
+3. **Global variables**: Defined in `globalVars`
+4. **Default variables**: Defined in `PostCreateHook.spec.defaultVars`
+
+#### Legacy single hook variables
+
+For backward compatibility, when using the deprecated `postCreateHook` field, you can specify values using key/value pairs under `postCreateHookVars`:
 
 ```yaml
 apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
@@ -828,7 +1034,6 @@ spec:
   postCreateHookVars:
     version: "0.1.0"
   type: k8s
-EOF
 ```
 
 You can also specify these values with the `kflex` CLI with the `--set name=value`
@@ -915,3 +1120,19 @@ To list all available contexts in your kubeconfig file, use the following comman
 
 ```shell
 kflex ctx list
+```
+
+## PostCreateHook Template Variables
+
+PostCreateHooks support template variables with the following precedence:
+
+1. **System Variables** (highest priority)
+  - `Namespace`: Control plane namespace
+  - `ControlPlaneName`: Name of the control plane
+  - `HookName`: Name of the PostCreateHook
+
+2. **User Variables**  
+  Defined in `ControlPlane.spec.postCreateHookVars`
+
+3. **Default Variables**  
+  Defined in `PostCreateHook.spec.defaultVars`

@@ -15,10 +15,11 @@ const (
 type ConditionReason string
 
 const (
-	ReasonAvailable   ConditionReason = "Available"
-	ReasonUnavailable ConditionReason = "Unavailable"
-	ReasonCreating    ConditionReason = "Creating"
-	ReasonDeleting    ConditionReason = "Deleting"
+	ReasonAvailable                 ConditionReason = "Available"
+	ReasonUnavailable               ConditionReason = "Unavailable"
+	ReasonCreating                  ConditionReason = "Creating"
+	ReasonDeleting                  ConditionReason = "Deleting"
+	ReasonWaitingForPostCreateHooks ConditionReason = "WaitingForPostCreateHooks"
 )
 
 const (
@@ -164,6 +165,19 @@ func ConditionUnavailable() ControlPlaneCondition {
 		LastTransitionTime: metav1.Now(),
 		LastUpdateTime:     metav1.Now(),
 		Reason:             ReasonUnavailable,
+	}
+}
+
+// WaitingForPostCreateHooks returns a condition that indicates the resource is
+// waiting for PostCreateHook completion before becoming ready.
+func ConditionWaitingForPostCreateHooks() ControlPlaneCondition {
+	return ControlPlaneCondition{
+		Type:               TypeReady,
+		Status:             corev1.ConditionFalse,
+		LastTransitionTime: metav1.Now(),
+		LastUpdateTime:     metav1.Now(),
+		Reason:             ReasonWaitingForPostCreateHooks,
+		Message:            "Waiting for PostCreateHook completion",
 	}
 }
 

@@ -21,15 +21,26 @@ import (
 	"os"
 
 	"github.com/kubestellar/kubeflex/cmd/kflex/common"
+	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-type CPContextList struct {
-	CP common.CP
+func CommandList() *cobra.Command {
+	return &cobra.Command{
+		Use:   "list",
+		Short: "List all available contexts",
+		Long:  `List all available contexts in the kubeconfig file`,
+		Args:  cobra.ExactArgs(0),
+		Run: func(cmd *cobra.Command, args []string) {
+			kubeconfig, _ := cmd.Flags().GetString(common.KubeconfigFlag)
+			cp := common.NewCP(kubeconfig)
+			ExecuteCtxList(cp)
+		},
+	}
 }
 
-func (cp *CPContextList) ListContexts() {
-	config, err := clientcmd.LoadFromFile(cp.CP.Kubeconfig)
+func ExecuteCtxList(cp common.CP) {
+	config, err := clientcmd.LoadFromFile(cp.Kubeconfig)
 	if err != nil {
 		fmt.Printf("Error loading kubeconfig: %s\n", err)
 		os.Exit(1)

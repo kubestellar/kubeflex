@@ -26,7 +26,7 @@ spec:
                     - linux
       initContainers:
       - name: wait-postgresql
-        image: quay.io/kubestellar/kubectl:1.29.3
+        image: quay.io/kubestellar/kubectl:1.30.12
         command: ['sh', '-c']
         args:
         - |
@@ -41,7 +41,7 @@ spec:
           capabilities:
             drop:
               - "ALL"
-        image: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1
+        image: quay.io/brancz/kube-rbac-proxy:v0.19.1
         args:
         - "--secure-listen-address=0.0.0.0:8443"
         - "--upstream=http://127.0.0.1:8080/"

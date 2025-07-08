@@ -42,15 +42,21 @@ func (r *BaseReconciler) ReconcileNamespace(ctx context.Context, hcp *tenancyv1a
 
 	err := r.Client.Get(ctx, client.ObjectKeyFromObject(ns), ns, &client.GetOptions{})
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			if err := controllerutil.SetControllerReference(hcp, ns, r.Scheme); err != nil {
-				return fmt.Errorf("failed to SetControllerReference: %w", err)
-			}
-			if err = r.Client.Create(ctx, ns, &client.CreateOptions{}); err != nil {
-				return err
-			}
-		}
-		return err
-	}
-	return nil
+        if apierrors.IsNotFound(err) {
+            if err := controllerutil.SetControllerReference(hcp, ns, r.Scheme); err != nil {
+                return fmt.Errorf("failed to SetControllerReference: %w", err)
+            }
+            if err = r.Client.Create(ctx, ns, &client.CreateOptions{}); err != nil {
+                if util.IsTransientError(err) {
+                    return err
+                }
+                return fmt.Errorf("failed to create namespace: %w", err)
+            }
+        } else if util.IsTransientError(err) {
+            return err 
+        } else {
+            return fmt.Errorf("failed to get namespace: %w", err)
+        }
+    }
+    return nil
 }

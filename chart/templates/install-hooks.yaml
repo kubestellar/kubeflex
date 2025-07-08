@@ -9,7 +9,7 @@ spec:
     spec:
       containers:
       - name: "{{ .Release.Name }}"
-        image: quay.io/kubestellar/kubectl:1.27.8
+        image: quay.io/kubestellar/kubectl:1.30.12
         command:
         - sh
         - -c

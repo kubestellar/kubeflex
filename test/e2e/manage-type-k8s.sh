@@ -27,6 +27,33 @@ source "${SRC_DIR}/setup-shell.sh"
 
 :
 : -------------------------------------------------------------------------
+: Verify that the kubeconfig has the correct extensions structure
+: with controlplane-name set in the context
+:
+echo "Verifying kubeconfig extensions for control plane cp1..."
+
+context_name="cp1"
+cp_name="cp1"
+
+# Extract the controlplane-name from kubeconfig extensions using yq
+actual_cp_name=$(kubectl config view -o=yaml | yq -r '.contexts[] | select(.name == "'$context_name'") | .context.extensions[] | select(.name == "kubeflex") | .extension.data["controlplane-name"] // ""')
+
+if [ -z "$actual_cp_name" ]; then
+    echo "ERROR: Context $context_name not found or does not have kubeflex extension with controlplane-name"
+    echo "Available contexts:"
+    kubectl config view -o=yaml | yq -r '.contexts[].name'
+    exit 1
+fi
+
+if [ "$actual_cp_name" != "$cp_name" ]; then
+    echo "ERROR: Expected controlplane-name '$cp_name', but found '$actual_cp_name'"
+    exit 1
+fi
+
+echo "SUCCESS: Kubeconfig extensions verified for control plane cp1"
+
+:
+: -------------------------------------------------------------------------
 : Wait for the running components of ControlPlane cp1 to be ready, with
 : default timeout which is 30 seconds
 :

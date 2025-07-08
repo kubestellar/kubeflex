@@ -52,14 +52,19 @@ func (r *BaseReconciler) ReconcileUpdateClusterInfoJobRole(ctx context.Context, 
 			if err := controllerutil.SetControllerReference(hcp, role, r.Scheme); err != nil {
 				return fmt.Errorf("failed to SetControllerReference: %w", err)
 			}
-			err = r.Client.Create(ctx, role, &client.CreateOptions{})
-			if err != nil {
-				return err
-			}
-		}
-		return err
-	}
-	return nil
+			if err = r.Client.Create(ctx, role, &client.CreateOptions{}); err != nil {
+                if util.IsTransientError(err) {
+                    return err // Retry transient errors
+                }
+                return fmt.Errorf("failed to create role: %w", err)
+            }
+        } else if util.IsTransientError(err) {
+            return err // Retry transient errors
+        } else {
+            return fmt.Errorf("failed to get role: %w", err)
+        }
+    }
+    return nil
 }
 
 func generateClusterInfoJobRole(name, namespace string) *rbacv1.Role {
@@ -106,14 +111,19 @@ func (r *BaseReconciler) ReconcileUpdateClusterInfoJobRoleBinding(ctx context.Co
 			if err := controllerutil.SetControllerReference(hcp, binding, r.Scheme); err != nil {
 				return fmt.Errorf("failed to SetControllerReference: %w", err)
 			}
-			err = r.Client.Create(ctx, binding, &client.CreateOptions{})
-			if err != nil {
-				return err
-			}
-		}
-		return err
-	}
-	return nil
+			if err = r.Client.Create(ctx, binding, &client.CreateOptions{}); err != nil {
+                if util.IsTransientError(err) {
+                    return err // Retry transient errors
+                }
+                return fmt.Errorf("failed to create role binding: %w", err)
+            }
+        } else if util.IsTransientError(err) {
+            return err // Retry transient errors
+        } else {
+            return fmt.Errorf("failed to get role binding: %w", err)
+        }
+    }
+    return nil
 }
 
 func generateClusterInfoJobRoleBinding(name, namespace string) *rbacv1.RoleBinding {

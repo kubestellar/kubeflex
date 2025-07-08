@@ -89,7 +89,7 @@ spec:
       serviceAccountName: helm-install-sa
       containers:
       - name: install-postgresql
-        image: quay.io/kubestellar/helm:3.14.0
+        image: quay.io/kubestellar/helm:3.16.4
         args:
           - upgrade
           - --install
@@ -165,7 +165,7 @@ spec:
       serviceAccountName: helm-install-sa
       containers:
       - name: uninstall-postgresql
-        image: quay.io/kubestellar/helm:3.14.0
+        image: quay.io/kubestellar/helm:3.16.4
         args:
           - uninstall
           - postgres

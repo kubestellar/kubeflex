@@ -42,13 +42,13 @@ If you have [Homebrew](https://brew.sh), use the following commands to install k
 
 ```shell
 brew tap kubestellar/kubeflex https://github.com/kubestellar/kubeflex
-brew install kubeflex
+brew install kflex
 ```
 
 To upgrade the kubeflex CLI to the latest release, you may run:
 
 ```shell
-brew upgrade kubeflex
+brew upgrade kflex
 ```
 
 ## Quickstart

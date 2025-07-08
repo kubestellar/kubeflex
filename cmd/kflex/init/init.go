@@ -19,7 +19,6 @@ package init
 import (
 	"context"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -28,20 +27,79 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/kubestellar/kubeflex/cmd/kflex/common"
+	"github.com/kubestellar/kubeflex/cmd/kflex/init/cluster"
 	"github.com/kubestellar/kubeflex/pkg/client"
 	"github.com/kubestellar/kubeflex/pkg/helm"
 	kcfg "github.com/kubestellar/kubeflex/pkg/kubeconfig"
 	"github.com/kubestellar/kubeflex/pkg/util"
+	"github.com/spf13/cobra"
 )
 
-func Init(ctx context.Context, kubeconfig, version, buildDate string, domain, externalPort, hostContainer string, chattyStatus, isOCP bool) {
+const (
+	CreateKindFlag        = "create-kind"
+	DomainFlag            = "domain"
+	HostContainerNameFlag = "host-container-name" // REFACTOR? replace with host-container-name?
+	ExternalPortFlag      = "external-port"       // REFACTOR? replace with external-port?
+)
+
+func Command() *cobra.Command {
+	command := &cobra.Command{
+		Use:   "init",
+		Short: "Initialize kubeflex",
+		Long:  `Installs the default shared storage backend and the kubeflex operator`,
+		Args:  cobra.ExactArgs(0),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			flagset := cmd.Flags()
+			kubeconfig, _ := flagset.GetString(common.KubeconfigFlag)
+			chattyStatus, _ := flagset.GetBool(common.ChattyStatusFlag)
+			createkind, _ := flagset.GetBool(CreateKindFlag)
+			domain, _ := flagset.GetString(DomainFlag)
+			externalPort, _ := flagset.GetInt(ExternalPortFlag)
+			hostContainer, _ := flagset.GetString(HostContainerNameFlag)
+			done := make(chan bool)
+			var wg sync.WaitGroup
+			var isOCP bool
+
+			util.PrintStatus("Checking if OpenShift cluster...", done, &wg, chattyStatus)
+			clientsetp, err := client.GetClientSet(kubeconfig)
+			if err == nil {
+				isOCP = util.IsOpenShift(*clientsetp)
+				if isOCP {
+					done <- true
+					util.PrintStatus("OpenShift cluster detected", done, &wg, chattyStatus)
+				}
+			}
+			done <- true
+
+			if createkind {
+				if isOCP {
+					return fmt.Errorf("openShift cluster detected on existing context\nSwitch to a non-OpenShift context with `kubectl config use-context <context-name>` and retry")
+				}
+				cluster.CreateKindCluster(chattyStatus)
+			}
+
+			cp := common.NewCP(kubeconfig)
+			err = ExecuteInit(cp.Ctx, cp.Kubeconfig, common.Version, common.BuildDate, domain, strconv.Itoa(externalPort), hostContainer, chattyStatus, isOCP)
+			wg.Wait()
+			return err
+		},
+	}
+	flagset := command.Flags()
+	flagset.BoolP(CreateKindFlag, "c", false, "Create and configure a kind cluster for installing Kubeflex")
+	flagset.StringP(DomainFlag, "d", "localtest.me", "domain for FQDN")
+	flagset.StringP(HostContainerNameFlag, "n", "kubeflex-control-plane", "Name of the hosting cluster container (kind or k3d only)")
+	flagset.IntP(ExternalPortFlag, "p", 9443, "external port used by ingress")
+	return command
+}
+
+func ExecuteInit(ctx context.Context, kubeconfig, version, buildDate string, domain, externalPort, hostContainer string, chattyStatus, isOCP bool) error {
 	done := make(chan bool)
 	var wg sync.WaitGroup
 
 	clientsetp, err := client.GetClientSet(kubeconfig)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error getting clientset: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("error getting clientset: %v", err)
 	}
 	clientset := *clientsetp
 
@@ -49,19 +107,33 @@ func Init(ctx context.Context, kubeconfig, version, buildDate string, domain, ex
 	done <- true
 
 	util.PrintStatus("Setting hosting cluster preference in kubeconfig", done, &wg, chattyStatus)
-	err = kcfg.SaveHostingClusterContextPreference(ctx)
+
+	kconfig, err := kcfg.LoadKubeconfig(kubeconfig)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error setting hosting cluster context preference: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("error loading kubeconfig: %v", err)
+	}
+	err = kcfg.SetHostingClusterContext(kconfig, nil)
+	if err != nil {
+		return fmt.Errorf("error setting hosting cluster context: %v", err)
+	}
+	err = kcfg.WriteKubeconfig(kubeconfig, kconfig)
+	if err != nil {
+		return fmt.Errorf("error writing hosting cluster in kubeconfig: %v", err)
 	}
 	done <- true
 
 	util.PrintStatus("Ensuring kubeflex-system namespace...", done, &wg, chattyStatus)
-	ensureSystemNamespace(kubeconfig, util.SystemNamespace)
+	err = ensureSystemNamespace(kubeconfig, util.SystemNamespace)
+	if err != nil {
+		return err
+	}
 	done <- true
 
 	util.PrintStatus("Installing shared backend DB...", done, &wg, chattyStatus)
-	ensureSystemDB(ctx, isOCP)
+	err = ensureSystemDB(ctx, isOCP)
+	if err != nil {
+		return err
+	}
 	done <- true
 
 	util.PrintStatus("Waiting for shared backend DB to become ready...", done, &wg, chattyStatus)
@@ -72,7 +144,10 @@ func Init(ctx context.Context, kubeconfig, version, buildDate string, domain, ex
 	done <- true
 
 	util.PrintStatus("Installing kubeflex operator...", done, &wg, chattyStatus)
-	ensureKFlexOperator(ctx, version, domain, externalPort, hostContainer, isOCP)
+	err = ensureKFlexOperator(ctx, version, domain, externalPort, hostContainer, isOCP)
+	if err != nil {
+		return err
+	}
 	done <- true
 
 	util.PrintStatus("Waiting for kubeflex operator to become ready...", done, &wg, chattyStatus)
@@ -83,9 +158,10 @@ func Init(ctx context.Context, kubeconfig, version, buildDate string, domain, ex
 	done <- true
 
 	wg.Wait()
+	return nil
 }
 
-func ensureSystemDB(ctx context.Context, isOCP bool) {
+func ensureSystemDB(ctx context.Context, isOCP bool) error {
 	vars := []string{
 		"primary.extendedConfiguration=max_connections=1000",
 		"primary.priorityClassName=system-node-critical",
@@ -112,20 +188,19 @@ func ensureSystemDB(ctx context.Context, isOCP bool) {
 	}
 	err := helm.Init(ctx, h)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error initializing helm: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("error initializing helm: %v", err)
 	}
 
 	if !h.IsDeployed() {
 		err := h.Install()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error installing chart: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("error installing chart: %v", err)
 		}
 	}
+	return nil
 }
 
-func ensureKFlexOperator(ctx context.Context, fullVersion, domain, externalPort, hostContainer string, isOCP bool) {
+func ensureKFlexOperator(ctx context.Context, fullVersion, domain, externalPort, hostContainer string, isOCP bool) error {
 	version := util.ParseVersionNumber(fullVersion)
 	vars := []string{
 		fmt.Sprintf("version=%s", version),
@@ -145,27 +220,24 @@ func ensureKFlexOperator(ctx context.Context, fullVersion, domain, externalPort,
 	}
 	err := helm.Init(ctx, h)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error initializing helm: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("error initializing helm: %v", err)
 	}
 
 	if !h.IsDeployed() {
 		err := h.Install()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error installing chart: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("error installing chart: %v", err)
 		}
 	}
+	return nil
 }
 
-func ensureSystemNamespace(kubeconfig, namespace string) {
+func ensureSystemNamespace(kubeconfig, namespace string) error {
 	clientsetp, err := client.GetClientSet(kubeconfig)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error getting clientset: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("error getting clientset: %v", err)
 	}
 	clientset := *clientsetp
-
 	_, err = clientset.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -176,9 +248,9 @@ func ensureSystemNamespace(kubeconfig, namespace string) {
 			}
 			_, err = clientset.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error creating system namespace: %v\n", err)
-				os.Exit(1)
+				return fmt.Errorf("error creating system namespace: %v", err)
 			}
 		}
 	}
+	return nil
 }
