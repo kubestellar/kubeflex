@@ -835,7 +835,6 @@ A complete example for installing OpenShift CRDs on a control plane is available
 [here](../config/samples/postcreate-hooks/openshift-crds.yaml). More examples
 are available [here](../config/samples/postcreate-hooks).
 
-
 ### Labels propagation
 
 There are scenarios where you may need to setup labels on control planes based on the
@@ -858,15 +857,13 @@ kubectl apply -f <hook-file.yaml> # e.g. kubectl apply -f hello.yaml
 
 You can then reference the hook by name when you create a new control plane.
 
+#### Single PostCreateHook (Legacy)
+
 With kflex CLI (you can use --postcreate-hook or -p):
 
 ```shell
 kflex create cp1 --postcreate-hook <my-hook-name> # e.g. kflex create cp1 -p hello
 ```
-
-While `kflex create` waits for the control plane to be available, it does not guarantee 
-the hook's completion. Use `kubectl` commands to verify the status of resources created 
-by the hook.
 
 If you are using directly a ControlPlane CRD with kubectl, you can create a control plane
 with the post-create hook as in the following example:
@@ -883,6 +880,73 @@ spec:
   type: k8s
 EOF
 ```
+
+**Note**: The `postCreateHook` field is deprecated. Use `postCreateHooks` instead for better functionality.
+
+#### Multiple PostCreateHooks (Recommended)
+
+You can now specify multiple post-create hooks for a single control plane, allowing for more complex automation workflows. Each hook can have its own variables and will be executed when the control plane is created.
+
+**Using kubectl:**
+
+```shell
+kubectl apply -f - <<EOF
+apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
+kind: ControlPlane
+metadata:
+  name: cp1
+spec:
+  backend: shared
+  postCreateHooks:
+    - hookName: openshift-crds
+      vars:
+        version: "4.14"
+    - hookName: install-operator
+      vars:
+        namespace: "operators"
+    - hookName: configure-rbac
+  waitForPostCreateHooks: true
+  type: k8s
+EOF
+```
+
+**CLI support for multiple hooks:** *Coming soon - CLI enhancement to support multiple hooks is planned.*
+
+### Hook execution and timing
+
+#### waitForPostCreateHooks
+
+The `waitForPostCreateHooks` field controls whether the control plane waits for all post-create hooks to complete before marking itself as Ready:
+
+- `waitForPostCreateHooks: true` (recommended): The control plane will not be marked as Ready until ALL specified hooks complete successfully. This ensures your automation completes before the control plane is considered available.
+
+- `waitForPostCreateHooks: false` (default): The control plane is marked as Ready as soon as the API server is available, without waiting for hooks to complete. Hooks run in the background.
+
+**Example with waiting:**
+
+```yaml
+apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
+kind: ControlPlane
+metadata:
+  name: cp-wait-example
+spec:
+  backend: shared
+  postCreateHooks:
+    - hookName: setup-hook
+    - hookName: config-hook
+  waitForPostCreateHooks: true  # Wait for all hooks to complete
+  type: k8s
+```
+
+**Status tracking:** You can monitor hook completion in the control plane status:
+
+```shell
+kubectl get controlplane cp1 -o jsonpath='{.status.postCreateHooks}'
+```
+
+This shows the completion status of each individual hook.
+
+While `kflex create` waits for the control plane to be available, when `waitForPostCreateHooks: false` it does not guarantee the hook's completion. Use `kubectl` commands to verify the status of resources created by the hook.
 
 ### Built-in objects
 
@@ -911,8 +975,41 @@ helm-like syntax as well:
 "{{.<Your Object Name>}}"
 ```
 
-You can then specify the value to assign to these objects in a `ControlPlane`
-yaml using key/value pairs under `postCreateHookVars`. For example:
+#### Per-hook variables (Multiple PostCreateHooks)
+
+When using multiple PostCreateHooks, you can specify different variables for each hook:
+
+```yaml
+apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
+kind: ControlPlane
+metadata:
+  name: cp1
+spec:
+  backend: shared
+  postCreateHooks:
+    - hookName: setup-namespace
+      vars:
+        namespace: "my-app"
+        environment: "production"
+    - hookName: deploy-operator
+      vars:
+        version: "v1.2.3"
+        replicas: "3"
+  globalVars:
+    cluster: "production"
+    region: "us-west-2"
+  type: k8s
+```
+
+Variables are resolved with the following precedence:
+1. **Built-in variables** (highest priority): Namespace, ControlPlaneName, HookName
+2. **Per-hook variables**: Defined in `postCreateHooks[].vars`
+3. **Global variables**: Defined in `globalVars`
+4. **Default variables**: Defined in `PostCreateHook.spec.defaultVars`
+
+#### Legacy single hook variables
+
+For backward compatibility, when using the deprecated `postCreateHook` field, you can specify values using key/value pairs under `postCreateHookVars`:
 
 ```yaml
 apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
@@ -925,7 +1022,6 @@ spec:
   postCreateHookVars:
     version: "0.1.0"
   type: k8s
-EOF
 ```
 
 You can also specify these values with the `kflex` CLI with the `--set name=value`
