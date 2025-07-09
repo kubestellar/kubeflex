@@ -92,11 +92,7 @@ func TestCheckGlobalKubeflexExtensionWarning(t *testing.T) {
 	kconf := api.NewConfig()
 	
 	runtimeExtension := NewRuntimeKubeflexExtension()
-	runtimeExtensions, err := runtimeExtension.ConvertExtensionsToRuntimeExtension(runtimeExtension)
-	if err != nil {
-		t.Fatalf("failed to convert extensions: %v", err)
-	}
-	kconf.Extensions[ExtensionKubeflexKey] = runtimeExtensions[ExtensionKubeflexKey]
+	kconf.Extensions[ExtensionKubeflexKey] = runtimeExtension
 	
 	status, data := CheckGlobalKubeflexExtension(*kconf)
 	
