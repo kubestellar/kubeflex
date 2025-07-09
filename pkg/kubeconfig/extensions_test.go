@@ -73,3 +73,76 @@ func TestKubeflexConfigWrittenAsKubeConfig(t *testing.T) {
 		t.Errorf("fail to setup kubeflex config as HostingClusterContextName is not '%s': value is %s", hostingClusterContextNameExistent, v)
 	}
 }
+
+// Test CheckGlobalKubeflexExtension with no extension present
+func TestCheckGlobalKubeflexExtensionCritical(t *testing.T) {
+	kconf := api.NewConfig()
+	status, data := CheckGlobalKubeflexExtension(*kconf)
+	
+	if status != "critical" {
+		t.Errorf("expected status 'critical', got '%s'", status)
+	}
+	if data != nil {
+		t.Errorf("expected data to be nil, got %v", data)
+	}
+}
+
+// Test CheckGlobalKubeflexExtension with empty extension
+func TestCheckGlobalKubeflexExtensionWarning(t *testing.T) {
+	kconf := api.NewConfig()
+	
+	runtimeExtension := NewRuntimeKubeflexExtension()
+	runtimeExtensions, err := runtimeExtension.ConvertExtensionsToRuntimeExtension(runtimeExtension)
+	if err != nil {
+		t.Fatalf("failed to convert extensions: %v", err)
+	}
+	kconf.Extensions[ExtensionKubeflexKey] = runtimeExtensions[ExtensionKubeflexKey]
+	
+	status, data := CheckGlobalKubeflexExtension(*kconf)
+	
+	if status != "warning" {
+		t.Errorf("expected status 'warning', got '%s'", status)
+	}
+	if data != nil {
+		t.Errorf("expected data to be nil, got %v", data)
+	}
+}
+
+// Test CheckGlobalKubeflexExtension with valid extension data
+func TestCheckGlobalKubeflexExtensionOk(t *testing.T) {
+	kconf := api.NewConfig()
+	
+	// Create kubeflex config with data
+	kflexConfig, err := NewKubeflexConfig(*kconf)
+	if err != nil {
+		t.Fatalf("failed to create kubeflex config: %v", err)
+	}
+	kflexConfig.Extensions.HostingClusterContextName = "test-hosting-cluster"
+	
+	// Convert to runtime extension
+	runtimeExtension := NewRuntimeKubeflexExtension()
+	if err = kflexConfig.ConvertExtensionsToRuntimeExtension(runtimeExtension); err != nil {
+		t.Fatalf("failed to convert extensions: %v", err)
+	}
+	
+	// Add to kubeconfig
+	runtimeExtensions, err := kflexConfig.ParseToKubeconfigExtensions()
+	if err != nil {
+		t.Fatalf("failed to parse to kubeconfig extensions: %v", err)
+	}
+	kconf.Extensions[ExtensionKubeflexKey] = runtimeExtensions[ExtensionKubeflexKey]
+	
+	status, data := CheckGlobalKubeflexExtension(*kconf)
+	
+	if status != "ok" {
+		t.Errorf("expected status 'ok', got '%s'", status)
+	}
+	if data == nil {
+		t.Errorf("expected data to not be nil")
+	}
+	if data.HostingClusterContextName != "test-hosting-cluster" {
+		t.Errorf("expected HostingClusterContextName 'test-hosting-cluster', got '%s'", data.HostingClusterContextName)
+	}
+}
+
+

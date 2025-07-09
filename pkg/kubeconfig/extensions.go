@@ -177,3 +177,29 @@ func ConvertRuntimeObjectToRuntimeExtension(data runtime.Object, receiver *Runti
 	}
 	return nil
 }
+
+// CheckGlobalKubeflexExtension checks the status of the global kubeflex extension
+func CheckGlobalKubeflexExtension(kconf clientcmdapi.Config) (string, *KubeflexExtensions) {
+	runtimeObj, exists := kconf.Extensions[ExtensionKubeflexKey]
+	if !exists {
+		return "critical", nil
+	}
+
+	runtimeExtension := &RuntimeKubeflexExtension{}
+	if err := ConvertRuntimeObjectToRuntimeExtension(runtimeObj, runtimeExtension); err != nil {
+		return "critical", nil
+	}
+
+	// Check if the extension has any data
+	if len(runtimeExtension.Data) == 0 {
+		return "warning", nil
+	}
+
+	// Parse the data into KubeflexExtensions
+	kflexConfig := newKflexConfig[KubeflexExtensions](kconf)
+	if err := kflexConfig.ConvertRuntimeExtensionToExtensions(runtimeExtension); err != nil {
+		return "critical", nil
+	}
+
+	return "ok", kflexConfig.Extensions
+}
