@@ -24,6 +24,7 @@ import (
 	"github.com/kubestellar/kubeflex/pkg/certs"
 	"github.com/kubestellar/kubeflex/pkg/kubeconfig"
 	"github.com/spf13/cobra"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/clientcmd/api"
 )
 
@@ -62,10 +63,47 @@ func ExecuteCtxRename(cp common.CP, ctxName string, newCtxName string, toSwitch 
 	newClusterName := certs.GenerateClusterName(newCtxName)
 	newAuthInfoAdminName := certs.GenerateAuthInfoAdminName(newCtxName)
 	newCtxName = certs.GenerateContextName(newCtxName)
-	kconf.Contexts[newCtxName] = &api.Context{
+
+	// Preserve the original context's extensions when creating the new context
+	originalContext := kconf.Contexts[ctxName]
+	newContext := &api.Context{
 		Cluster:  newClusterName,
 		AuthInfo: newAuthInfoAdminName,
 	}
+
+	// Copy extensions from the original context to preserve KubeFlex metadata
+	if originalContext.Extensions != nil {
+		newContext.Extensions = make(map[string]runtime.Object)
+		for key, value := range originalContext.Extensions {
+			// For KubeFlex extensions, we need to update the extension data to reflect the new context name
+			if key == kubeconfig.ExtensionKubeflexKey {
+				// Parse the existing extension
+				runtimeExtension := &kubeconfig.RuntimeKubeflexExtension{}
+				if err := kubeconfig.ConvertRuntimeObjectToRuntimeExtension(value, runtimeExtension); err == nil {
+					// Update the extension data to reflect the new context name
+					if runtimeExtension.Data != nil {
+						// Update the control plane name if it matches the old context name
+						if cpName, exists := runtimeExtension.Data[kubeconfig.ExtensionControlPlaneName]; exists && cpName == ctxName {
+							runtimeExtension.Data[kubeconfig.ExtensionControlPlaneName] = newCtxName
+						}
+						// Update the initial context name if it matches the old context name
+						if initialCtxName, exists := runtimeExtension.Data[kubeconfig.ExtensionInitialContextName]; exists && initialCtxName == ctxName {
+							runtimeExtension.Data[kubeconfig.ExtensionInitialContextName] = newCtxName
+						}
+					}
+					newContext.Extensions[key] = runtimeExtension
+				} else {
+					// If we can't parse the extension, just copy it as-is
+					newContext.Extensions[key] = value
+				}
+			} else {
+				// For non-KubeFlex extensions, copy as-is
+				newContext.Extensions[key] = value
+			}
+		}
+	}
+
+	kconf.Contexts[newCtxName] = newContext
 	if cluster, ok := kconf.Clusters[certs.GenerateClusterName(ctxName)]; ok {
 		fmt.Fprintf(os.Stdout, "renaming cluster to %s\n", newClusterName)
 		newCluster := *cluster
