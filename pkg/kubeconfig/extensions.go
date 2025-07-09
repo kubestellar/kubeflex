@@ -35,6 +35,9 @@ const (
 	ExtensionKubeflexKey               = "kubeflex"
 	TypeExtensionDefault               = "extensions"
 	TypeExtensionLegacy                = "preferences[].extensions"
+	ExtensionStatusCritical            = "critical" // BREAKING CHANGE
+	ExtensionStatusWarning             = "warning"  // BREAKING CHANGE
+	ExtensionStatusOK                  = "ok"       // BREAKING CHANGE
 )
 
 // Internal structure of Kubeflex global extension in a Kubeconfig file
@@ -182,24 +185,24 @@ func ConvertRuntimeObjectToRuntimeExtension(data runtime.Object, receiver *Runti
 func CheckGlobalKubeflexExtension(kconf clientcmdapi.Config) (string, *KubeflexExtensions) {
 	runtimeObj, exists := kconf.Extensions[ExtensionKubeflexKey]
 	if !exists {
-		return "critical", nil
+		return ExtensionStatusCritical, nil
 	}
 
 	runtimeExtension := &RuntimeKubeflexExtension{}
 	if err := ConvertRuntimeObjectToRuntimeExtension(runtimeObj, runtimeExtension); err != nil {
-		return "critical", nil
+		return ExtensionStatusCritical, nil
 	}
 
 	// Check if the extension has any data
 	if len(runtimeExtension.Data) == 0 {
-		return "warning", nil
+		return ExtensionStatusWarning, nil
 	}
 
 	// Parse the data into KubeflexExtensions
 	kflexConfig := newKflexConfig[KubeflexExtensions](kconf)
 	if err := kflexConfig.ConvertRuntimeExtensionToExtensions(runtimeExtension); err != nil {
-		return "critical", nil
+		return ExtensionStatusCritical, nil
 	}
 
-	return "ok", kflexConfig.Extensions
+	return ExtensionStatusOK, kflexConfig.Extensions
 }
