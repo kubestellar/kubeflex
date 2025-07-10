@@ -22,6 +22,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	OutputFormatJSON = "json"
+)
+
 // DiagnosisResult represents the result of the kubeflex extension diagnosis
 type DiagnosisResult struct {
 	Status  string                    `json:"status"`
@@ -29,8 +33,9 @@ type DiagnosisResult struct {
 	Data    *kubeconfig.KubeflexExtensions `json:"data,omitempty"`
 }
 
+
 func CommandDiagnose() *cobra.Command {
-	var jsonOutput bool
+	var outputFormat string
 
 	command := &cobra.Command{
 		Use:   "diagnose",
@@ -44,16 +49,19 @@ func CommandDiagnose() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("error while parsing --kubeconfig: %v", err)
 			}
-			return ExecuteDiagnose(kubeconfigFile, jsonOutput)
+			if outputFormat != OutputFormatJSON {
+				return fmt.Errorf("unsupported output format: %q (only 'json' is supported)", outputFormat)
+			}
+			return ExecuteDiagnose(kubeconfigFile, outputFormat)
 		},
 	}
 
-	command.Flags().BoolVarP(&jsonOutput, "json", "j", false, "output in JSON format")
+	command.Flags().StringVarP(&outputFormat, "output", "o", "json", "output format (json)")
 	return command
 }
 
 // ExecuteDiagnose checks the status of the global kubeflex extension
-func ExecuteDiagnose(kubeconfigFile string, jsonOutput bool) error {
+func ExecuteDiagnose(kubeconfigFile string, outputFormat string) error {
 	kconf, err := kubeconfig.LoadKubeconfig(kubeconfigFile)
 	if err != nil {
 		return fmt.Errorf("error while loading kubeconfig: %v", err)
@@ -68,28 +76,18 @@ func ExecuteDiagnose(kubeconfigFile string, jsonOutput bool) error {
 
 	// Set appropriate message based on status
 	switch status {
-	case "critical":
+	case kubeconfig.DiagnosisStatusCritical:
 		result.Message = "Global kubeflex extension is not present in kubeconfig"
-	case "warning":
+	case kubeconfig.DiagnosisStatusWarning:
 		result.Message = "Global kubeflex extension is present but empty"
-	case "ok":
+	case kubeconfig.DiagnosisStatusOK:
 		result.Message = "Global kubeflex extension is present and properly configured"
 	}
 
-	if jsonOutput {
-		jsonData, err := json.MarshalIndent(result, "", "  ")
-		if err != nil {
-			return fmt.Errorf("error while marshaling JSON: %v", err)
-		}
-		fmt.Println(string(jsonData))
-	} else {
-		// CLI-readable output
-		fmt.Printf("Status: %s\n", result.Status)
-		fmt.Printf("Message: %s\n", result.Message)
-		if data != nil && data.HostingClusterContextName != "" {
-			fmt.Printf("Hosting Cluster Context: %s\n", data.HostingClusterContextName)
-		}
+	jsonData, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		return fmt.Errorf("error while marshaling JSON: %v", err)
 	}
-
+	fmt.Println(string(jsonData))
 	return nil
 }
