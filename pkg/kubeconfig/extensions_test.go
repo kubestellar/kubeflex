@@ -79,8 +79,8 @@ func TestCheckGlobalKubeflexExtensionNotSet(t *testing.T) {
 	kconf := api.NewConfig()	
 	status, data := CheckGlobalKubeflexExtension(*kconf)
 	
-	if status != ExtensionStatusCritical {
-		t.Errorf("Expected status '%s', got '%s'", ExtensionStatusCritical, status)
+	if status != DiagnosisStatusCritical {
+		t.Errorf("Expected status '%s', got '%s'", DiagnosisStatusCritical, status)
 	}
 	if data != nil {
 		t.Errorf("Expected data to be nil, got %v", data)
@@ -98,8 +98,8 @@ func TestCheckGlobalKubeflexExtensionEmpty(t *testing.T) {
 	kconf.Extensions[ExtensionKubeflexKey] = runtimeExtension
 	status, data := CheckGlobalKubeflexExtension(*kconf)
 	
-	if status != ExtensionStatusWarning {
-		t.Errorf("Expected status '%s', got '%s'", ExtensionStatusWarning, status)
+	if status != DiagnosisStatusWarning {
+		t.Errorf("Expected status '%s', got '%s'", DiagnosisStatusWarning, status)
 	}
 	if data != nil {
 		t.Errorf("Expected data to be nil, got %v", data)
@@ -126,8 +126,8 @@ func TestCheckGlobalKubeflexExtensionWithData(t *testing.T) {
 	
 	status, data := CheckGlobalKubeflexExtension(*kconf)
 	
-	if status != ExtensionStatusOK {
-		t.Errorf("Expected status '%s', got '%s'", ExtensionStatusOK, status)
+	if status != DiagnosisStatusOK {
+		t.Errorf("Expected status '%s', got '%s'", DiagnosisStatusOK, status)
 	}
 	if data == nil {
 		t.Errorf("Expected data to not be nil")
