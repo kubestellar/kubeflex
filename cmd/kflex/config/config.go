@@ -28,5 +28,6 @@ func Command() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 	}
 	command.AddCommand(CommandSetHostingClusterCtx())
+	command.AddCommand(CommandDiagnose())
 	return command
 }
