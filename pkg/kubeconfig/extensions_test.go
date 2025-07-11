@@ -73,3 +73,65 @@ func TestKubeflexConfigWrittenAsKubeConfig(t *testing.T) {
 		t.Errorf("fail to setup kubeflex config as HostingClusterContextName is not '%s': value is %s", hostingClusterContextNameExistent, v)
 	}
 }
+
+// Test CheckGlobalKubeflexExtension when extension is not set
+func TestCheckGlobalKubeflexExtensionNotSet(t *testing.T) {
+	kconf := api.NewConfig()	
+	status, data := CheckGlobalKubeflexExtension(*kconf)
+	
+	if status != DiagnosisStatusCritical {
+		t.Errorf("Expected status '%s', got '%s'", DiagnosisStatusCritical, status)
+	}
+	if data != nil {
+		t.Errorf("Expected data to be nil, got %v", data)
+	}
+}
+
+// Test CheckGlobalKubeflexExtension when extension is set but empty
+func TestCheckGlobalKubeflexExtensionEmpty(t *testing.T) {
+	kconf := api.NewConfig()
+	
+	// Create an empty runtime extension
+	runtimeExtension := NewRuntimeKubeflexExtension()
+	
+	// Don't add any data to the extension
+	kconf.Extensions[ExtensionKubeflexKey] = runtimeExtension
+	status, data := CheckGlobalKubeflexExtension(*kconf)
+	
+	if status != DiagnosisStatusWarning {
+		t.Errorf("Expected status '%s', got '%s'", DiagnosisStatusWarning, status)
+	}
+	if data != nil {
+		t.Errorf("Expected data to be nil, got %v", data)
+	}
+}
+
+// Test CheckGlobalKubeflexExtension when extension is set with valid data
+func TestCheckGlobalKubeflexExtensionWithData(t *testing.T) {
+	kconf := api.NewConfig()
+	
+	// Create a kubeflex config with data
+	kflexConfig, err := NewKubeflexConfig(*kconf)
+	if err != nil {
+		t.Fatalf("Failed to create kubeflex config: %v", err)
+	}
+	kflexConfig.Extensions.HostingClusterContextName = "test-hosting-cluster"
+	
+	// Convert to runtime extension and add to kubeconfig
+	runtimeExtension := NewRuntimeKubeflexExtension()
+	if err = kflexConfig.ConvertExtensionsToRuntimeExtension(runtimeExtension); err != nil {
+		t.Fatalf("Failed to convert extensions to runtime extension: %v", err)
+	}
+	kconf.Extensions[ExtensionKubeflexKey] = runtimeExtension
+	
+	status, data := CheckGlobalKubeflexExtension(*kconf)
+	
+	if status != DiagnosisStatusOK {
+		t.Errorf("Expected status '%s', got '%s'", DiagnosisStatusOK, status)
+	}
+	if data == nil {
+		t.Errorf("Expected data to not be nil")
+	} else if data.HostingClusterContextName != "test-hosting-cluster" {
+		t.Errorf("Expected HostingClusterContextName to be 'test-hosting-cluster', got '%s'", data.HostingClusterContextName)
+	}
+}
