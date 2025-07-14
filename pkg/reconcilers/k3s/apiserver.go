@@ -35,11 +35,14 @@ import (
 )
 
 // k3s constants
-const ServerName = "k3s-server"
-const ServerDockerImage = "rancher/k3s"
-const StorageName = "data-k3s-server"
-const StorageClassName = "standard" // kind default storage class name which is rancher/local-storage (same as k3s but different name)
-const StoragePath = "/data"
+const (
+	ServerName        = "k3s-server"
+	ServerDockerImage = "rancher/k3s"
+	StorageName       = "data-k3s-server"
+	StorageClassName  = "standard" // kind default storage class name which is rancher/local-storage (same as k3s but different name)
+	StoragePath       = "/data"
+	APIServerPort     = 6443 // k3s apiserver port
+)
 
 // K3s API server
 // NOTE: k3s is a single binary containing apiserver, etcd, controller-manager... therefore `Server` refers to all components

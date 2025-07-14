@@ -31,11 +31,12 @@ import (
 
 // K3sReconciler embeds all k3s components
 type K3sReconciler struct {
-	*Namespace             // k3s namespace
-	*Service               // k3s service
-	*Server                // k3s api server
-	*Secret                // k3s secret
-	*shared.BaseReconciler // shared base controller
+	*Namespace                      // k3s namespace
+	headlessSvc            *Service // k3s service
+	clusterIPSvc           *Service // k3s service
+	*Server                         // k3s api server
+	*Secret                         // k3s secret
+	*shared.BaseReconciler          // shared base controller
 }
 
 // Init new K3sReconciler
@@ -52,7 +53,8 @@ func New(cl client.Client, scheme *runtime.Scheme, version string, clientSet *ku
 	return &K3sReconciler{
 		BaseReconciler: &br,
 		Namespace:      &Namespace{&br},
-		Service:        &Service{&br},
+		headlessSvc:    &Service{&br},
+		clusterIPSvc:   &Service{&br},
 		Server:         &Server{&br},
 		Secret:         &Secret{&br},
 	}
