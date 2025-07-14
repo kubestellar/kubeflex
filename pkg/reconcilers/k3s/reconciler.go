@@ -35,6 +35,7 @@ type K3sReconciler struct {
 	*Service               // k3s service
 	*Server                // k3s api server
 	*Secret                // k3s secret
+	*Ingress               // k3s ingress
 	*shared.BaseReconciler // shared base controller
 }
 
@@ -55,6 +56,7 @@ func New(cl client.Client, scheme *runtime.Scheme, version string, clientSet *ku
 		Service:        &Service{&br},
 		Server:         &Server{&br},
 		Secret:         &Secret{&br},
+		Ingress:        &Ingress{&br},
 	}
 }
 
@@ -72,6 +74,10 @@ func (r *K3sReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.Cont
 	}
 	// Reconcile k3s Service
 	if result, err := r.Service.Reconcile(ctx, hcp); err != nil {
+		return result, err
+	}
+	// Reconcile k3s Ingress
+	if result, err := r.Ingress.Reconcile(ctx, hcp); err != nil {
 		return result, err
 	}
 	// Reconcile k3s Secret
