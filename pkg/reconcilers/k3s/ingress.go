@@ -16,23 +16,30 @@ limitations under the License.
 package k3s
 
 import (
-	// "context"
-	// "fmt"
+	"context"
+	"fmt"
 
-	// tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	clog "sigs.k8s.io/controller-runtime/pkg/log"
+
+	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/shared"
-	// "github.com/kubestellar/kubeflex/pkg/util"
+
 	networkingv1 "k8s.io/api/networking/v1"
-	// apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
-	// "sigs.k8s.io/controller-runtime/pkg/client"
-	// "sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
 	IngressClassNameNGINX = "nginx"
 )
+
+type Ingress struct {
+	*shared.BaseReconciler
+}
 
 // NewIngress create k3s ingress to reach k3s apiserver from outside the cluster
 func NewIngress(host string, serviceName string) *networkingv1.Ingress {
@@ -64,7 +71,7 @@ func NewIngress(host string, serviceName string) *networkingv1.Ingress {
 											Name: serviceName,
 											Port: networkingv1.ServiceBackendPort{
 												Number: shared.DefaultPort,
-												Name:   shared.DefaultPortName,
+												// Name:   shared.DefaultPortName,
 											},
 										},
 									},
@@ -76,4 +83,38 @@ func NewIngress(host string, serviceName string) *networkingv1.Ingress {
 			},
 		},
 	}
+}
+
+// Reconcile the ingress
+func (ingress *Ingress) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
+	log := clog.FromContext(ctx)
+	log.Info("ingress.go:Reconcile: reconciling k3s ingress")
+	// Get config to init Ingress
+	cfg, err := ingress.BaseReconciler.GetConfig(ctx)
+	if err != nil {
+		log.Error(err, "ingress.go:Reconcile:missing shared configuration kubeflex configmap")
+		return ctrl.Result{}, err
+	}
+	// NOTE: host cannot have https:// prefix - see RFC 1123
+	ingrHost := fmt.Sprintf("%s.%s", ServiceName, cfg.Domain)
+	ingr := NewIngress(ingrHost, hcp.Name)
+	// Get ingress on cluster to verify its existence
+	err = ingress.Client.Get(ctx, client.ObjectKeyFromObject(ingr), ingr)
+	if err != nil {
+		log.Error(err, "ingress.go:Reconcile:k3s ingress failed to be fetched")
+		if apierrors.IsNotFound(err) {
+			if err = controllerutil.SetControllerReference(hcp, ingr, ingress.Scheme); err != nil {
+				log.Error(err, "ingress.go:Reconcile:k3s ingress failed to set controller reference")
+				return ctrl.Result{}, err
+			}
+			// Create new ingress on the cluster
+			if err = ingress.Client.Create(ctx, ingr); err != nil {
+				log.Error(err, "ingress.go: failed to create k3s ingress on the cluster")
+			}
+			log.Info("ingress.go:Reconcile: k3s ingress is successfully created")
+		} else {
+			return ctrl.Result{}, err
+		}
+	}
+	return ctrl.Result{}, nil
 }
