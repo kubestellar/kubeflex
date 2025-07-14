@@ -207,3 +207,29 @@ kube-system   traefik-5b6d9f7f5c-w2b6n                 1/1     Running     0    
 It works!
 
 Next step is to translate this manual procedure into golang code and reconciler logic!
+
+# How to retrieve and manage k3s certs?
+
+Option 1:
+1. Use k3s utility script to generate k3s certs (global -- works when scaling k3s controlplane)
+2. Update incluster configmap
+3. Use configmap as a volume for k3s server pod (inject certs)
+
+Outcome: does not work as configmap as a volume implies read-only volume
+
+Option 2: same as option 1 with a file copy within emptyDir volume to enable write-access
+
+Outcome: works but building a kubeconfig file from certs give a very-restricted access to the user (subject from cert)
+Therefore, it is necessary to create a rolebinding which grant this user admin access. How to do that automatically is a a hassle
+
+Option 3: Pod with container (k3s server) and its sidecar (script upload k3s kubeconfig as configmap)
+1. container after startup phase, auto-generates k3s kubeconfig file with user/cluster certs+key
+2. sidecar container awaits on k3s kubeconfig to be ready using Container Probe (exec) and then create the configmap on the host cluster
+3. ensure sidecar container restartPolicy=Never and kill the sidecar
+
+Outcome: with option 3, the kubeconfig is store as a configmap on the host cluster, making it accessible to the kubeflex controller.
+
+# Kubeflex controller and configmap k3s certs
+
+Kubeflex controller reconcile the configmap to do the following:
+1. Check if `data.kubeconfig-raw` is set 

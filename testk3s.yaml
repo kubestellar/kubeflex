@@ -41,12 +41,6 @@ metadata:
   creationTimestamp: null
   name: k3s-certs
 data:
-  etcd-peer-ca.crt: ""
-  etcd-peer-ca.key: ""
-  etcd-peer-ca.pem: ""
-  etcd-server-ca.crt: ""
-  etcd-server-ca.key: ""
-  etcd-server-ca.pem: ""
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -123,21 +117,8 @@ spec:
         volumeMounts:
         - name: scripts
           mountPath: /scripts
-      - image: bash:5
-        name: k3s-certs-cp
-        command:
-        - bash
-        - "-c"
-        args:
-        - cp -r /secrets /var/lib/rancher/k3s/server/tls
-        securityContext:
-          privileged: true
-          readOnlyRootFilesystem: false
-        volumeMounts:
         - name: certs-rw
           mountPath: /var/lib/rancher/k3s/server/tls
-        - name: certs
-          mountPath: /secrets
       containers:
       - image: rancher/k3s:v1.30.13-k3s1
         name: k3s
@@ -164,22 +145,6 @@ spec:
           name: k3s-scripts
       - name: certs-rw
         emptyDir: {}
-      - name: certs
-        configMap:
-          name: k3s-certs
-          items:
-          - key: etcd-server-ca.pem
-            path: etcd/server-ca.pem
-          - key: etcd-server-ca.key
-            path: etcd/server-ca.key
-          - key: etcd-server-ca.crt
-            path: etcd/server-ca.crt
-          - key: etcd-peer-ca.pem
-            path: etcd/peer-ca.pem
-          - key: etcd-peer-ca.key
-            path: etcd/peer-ca.key
-          - key: etcd-peer-ca.crt
-            path: etcd/peer-ca.crt
 
 ---
 apiVersion: networking.k8s.io/v1
