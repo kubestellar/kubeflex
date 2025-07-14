@@ -65,7 +65,7 @@ func Command() *cobra.Command {
 	}
 
 	flagset := command.Flags()
-	flagset.StringP(ControlPlaneTypeFlag, "t", CTypeDefault, "type of control plane: k8s|ocm|vcluster")
+	flagset.StringP(ControlPlaneTypeFlag, "t", CTypeDefault, "type of control plane: k8s|k3s|ocm|vcluster")
 	flagset.StringP(BackendTypeFlag, "b", BKTypeDefault, "backend DB sharing: shared|dedicated")
 	flagset.StringP(common.PostCreateHookFlag, "p", "", "name of post create hook to run")
 	flagset.BoolP(common.ChattyStatusFlag, "s", true, "chatty status indicator")
@@ -115,7 +115,6 @@ func ExecuteCreate(cp common.CP, controlPlaneType string, backendType string, ho
 			util.GetAPIServerDeploymentNameByControlPlaneType(controlPlaneType),
 			// TODO replace util.GenerateNamespaceFromControlPlaneName like in k3s
 			util.GenerateNamespaceFromControlPlaneName(controlPlane.Name)); err != nil {
-
 			return fmt.Errorf("error waiting for stateful set to become ready: %v", err)
 		}
 	case string(tenancyv1alpha1.ControlPlaneTypeK8S), string(tenancyv1alpha1.ControlPlaneTypeOCM):
@@ -123,7 +122,6 @@ func ExecuteCreate(cp common.CP, controlPlaneType string, backendType string, ho
 			util.GetAPIServerDeploymentNameByControlPlaneType(controlPlaneType),
 			// TODO replace util.GenerateNamespaceFromControlPlaneName like in k3s
 			util.GenerateNamespaceFromControlPlaneName(controlPlane.Name)); err != nil {
-
 			return fmt.Errorf("error waiting for deployment to become ready: %v", err)
 		}
 	case string(tenancyv1alpha1.ControlPlaneTypeK3s):

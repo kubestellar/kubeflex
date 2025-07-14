@@ -49,11 +49,12 @@ func serviceLabels() map[string]string {
 }
 
 // NewHeadlessService creates a new headless service for k3s statefulset
-func NewHeadlessService() (_ *v1.Service, err error) {
+func NewHeadlessService(cpName string) (_ *v1.Service, err error) {
 	return &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   HeadlessServiceName,
-			Labels: serviceLabels(),
+			Name:      HeadlessServiceName,
+			Namespace: GenerateSystemNamespaceName(cpName),
+			Labels:    serviceLabels(),
 		},
 		Spec: v1.ServiceSpec{
 			Type:      v1.ServiceTypeClusterIP,
@@ -77,11 +78,12 @@ func NewHeadlessService() (_ *v1.Service, err error) {
 
 // NewClusterIPService creates a new service for k3s ingress
 // TODO: refactor as a single function to create Service with option pattern
-func NewClusterIPService() (_ *v1.Service, err error) {
+func NewClusterIPService(cpName string) (_ *v1.Service, err error) {
 	return &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   ServiceName,
-			Labels: serviceLabels(),
+			Name:      ServiceName,
+			Namespace: GenerateSystemNamespaceName(cpName),
+			Labels:    serviceLabels(),
 		},
 		Spec: v1.ServiceSpec{
 			Type: v1.ServiceTypeClusterIP,
@@ -112,7 +114,7 @@ func GetStaticDNSRecord(namespace string) string {
 // TODO: to implement
 func (svc *Service) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
 	log := clog.FromContext(ctx)
-	log.Info("k3s:service.go:Reconcile:", "starting reconciling services...")
+	log.Info("k3s:service.go:Reconcile:starting reconciling services...")
 	// Get k3s ClusterIP service to verify its existence on cluster
 	k3sService := &v1.Service{}
 	err := svc.Client.Get(ctx, client.ObjectKey{Namespace: GenerateSystemNamespaceName(hcp.Name), Name: ServiceName}, k3sService)
@@ -121,7 +123,7 @@ func (svc *Service) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlP
 		if apierrors.IsNotFound(err) {
 			// Create k3s ClusterIP service on the cluster
 			log.Error(err, "service.go:Reconcile:clusterIP service is not found")
-			k3sService, _ = NewClusterIPService()
+			k3sService, _ = NewClusterIPService(hcp.Name)
 			if err := controllerutil.SetControllerReference(hcp, k3sService, svc.Scheme); err != nil {
 				log.Error(err, "service.go:Reconcile:failed to set k3s service as secondary resource to hcp")
 				return ctrl.Result{}, nil
