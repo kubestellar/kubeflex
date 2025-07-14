@@ -31,12 +31,11 @@ import (
 
 // K3sReconciler embeds all k3s components
 type K3sReconciler struct {
-	*Namespace                      // k3s namespace
-	headlessSvc            *Service // k3s service
-	clusterIPSvc           *Service // k3s service
-	*Server                         // k3s api server
-	*Secret                         // k3s secret
-	*shared.BaseReconciler          // shared base controller
+	*Namespace             // k3s namespace
+	*Service               // k3s service
+	*Server                // k3s api server
+	*Secret                // k3s secret
+	*shared.BaseReconciler // shared base controller
 }
 
 // Init new K3sReconciler
@@ -53,8 +52,7 @@ func New(cl client.Client, scheme *runtime.Scheme, version string, clientSet *ku
 	return &K3sReconciler{
 		BaseReconciler: &br,
 		Namespace:      &Namespace{&br},
-		headlessSvc:    &Service{&br},
-		clusterIPSvc:   &Service{&br},
+		Service:        &Service{&br},
 		Server:         &Server{&br},
 		Secret:         &Secret{&br},
 	}
@@ -68,11 +66,15 @@ func (r *K3sReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.Cont
 	if result, err := r.Namespace.Reconcile(ctx, hcp); err != nil {
 		return result, err
 	}
-	// Reconcile k3s secret
+	// Reconcile k3s Server
 	if result, err := r.Server.Reconcile(ctx, hcp); err != nil {
 		return result, err
 	}
-	// Reconcile k3s server
+	// Reconcile k3s Service
+	if result, err := r.Service.Reconcile(ctx, hcp); err != nil {
+		return result, err
+	}
+	// Reconcile k3s Secret
 	if result, err := r.Secret.Reconcile(ctx, hcp); err != nil {
 		return result, err
 	}
