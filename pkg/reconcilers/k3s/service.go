@@ -41,11 +41,11 @@ func serviceLabels() map[string]string {
 	return labels
 }
 
-// Init headless service for k3s apiserver
-func NewService() (_ *v1.Service, err error) {
+// NewHeadlessService creates a new headless service for k3s statefulset
+func NewHeadlessService() (_ *v1.Service, err error) {
 	return &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   ServiceName,
+			Name:   ServiceName + "-headless",
 			Labels: serviceLabels(),
 		},
 		Spec: v1.ServiceSpec{
@@ -53,10 +53,11 @@ func NewService() (_ *v1.Service, err error) {
 			ClusterIP: v1.ClusterIPNone,
 			Ports: []v1.ServicePort{
 				{
+					// HTTPS :443
 					Port: shared.DefaultPort,
 					// NOTE: why target pot should be shared.SecurePort
 					TargetPort: intstr.FromInt32(shared.SecurePort),
-					// NOTE: why should we name our port?
+					// HTTPS
 					Name:     string(shared.DefaultPortName),
 					Protocol: v1.ProtocolTCP,
 				},
@@ -67,7 +68,34 @@ func NewService() (_ *v1.Service, err error) {
 	}, nil
 }
 
-// Get static DNS record in kubernetes form
+// NewClusterIPService creates a new service for k3s ingress
+// TODO: refactor as a single function to create Service with option pattern
+func NewClusterIPService() (_ *v1.Service, err error) {
+	return &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   ServiceName,
+			Labels: serviceLabels(),
+		},
+		Spec: v1.ServiceSpec{
+			Type: v1.ServiceTypeClusterIP,
+			Ports: []v1.ServicePort{
+				{
+					// HTTPS :443
+					Port: shared.DefaultPort,
+					// k3s apiserver listen port
+					TargetPort: intstr.FromInt32(APIServerPort),
+					// HTTPS
+					Name:     string(shared.DefaultPortName),
+					Protocol: v1.ProtocolTCP,
+				},
+			},
+			// Attach service to k3s apiserver
+			Selector: serverLabels(),
+		},
+	}, nil
+}
+
+// GetStaticDNSRecord fetch static dns in kubernetes form
 func GetStaticDNSRecord(namespace string) string {
 	return fmt.Sprintf("https://%s.%s.svc", ServiceName, namespace)
 }
