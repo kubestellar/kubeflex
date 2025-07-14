@@ -135,3 +135,134 @@ func TestCheckGlobalKubeflexExtensionWithData(t *testing.T) {
 		t.Errorf("Expected HostingClusterContextName to be 'test-hosting-cluster', got '%s'", data.HostingClusterContextName)
 	}
 }
+
+func TestCheckHostingClusterContextNameNone(t *testing.T) {
+	kconf := api.NewConfig()
+
+	kflexConfig, err := NewKubeflexConfig(*kconf)
+	if err != nil {
+		t.Fatalf("Failed to create kubeflex config: %v", err)
+	}
+
+	kflexConfig.Extensions.HostingClusterContextName = "test-hosting-cluster"
+
+	runtimeExtension := NewRuntimeKubeflexExtension()
+	if err = kflexConfig.ConvertExtensionsToRuntimeExtension(runtimeExtension); err != nil {
+		t.Fatalf("Failed to convert extensions to runtime extension: %v", err)
+	}
+
+	kconf.Extensions[ExtensionKubeflexKey] = runtimeExtension
+
+	status, data := CheckHostingClusterContextName(*kconf)
+
+	if status != DiagnosisStatusCritical {
+		t.Errorf("Expected status '%s', got '%s'", DiagnosisStatusCritical, status)
+	}
+	if data == nil {
+		t.Errorf("Expected data to not be nil")
+	} else if data.HostingClusterContextName != "test-hosting-cluster" {
+		t.Errorf("Expected HostingClusterContextName to be 'test-hosting-cluster', got '%s'", data.HostingClusterContextName)
+	}
+
+}
+
+func TestCheckHostingClusterContextNameMultiple(t *testing.T) {
+	kconf := api.NewConfig()
+
+	// Create global kubeflex extension
+	kflexConfig, err := NewKubeflexConfig(*kconf)
+	if err != nil {
+		t.Fatalf("Failed to create kubeflex config: %v", err)
+	}
+	kflexConfig.Extensions.HostingClusterContextName = "hosting-cluster-1"
+
+	runtimeExtension := NewRuntimeKubeflexExtension()
+	if err = kflexConfig.ConvertExtensionsToRuntimeExtension(runtimeExtension); err != nil {
+		t.Fatalf("Failed to convert extensions to runtime extension: %v", err)
+	}
+	kconf.Extensions[ExtensionKubeflexKey] = runtimeExtension
+
+	// Add cluster and auth info
+	cluster := api.NewCluster()
+	cluster.Server = "https://example.com:6443"
+	kconf.Clusters["example-cluster"] = cluster
+
+	authInfo := api.NewAuthInfo()
+	authInfo.Token = "example-token"
+	kconf.AuthInfos["example-user"] = authInfo
+
+	// Create first hosting cluster context
+	ctx1 := api.NewContext()
+	ctx1.Cluster = "example-cluster"
+	ctx1.AuthInfo = "example-user"
+	ctx1RuntimeExtension := NewRuntimeKubeflexExtension()
+	ctx1RuntimeExtension.Data[ExtensionContextsIsHostingCluster] = "true"
+	ctx1.Extensions[ExtensionKubeflexKey] = ctx1RuntimeExtension
+	kconf.Contexts["hosting-cluster-1"] = ctx1
+
+	// Create second hosting cluster context
+	ctx2 := api.NewContext()
+	ctx2.Cluster = "example-cluster"
+	ctx2.AuthInfo = "example-user"
+	ctx2RuntimeExtension := NewRuntimeKubeflexExtension()
+	ctx2RuntimeExtension.Data[ExtensionContextsIsHostingCluster] = "true"
+	ctx2.Extensions[ExtensionKubeflexKey] = ctx2RuntimeExtension
+	kconf.Contexts["hosting-cluster-2"] = ctx2
+
+	status, data := CheckHostingClusterContextName(*kconf)
+
+	if status != DiagnosisStatusWarning {
+		t.Errorf("Expected status '%s', got '%s'", DiagnosisStatusWarning, status)
+	}
+	if data == nil {
+		t.Errorf("Expected data to not be nil")
+	} else if data.HostingClusterContextName != "hosting-cluster-1" {
+		t.Errorf("Expected HostingClusterContextName to be 'hosting-cluster-1', got '%s'", data.HostingClusterContextName)
+	}
+}
+
+func TestCheckHostingClusterContextNameSingle(t *testing.T) {
+	kconf := api.NewConfig()
+
+	// Create global kubeflex extension
+	kflexConfig, err := NewKubeflexConfig(*kconf)
+	if err != nil {
+		t.Fatalf("Failed to create kubeflex config: %v", err)
+	}
+	kflexConfig.Extensions.HostingClusterContextName = "hosting-cluster"
+
+	runtimeExtension := NewRuntimeKubeflexExtension()
+	if err = kflexConfig.ConvertExtensionsToRuntimeExtension(runtimeExtension); err != nil {
+		t.Fatalf("Failed to convert extensions to runtime extension: %v", err)
+	}
+	kconf.Extensions[ExtensionKubeflexKey] = runtimeExtension
+
+	// Add cluster and auth info
+	cluster := api.NewCluster()
+	cluster.Server = "https://example.com:6443"
+	kconf.Clusters["example-cluster"] = cluster
+
+	authInfo := api.NewAuthInfo()
+	authInfo.Token = "example-token"
+	kconf.AuthInfos["example-user"] = authInfo
+
+	// Create single hosting cluster context
+	ctx := api.NewContext()
+	ctx.Cluster = "example-cluster"
+	ctx.AuthInfo = "example-user"
+	ctxRuntimeExtension := NewRuntimeKubeflexExtension()
+	ctxRuntimeExtension.Data[ExtensionContextsIsHostingCluster] = "true"
+	ctx.Extensions[ExtensionKubeflexKey] = ctxRuntimeExtension
+	kconf.Contexts["hosting-cluster"] = ctx
+
+	status, data := CheckHostingClusterContextName(*kconf)
+
+	if status != DiagnosisStatusOK {
+		t.Errorf("Expected status '%s', got '%s'", DiagnosisStatusOK, status)
+	}
+	if data == nil {
+		t.Errorf("Expected data to not be nil")
+	} else if data.HostingClusterContextName != "hosting-cluster" {
+		t.Errorf("Expected HostingClusterContextName to be 'hosting-cluster', got '%s'", data.HostingClusterContextName)
+	}
+}
