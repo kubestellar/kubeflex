@@ -196,18 +196,14 @@ func NewPVC(cpName string) (*v1.PersistentVolumeClaim, error) {
 func (r *Server) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
 	log := clog.FromContext(ctx)
 	// Get k3s pvc that is required for k3s server to run
-	k3sPVCObject := &v1.PersistentVolumeClaim{}
-	k3sPVCObjectKey := client.ObjectKey{Namespace: GenerateSystemNamespaceName(hcp.Name), Name: StorageName}
-	log.Info("k3s:server.go:Reconcile:", "k3sPVCObjectKey", k3sPVCObjectKey)
-	err := r.Client.Get(ctx, k3sPVCObjectKey, k3sPVCObject)
+	k3sPVCObject, _ := NewPVC(hcp.Name)
+	log.Info("k3s:server.go:Reconcile: reconcile k3s PVC for server")
+	err := r.Client.Get(ctx, client.ObjectKeyFromObject(k3sPVCObject), k3sPVCObject)
 	if err != nil {
 		log.Error(err, "k3s:server.go:Reconcile:r.Client.Get pvc failed")
-		r.BaseReconciler.UpdateStatusForSyncingError(ctx, hcp, err) // TODO: to change
+		// r.BaseReconciler.UpdateStatusForSyncingError(ctx, hcp, err) // TODO: to change
 		if apierrors.IsNotFound(err) {
 			log.Error(err, "k3s:server.go:Reconcile:pvc is not found error")
-			log.Info("k3s:server.go:Reconcile:call NewServer() on k3sServerObject")
-			// Generate new k3s server
-			k3sPVCObject, _ = NewPVC(hcp.Name)
 			log.Info("k3s:server.go:Reconcile:call SetControllerReference on pvc")
 			// Set owner reference of the API server object
 			if err := controllerutil.SetControllerReference(hcp, k3sPVCObject, r.Scheme); err != nil {
@@ -224,18 +220,15 @@ func (r *Server) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlan
 		return ctrl.Result{}, err
 	}
 	// Get k3s server from hosting cluster and stored it in k3sServerObject
-	k3sServerObject := &appsv1.StatefulSet{}
-	k3sServerObjectKey := client.ObjectKey{Namespace: GenerateSystemNamespaceName(hcp.Name), Name: ServerName}
-	log.Info("k3s:server.go:Reconcile:", "k3sServerObjectKey", k3sServerObjectKey)
-	err = r.Client.Get(ctx, k3sServerObjectKey, k3sServerObject)
+	k3sServerObject, _ := NewServer(hcp.Name)
+	log.Info("k3s:server.go:Reconcile:k3s statefulset for server")
+	err = r.Client.Get(ctx, client.ObjectKeyFromObject(k3sServerObject), k3sServerObject)
 	if err != nil {
 		log.Error(err, "k3s:server.go:Reconcile:r.Client.Get failed")
-		r.BaseReconciler.UpdateStatusForSyncingError(ctx, hcp, err) // TODO: to change
+		// r.BaseReconciler.UpdateStatusForSyncingError(ctx, hcp, err) // TODO: to change
 		if apierrors.IsNotFound(err) {
 			log.Error(err, "k3s:server.go:Reconcile:is not found error")
 			log.Info("k3s:server.go:Reconcile:call NewServer() on k3sServerObject")
-			// Generate new k3s server
-			k3sServerObject, _ = NewServer(hcp.Name)
 			log.Info("k3s:server.go:Reconcile:call SetControllerReference")
 			// Set owner reference of the API server object
 			if err := controllerutil.SetControllerReference(hcp, k3sServerObject, r.Scheme); err != nil {
