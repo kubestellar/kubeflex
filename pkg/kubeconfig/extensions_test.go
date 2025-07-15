@@ -2,6 +2,7 @@ package kubeconfig
 
 import (
 	"fmt"
+	"k8s.io/apimachinery/pkg/runtime"
 	"testing"
 
 	"k8s.io/client-go/tools/clientcmd/api"
@@ -76,9 +77,9 @@ func TestKubeflexConfigWrittenAsKubeConfig(t *testing.T) {
 
 // Test CheckGlobalKubeflexExtension when extension is not set
 func TestCheckGlobalKubeflexExtensionNotSet(t *testing.T) {
-	kconf := api.NewConfig()	
+	kconf := api.NewConfig()
 	status, data := CheckGlobalKubeflexExtension(*kconf)
-	
+
 	if status != DiagnosisStatusCritical {
 		t.Errorf("Expected status '%s', got '%s'", DiagnosisStatusCritical, status)
 	}
@@ -90,14 +91,14 @@ func TestCheckGlobalKubeflexExtensionNotSet(t *testing.T) {
 // Test CheckGlobalKubeflexExtension when extension is set but empty
 func TestCheckGlobalKubeflexExtensionEmpty(t *testing.T) {
 	kconf := api.NewConfig()
-	
+
 	// Create an empty runtime extension
 	runtimeExtension := NewRuntimeKubeflexExtension()
-	
+
 	// Don't add any data to the extension
 	kconf.Extensions[ExtensionKubeflexKey] = runtimeExtension
 	status, data := CheckGlobalKubeflexExtension(*kconf)
-	
+
 	if status != DiagnosisStatusWarning {
 		t.Errorf("Expected status '%s', got '%s'", DiagnosisStatusWarning, status)
 	}
@@ -109,23 +110,21 @@ func TestCheckGlobalKubeflexExtensionEmpty(t *testing.T) {
 // Test CheckGlobalKubeflexExtension when extension is set with valid data
 func TestCheckGlobalKubeflexExtensionWithData(t *testing.T) {
 	kconf := api.NewConfig()
-	
-	// Create a kubeflex config with data
 	kflexConfig, err := NewKubeflexConfig(*kconf)
 	if err != nil {
 		t.Fatalf("Failed to create kubeflex config: %v", err)
 	}
 	kflexConfig.Extensions.HostingClusterContextName = "test-hosting-cluster"
-	
+
 	// Convert to runtime extension and add to kubeconfig
 	runtimeExtension := NewRuntimeKubeflexExtension()
 	if err = kflexConfig.ConvertExtensionsToRuntimeExtension(runtimeExtension); err != nil {
 		t.Fatalf("Failed to convert extensions to runtime extension: %v", err)
 	}
 	kconf.Extensions[ExtensionKubeflexKey] = runtimeExtension
-	
+
 	status, data := CheckGlobalKubeflexExtension(*kconf)
-	
+
 	if status != DiagnosisStatusOK {
 		t.Errorf("Expected status '%s', got '%s'", DiagnosisStatusOK, status)
 	}
@@ -133,5 +132,26 @@ func TestCheckGlobalKubeflexExtensionWithData(t *testing.T) {
 		t.Errorf("Expected data to not be nil")
 	} else if data.HostingClusterContextName != "test-hosting-cluster" {
 		t.Errorf("Expected HostingClusterContextName to be 'test-hosting-cluster', got '%s'", data.HostingClusterContextName)
+	}
+}
+
+func TestCheckHostingClusterContextNameNone(t *testing.T) {
+	kconf := api.NewConfig()
+	kconf.Clusters["cluster1"] = &api.Cluster{Server: "https://example.com:6443"}
+	kconf.AuthInfos["user1"] = &api.AuthInfo{Token: "token"}
+
+	ext := NewRuntimeKubeflexExtension()
+	ext.Data[ExtensionContextsIsHostingCluster] = "false"
+
+	kconf.Contexts["ctx1"] = &api.Context{
+		Cluster:    "cluster1",
+		AuthInfo:   "user1",
+		Extensions: map[string]runtime.Object{ExtensionKubeflexKey: ext},
+	}
+	kconf.CurrentContext = "ctx1"
+
+	result := CheckHostingClusterContextName(*kconf)
+	if result != DiagnosisStatusCritical {
+		t.Errorf("Expected %s, got %s", DiagnosisStatusCritical, result)
 	}
 }
