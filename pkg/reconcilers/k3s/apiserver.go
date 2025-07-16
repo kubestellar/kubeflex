@@ -36,12 +36,13 @@ import (
 
 // k3s constants
 const (
-	ServerName        = "k3s-server"
-	ServerDockerImage = "rancher/k3s"
-	StorageName       = "data-k3s-server"
-	StorageClassName  = "standard" // kind default storage class name which is rancher/local-storage (same as k3s but different name)
-	StoragePath       = "/data"
-	APIServerPort     = 6443 // k3s apiserver port
+	ServerName                 = "k3s-server"
+	ServerDockerImage          = "rancher/k3s"
+	StorageName                = "data-k3s-server"
+	StorageClassName           = "standard" // kind default storage class name which is rancher/local-storage (same as k3s but different name)
+	StorageMountPath           = "/data"
+	StorageKubeconfigMountPath = "/etc/rancher/k3s" // directory
+	APIServerPort              = 6443               // k3s apiserver port
 )
 
 // K3s API server
@@ -66,7 +67,7 @@ func containerImage() string {
 	return fmt.Sprintf("%s:%s", ServerDockerImage, imageTag)
 }
 
-// Init API server object to apply on controlplane $cpName
+// NewServer generate  API server manifest to apply on controlplane $cpName
 // NOTE: $cpName is used only for object Namespace, not its Name
 func NewServer(cpName string) (*appsv1.StatefulSet, error) {
 	return &appsv1.StatefulSet{
@@ -101,7 +102,13 @@ func NewServer(cpName string) (*appsv1.StatefulSet, error) {
 								// VolumeMount k3s data
 								{
 									Name:      StorageName,
-									MountPath: StoragePath,
+									MountPath: StorageMountPath,
+									ReadOnly:  false,
+								},
+								// VolumeMount k3s kubeconfig
+								{
+									Name:      StorageName,
+									MountPath: StorageKubeconfigMountPath,
 									ReadOnly:  false,
 								},
 							},
@@ -127,24 +134,15 @@ func NewServer(cpName string) (*appsv1.StatefulSet, error) {
 								},
 							},
 						},
-						// Volume kubernetes certificates
-						{
-							Name: "k8s-certs",
-							VolumeSource: v1.VolumeSource{
-								Secret: &v1.SecretVolumeSource{
-									SecretName: "k8s-certs",
-								},
-							},
-						},
-						// Volume ConfigMap kubeconfig
-						{
-							Name: "cm-kubeconfig",
-							VolumeSource: v1.VolumeSource{
-								Secret: &v1.SecretVolumeSource{
-									SecretName: "cm-kubeconfig",
-								},
-							},
-						},
+						// Volume k3s secrets that contains kubeconfig????
+						// {
+						// 	Name: "k3s-config",
+						// 	VolumeSource: v1.VolumeSource{
+						// 		Secret: &v1.SecretVolumeSource{
+						// 			SecretName: "k3s-config",
+						// 		},
+						// 	},
+						// },
 					},
 					RestartPolicy: "Always",
 				},
@@ -153,22 +151,7 @@ func NewServer(cpName string) (*appsv1.StatefulSet, error) {
 	}, nil
 }
 
-// apiVersion: v1
-// kind: PersistentVolumeClaim
-// metadata:
-//
-//	name: local-path-pvc
-//	namespace: k3stest
-//
-// spec:
-//
-//	accessModes:
-//	  - ReadWriteOnce
-//	storageClassName: standard
-//	volumeMode: Filesystem
-//	resources:
-//	  requests:
-//	    storage: 2Gi
+// NewPVC generate k3s pvc manifest
 func NewPVC(cpName string) (*v1.PersistentVolumeClaim, error) {
 	return &v1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
@@ -201,7 +184,7 @@ func (r *Server) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlan
 	err := r.Client.Get(ctx, client.ObjectKeyFromObject(k3sPVCObject), k3sPVCObject)
 	if err != nil {
 		log.Error(err, "k3s:server.go:Reconcile:r.Client.Get pvc failed")
-		// r.BaseReconciler.UpdateStatusForSyncingError(ctx, hcp, err) // TODO: to change
+		r.BaseReconciler.UpdateStatusForSyncingError(ctx, hcp, err) // TODO: to change
 		if apierrors.IsNotFound(err) {
 			log.Error(err, "k3s:server.go:Reconcile:pvc is not found error")
 			log.Info("k3s:server.go:Reconcile:call SetControllerReference on pvc")
