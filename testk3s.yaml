@@ -9,6 +9,7 @@ rules:
   - ""
   resources:
   - configmaps
+  - secrets
   verbs:
   - get
   - update
@@ -19,7 +20,7 @@ rules:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: k3s-certs
+  name: k3s-sa
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -32,8 +33,21 @@ roleRef:
   name: update-cm
 subjects:
 - kind: ServiceAccount
-  name: k3s-certs
+  name: k3s-sa
   namespace: default
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: testk3s-pvc
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 512Mi
+  storageClassName: standard
+  volumeMode: Filesystem
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -43,10 +57,37 @@ metadata:
 data:
 ---
 apiVersion: v1
+kind: Secret
+metadata:
+  creationTimestamp: null
+  name: k3s-config
+data:
+---
+apiVersion: v1
 kind: ConfigMap
 metadata:
   name: k3s-scripts
 data:
+  inject-kubeconfig-to-secret.sh: |
+    set -e
+    apk add --no-cache jq yq curl base64
+    APISERVER=https://kubernetes.default.svc
+    SERVICEACCOUNT=/var/run/secrets/kubernetes.io/serviceaccount
+    NAMESPACE=$(cat ${SERVICEACCOUNT}/namespace)
+    TOKEN=$(cat ${SERVICEACCOUNT}/token)
+    CACERT=${SERVICEACCOUNT}/ca.crt
+
+    KUBECONFIG=/etc/rancher/k3s/config.yaml
+    cp /etc/rancher/k3s/k3s.yaml $KUBECONFIG
+    DNS_SVC="https://testk3s.default.svc"
+    DNS_INGRESS="https://testk3s.localtest.me:9443"
+    yq e -i ".clusters[0].cluster.server = \"${DNS_INGRESS}\"" $KUBECONFIG
+    dataConfig=$(cat $KUBECONFIG | yq -r | base64 | tr -d '[:space:]"')
+    yq e -i ".clusters[0].cluster.server = \"${DNS_SVC}\"" $KUBECONFIG
+    dataConfigIncluster=$(cat $KUBECONFIG | yq -r | base64 | tr -d '[:space:]"')
+    dataJson="{\"data\": {\"config\": \"${dataConfig}\", \"config-incluster\": \"${dataConfigIncluster}\"}}"
+    dataJson=$(echo $dataJson | jq -c)  # validation and formatting
+    curl --cacert ${CACERT} --header "Authorization: Bearer ${TOKEN}" -H "Content-Type: application/merge-patch+json" -X PATCH -d "${dataJson}" ${APISERVER}/api/v1/namespaces/${NAMESPACE}/secrets/k3s-config
   gen-certs.sh: |
     set -e
     apk add --no-cache jq curl base64 openssl
@@ -84,6 +125,22 @@ data:
 
     curl --cacert ${CACERT} --header "Authorization: Bearer ${TOKEN}" -H "Content-Type: application/merge-patch+json" -X PATCH -d "${data_value_string}" ${APISERVER}/api/v1/namespaces/${NAMESPACE}/configmaps/k3s-certs
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    component: testk3s
+    tier: control-plane
+  name: testk3s
+spec:
+  ports:
+  - port: 443
+    protocol: TCP
+    targetPort: 6443
+  selector:
+    app: testk3s
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -103,10 +160,10 @@ spec:
       labels:
         app: testk3s
     spec:
-      serviceAccountName: k3s-certs
+      serviceAccountName: k3s-sa
       initContainers:
       - image: bash:5
-        name: k3s-certs-gen
+        name: k3s-certs
         command:
         - bash
         args:
@@ -139,12 +196,18 @@ spec:
         volumeMounts:
         - name: certs-rw
           mountPath: /var/lib/rancher/k3s/server/tls
+        - name: testk3s-pv
+          mountPath: /etc/rancher/k3s
       volumes:
       - name: scripts
         configMap:
           name: k3s-scripts
       - name: certs-rw
         emptyDir: {}
+      - name: testk3s-pv
+        persistentVolumeClaim:
+          claimName: testk3s-pvc
+          readOnly: false
 
 ---
 apiVersion: networking.k8s.io/v1
@@ -168,18 +231,66 @@ spec:
         pathType: Prefix
         
 ---
+####
+# Test pod to manipulate
+# ##
 apiVersion: v1
-kind: Service
+kind: Pod
+metadata:
+  labels:
+    run: test
+  name: test
+spec:
+  containers:
+  - image: nginx
+    name: test
+    volumeMounts:
+    - name: testk3s-pv  # matches name below
+      mountPath: /etc/rancher/k3s
+      readOnly: false
+  volumes:
+  - name: testk3s-pv    # subjective name
+    persistentVolumeClaim:
+      claimName: testk3s-pvc
+  restartPolicy: Always
+---
+###
+# Simulate Job that updates secret k3s-config
+# to upload k3s config and incluster-config
+##
+apiVersion: batch/v1
+kind: Job
 metadata:
   creationTimestamp: null
-  labels:
-    component: testk3s
-    tier: control-plane
-  name: testk3s
+  name: update-k3s-config
 spec:
-  ports:
-  - port: 443
-    protocol: TCP
-    targetPort: 6443
-  selector:
-    app: testk3s
+  backoffLimit: 10
+  template:
+    metadata:
+      creationTimestamp: null
+    spec:
+      serviceAccountName: k3s-sa
+      containers:
+      - image: bash:5
+        name: update-k3s-config
+        command:
+        - bash
+        securityContext:
+          privileged: true
+          runAsUser: 0
+        args:
+        - ./scripts/inject-kubeconfig-to-secret.sh
+        volumeMounts:
+        - name: scripts
+          mountPath: /scripts
+        - name: testk3s-pv
+          mountPath: /etc/rancher/k3s
+      volumes:
+      - name: testk3s-pv
+        persistentVolumeClaim:
+          claimName: testk3s-pvc
+      - name: scripts
+        configMap:
+          name: k3s-scripts
+      restartPolicy: Never
+status: {}
