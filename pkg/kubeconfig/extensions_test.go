@@ -155,3 +155,34 @@ func TestCheckHostingClusterContextNameNone(t *testing.T) {
 		t.Errorf("Expected %s, got %s", DiagnosisStatusCritical, result)
 	}
 }
+
+func TestCheckHostingClusterContextNameMultiple(t *testing.T) {
+	kconf := api.NewConfig()
+	kconf.Clusters["cluster1"] = &api.Cluster{Server: "https://example.com:6443"}
+	kconf.Clusters["cluster2"] = &api.Cluster{Server: "https://example.org:6443"}
+
+	kconf.AuthInfos["user1"] = &api.AuthInfo{Token: "token1"}
+	kconf.AuthInfos["user2"] = &api.AuthInfo{Token: "token2"}
+
+	ext1 := NewRuntimeKubeflexExtension()
+	ext1.Data[ExtensionContextsIsHostingCluster] = "true"
+	ext2 := NewRuntimeKubeflexExtension()
+	ext2.Data[ExtensionContextsIsHostingCluster] = "true"
+
+	kconf.Contexts["ctx1"] = &api.Context{
+		Cluster:    "cluster1",
+		AuthInfo:   "user1",
+		Extensions: map[string]runtime.Object{ExtensionKubeflexKey: ext1},
+	}
+	kconf.Contexts["ctx2"] = &api.Context{
+		Cluster:    "cluster2",
+		AuthInfo:   "user2",
+		Extensions: map[string]runtime.Object{ExtensionKubeflexKey: ext2},
+	}
+	kconf.CurrentContext = "ctx1"
+
+	result := CheckHostingClusterContextName(*kconf)
+	if result != DiagnosisStatusWarning {
+		t.Errorf("Expected %s, got %s", DiagnosisStatusWarning, result)
+	}
+}
