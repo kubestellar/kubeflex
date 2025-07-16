@@ -207,13 +207,7 @@ func CheckGlobalKubeflexExtension(kconf clientcmdapi.Config) (string, *KubeflexE
 	return DiagnosisStatusOK, kflexConfig.Extensions
 }
 
-// CheckHostingClusterContextName checks the status of the hosting cluster context
-func CheckHostingClusterContextName(kconf clientcmdapi.Config) (string, *KubeflexExtensions) {
-	globalStatus, kflexExtension := CheckGlobalKubeflexExtension(kconf)
-	if globalStatus == DiagnosisStatusCritical || kflexExtension == nil {
-		return DiagnosisStatusCritical, nil
-	}
-
+func CheckHostingClusterContextName(kconf clientcmdapi.Config) string {
 	hostingClusterCtxCount := 0
 	for _, ctx := range kconf.Contexts {
 		if ctx.Extensions != nil {
@@ -231,10 +225,10 @@ func CheckHostingClusterContextName(kconf clientcmdapi.Config) (string, *Kubefle
 
 	switch hostingClusterCtxCount {
 	case 0:
-		return DiagnosisStatusCritical, kflexExtension
+		return DiagnosisStatusCritical
 	case 1:
-		return DiagnosisStatusOK, kflexExtension
+		return DiagnosisStatusOK
 	default:
-		return DiagnosisStatusWarning, kflexExtension
+		return DiagnosisStatusWarning
 	}
 }
