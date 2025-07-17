@@ -45,6 +45,32 @@ func setupMockContext(t *testing.T, kubeconfigPath string, ctxName string) {
 	if err := kubeconfig.SetHostingClusterContext(kconf, nil); err != nil {
 		t.Fatalf("error setupmockcontext: %v", err)
 	}
+	// Add KubeFlex extension to the test context to make it appear as managed by KubeFlex
+	if err := kubeconfig.AssignControlPlaneToContext(kconf, ctxName, certs.GenerateContextName(ctxName)); err != nil {
+		t.Fatalf("error assigning control plane to context: %v", err)
+	}
+	if err := kubeconfig.WriteKubeconfig(kubeconfigPath, kconf); err != nil {
+		t.Fatalf("error writing kubeconfig: %v", err)
+	}
+}
+
+// Setup mock kubeconfig file with context,cluster,authinfo without KubeFlex extension
+func setupMockContextWithoutKubeflex(t *testing.T, kubeconfigPath string, ctxName string) {
+	kconf := api.NewConfig()
+	kconf.Contexts[hostingClusterContextMock] = &api.Context{
+		Cluster:  hostingClusterContextMock,
+		AuthInfo: hostingClusterContextMock,
+	}
+	kconf.Contexts[certs.GenerateContextName(ctxName)] = &api.Context{
+		Cluster:  certs.GenerateClusterName(ctxName),
+		AuthInfo: certs.GenerateAuthInfoAdminName(ctxName),
+	}
+	kconf.Clusters[certs.GenerateClusterName(ctxName)] = api.NewCluster()
+	kconf.AuthInfos[certs.GenerateAuthInfoAdminName(ctxName)] = api.NewAuthInfo()
+	kconf.CurrentContext = hostingClusterContextMock
+	if err := kubeconfig.SetHostingClusterContext(kconf, nil); err != nil {
+		t.Fatalf("error setupmockcontext: %v", err)
+	}
 	if err := kubeconfig.WriteKubeconfig(kubeconfigPath, kconf); err != nil {
 		t.Fatalf("error writing kubeconfig: %v", err)
 	}
