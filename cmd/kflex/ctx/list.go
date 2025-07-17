@@ -21,9 +21,48 @@ import (
 	"os"
 
 	"github.com/kubestellar/kubeflex/cmd/kflex/common"
+	"github.com/kubestellar/kubeflex/pkg/kubeconfig"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/clientcmd/api"
 )
+
+// Printer interface for output formatting
+type Printer interface {
+	Header() string
+	Content() string
+}
+
+// BasicTable implements Printer and fmt.Stringer for table output.
+type BasicTable struct {
+	Rows []BasicTableRow
+}
+
+// BasicTableRow represents a row in the context list table.
+type BasicTableRow struct {
+	Prefix  string
+	CtxName string
+	IsKflex string
+	CPName  string
+}
+
+// Header returns the table header for BasicTable.
+func (b BasicTable) Header() string {
+	return fmt.Sprintf("%-30s %-18s %-15s\n", "CONTEXT", "MANAGED BY KFLEX", "CONTROLPLANE")
+}
+
+// Content returns the formatted table rows for BasicTable.
+func (b BasicTable) Content() string {
+	out := ""
+	for _, row := range b.Rows {
+		out += fmt.Sprintf("%s %-28s %-18s %-15s\n", row.Prefix, row.CtxName, row.IsKflex, row.CPName)
+	}
+	return out
+}
+
+func (b BasicTable) String() string {
+	return b.Header() + b.Content()
+}
 
 func CommandList() *cobra.Command {
 	return &cobra.Command{
@@ -42,7 +81,7 @@ func CommandList() *cobra.Command {
 func ExecuteCtxList(cp common.CP) {
 	config, err := clientcmd.LoadFromFile(cp.Kubeconfig)
 	if err != nil {
-		fmt.Printf("Error loading kubeconfig: %s\n", err)
+		fmt.Fprintf(os.Stderr, "Error loading kubeconfig: %s\n", err)
 		os.Exit(1)
 	}
 
@@ -51,13 +90,31 @@ func ExecuteCtxList(cp common.CP) {
 		return
 	}
 
-	currentContext := config.CurrentContext
-	fmt.Println("Available Contexts:")
+	printer := NewBasicTablePrinter(config)
+	fmt.Print(printer.String())
+}
+
+// NewBasicTablePrinter constructs a BasicTable from kubeconfig and current context.
+func NewBasicTablePrinter(config *api.Config) BasicTable {
+	table := BasicTable{Rows: make([]BasicTableRow, len(config.Contexts))}
+	i := 0
 	for name := range config.Contexts {
-		prefix := " "
-		if name == currentContext {
-			prefix = "*"
+		row := BasicTableRow{}
+		if name == config.CurrentContext {
+			row.Prefix = "*"
 		}
-		fmt.Printf("%s %s\n", prefix, name)
+		kflexCtx, err := kubeconfig.NewKubeflexContextConfig(*config, name)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error extracting KubeFlex extension for context '%s': %v\n", name, err)
+			os.Exit(1)
+		}
+		if kflexCtx.Extensions != nil && kflexCtx.Extensions.ControlPlaneName != "" {
+			row.IsKflex = "yes"
+			row.CPName = kflexCtx.Extensions.ControlPlaneName
+		}
+		row.CtxName = name
+		table.Rows[i] = row
+		i++
 	}
+	return table
 }
