@@ -243,3 +243,25 @@ func TestCheckContextScopeKubeflexExtensionSetNoData(t *testing.T) {
 		t.Errorf("Expected %s, got %s", DiagnosisStatusCritical, result)
 	}
 }
+
+func TestCheckContextScopeKubeflexExtensionSetPartialData(t *testing.T) {
+	kconf := api.NewConfig()
+	kconf.Clusters["cluster1"] = &api.Cluster{Server: "https://example.com:6443"}
+	kconf.AuthInfos["user1"] = &api.AuthInfo{Token: "token"}
+
+	ext := NewRuntimeKubeflexExtension()
+	ext.Data[ExtensionContextsIsHostingCluster] = "true"
+	// Missing control-plane name
+
+	kconf.Contexts["ctx1"] = &api.Context{
+		Cluster:    "cluster1",
+		AuthInfo:   "user1",
+		Extensions: map[string]runtime.Object{ExtensionKubeflexKey: ext},
+	}
+	kconf.CurrentContext = "ctx1"
+
+	result := CheckContextScopeKubeflexExtensionSet(*kconf)
+	if result != DiagnosisStatusWarning {
+		t.Errorf("Expected %s, got %s", DiagnosisStatusWarning, result)
+	}
+}
