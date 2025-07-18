@@ -207,3 +207,18 @@ func TestCheckHostingClusterContextNameSingle(t *testing.T) {
 		t.Errorf("Expected %s, got %s", DiagnosisStatusOK, result)
 	}
 }
+
+func TestCheckContextScopeKubeflexExtensionSetNoKubeflexExtensions(t *testing.T) {
+	kconf := api.NewConfig()
+	kconf.Clusters["cluster1"] = &api.Cluster{Server: "https://example.com:6443"}
+	kconf.AuthInfos["user1"] = &api.AuthInfo{Token: "token"}
+	kconf.Contexts["ctx1"] = &api.Context{
+		Cluster:  "cluster1",
+		AuthInfo: "user1",
+	}
+	kconf.CurrentContext = "ctx1"
+	result := CheckContextScopeKubeflexExtensionSet(*kconf)
+	if result != DiagnosisStatusOK {
+		t.Errorf("Expected %s, got %s", DiagnosisStatusOK, result)
+	}
+}
