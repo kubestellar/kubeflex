@@ -232,3 +232,34 @@ func CheckHostingClusterContextName(kconf clientcmdapi.Config) string {
 		return DiagnosisStatusWarning
 	}
 }
+
+func CheckContextScopeKubeflexExtensionSet(kconf clientcmdapi.Config) string {
+	for _, ctx := range kconf.Contexts {
+		ext, ok := ctx.Extensions[ExtensionKubeflexKey]
+		if !ok {
+			continue // No kubeflex extension, skip
+		}
+
+		ctxExtension := &RuntimeKubeflexExtension{}
+		if err := ConvertRuntimeObjectToRuntimeExtension(ext, ctxExtension); err != nil {
+			return DiagnosisStatusCritical
+		}
+
+		if ctxExtension.Data == nil {
+			return DiagnosisStatusCritical
+		}
+
+		// Check required fields
+		_, hostingOk := ctxExtension.Data[ExtensionContextsIsHostingCluster]
+		_, cpOk := ctxExtension.Data[ExtensionControlPlaneName]
+		hasName := ctxExtension.Name == ExtensionKubeflexKey
+		hasTimestamp := !ctxExtension.CreationTimestamp.IsZero()
+
+		if !(hostingOk && cpOk && hasName && hasTimestamp) {
+			return DiagnosisStatusWarning // Any invalid kubeflex extension = warning
+		}
+	}
+
+	// All kubeflex extensions valid or no kubeflex extensions present
+	return DiagnosisStatusOK
+}
