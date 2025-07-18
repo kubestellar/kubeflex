@@ -38,6 +38,7 @@ const (
 	DiagnosisStatusCritical            = "critical"
 	DiagnosisStatusWarning             = "warning"
 	DiagnosisStatusOK                  = "ok"
+	DiagnosisStatusMissing             = "no kubeflex extension found"
 )
 
 // Internal structure of Kubeflex global extension in a Kubeconfig file
@@ -231,4 +232,47 @@ func CheckHostingClusterContextName(kconf clientcmdapi.Config) string {
 	default:
 		return DiagnosisStatusWarning
 	}
+}
+
+func VerifyControlPlaneOnHostingCluster(kconf clientcmdapi.Config, ctxName string) string {
+	// TODO: implement actual control plane verification logic
+	return DiagnosisStatusOK
+}
+
+func CheckContextScopeKubeflexExtensionSet(kconf clientcmdapi.Config, ctxName string) string {
+	ctx, ok := kconf.Contexts[ctxName]
+	if !ok {
+		return DiagnosisStatusMissing // Context not found
+	}
+
+	ext, ok := ctx.Extensions[ExtensionKubeflexKey]
+	if !ok {
+		return DiagnosisStatusMissing // No kubeflex extension found
+	}
+
+	ctxExtension := &RuntimeKubeflexExtension{}
+	if err := ConvertRuntimeObjectToRuntimeExtension(ext, ctxExtension); err != nil {
+		return DiagnosisStatusCritical
+	}
+
+	if ctxExtension.Data == nil {
+		return DiagnosisStatusCritical
+	}
+
+	// Check required fields
+	_, hostingOk := ctxExtension.Data[ExtensionContextsIsHostingCluster]
+	_, cpOk := ctxExtension.Data[ExtensionControlPlaneName]
+	hasName := ctxExtension.Name == ExtensionKubeflexKey
+	hasTimestamp := !ctxExtension.CreationTimestamp.IsZero()
+
+	if !(hostingOk && cpOk && hasName && hasTimestamp) {
+		return DiagnosisStatusWarning
+	}
+
+	status := VerifyControlPlaneOnHostingCluster(kconf, ctxName)
+	if status != DiagnosisStatusOK {
+		return status
+	}
+
+	return DiagnosisStatusOK
 }
