@@ -231,9 +231,21 @@ func (r *BaseReconciler) checkPostCreateHookResources(ctx context.Context, hcp *
 		vars[key] = val
 	}
 
-	// Override with user-provided variables from hook use
-	for key, val := range hookVars {
-		vars[key] = val
+	logger.Info("Running ReconcileUpdatePostCreateHook", "post-create-hook", *hcp.Spec.PostCreateHook)
+
+	// get the post create hook
+	hook := &v1alpha1.PostCreateHook{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: *hcp.Spec.PostCreateHook,
+		},
+	}
+	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(hook), hook, &client.GetOptions{})
+	if err != nil {
+		// Return a special error type that indicates we should requeue
+		return &PostCreateHookNotFoundError{
+			hookName: *hcp.Spec.PostCreateHook,
+			err:      err,
+		}
 	}
 
 	// Add system variables (highest priority)
@@ -493,4 +505,14 @@ func (r *BaseReconciler) propagateLabels(hook *v1alpha1.PostCreateHook, hcp *v1a
 	}
 
 	return nil
+}
+
+// PostCreateHookNotFoundError is a special error type that indicates a PostCreateHook wasn't found
+type PostCreateHookNotFoundError struct {
+	hookName string
+	err      error
+}
+
+func (e *PostCreateHookNotFoundError) Error() string {
+	return fmt.Sprintf("error retrieving post create hook %s: %s", e.hookName, e.err)
 }
