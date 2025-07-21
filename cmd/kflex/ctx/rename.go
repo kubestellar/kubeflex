@@ -63,8 +63,9 @@ func ExecuteCtxRename(cp common.CP, ctxName string, newCtxName string, toSwitch 
 	newAuthInfoAdminName := certs.GenerateAuthInfoAdminName(newCtxName)
 	newCtxName = certs.GenerateContextName(newCtxName)
 	kconf.Contexts[newCtxName] = &api.Context{
-		Cluster:  newClusterName,
-		AuthInfo: newAuthInfoAdminName,
+		Cluster:    newClusterName,
+		AuthInfo:   newAuthInfoAdminName,
+		Extensions: kconf.Contexts[ctxName].Extensions, // just copy as-is
 	}
 	if cluster, ok := kconf.Clusters[certs.GenerateClusterName(ctxName)]; ok {
 		fmt.Fprintf(os.Stdout, "renaming cluster to %s\n", newClusterName)

@@ -58,7 +58,7 @@ echo "TEST: kflex ctx rename PASSED"
 : -------------------------------------------------------------------------
 : Delete context $NEW_CTX_NAME and verify it is removed from kubeconfig file
 :
-./bin/kflex ctx delete ${NEW_CTX_NAME}
+./bin/kflex ctx delete ${NEW_CTX_NAME} --force
 
 :
 : -------------------------------------------------------------------------

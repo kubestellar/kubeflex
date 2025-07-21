@@ -385,3 +385,14 @@ func WaitForNamespaceReady(ctx context.Context, clientset kubernetes.Interface, 
 	}
 	return nil
 }
+
+// IsContextManagedByKubeflex checks if a context is managed by KubeFlex
+// by checking if it has the kubeflex extension
+func IsContextManagedByKubeflex(kconf *clientcmdapi.Config, ctxName string) bool {
+	ctx, exists := kconf.Contexts[ctxName]
+	if !exists {
+		return false
+	}
+	_, hasKubeflexExtension := ctx.Extensions[ExtensionKubeflexKey]
+	return hasKubeflexExtension
+}
