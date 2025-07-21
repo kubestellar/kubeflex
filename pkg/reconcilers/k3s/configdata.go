@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	_ "embed"
 	"github.com/go-logr/logr"
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/shared"
@@ -39,12 +40,12 @@ const (
 	KubeconfigSecretKeyInCluster = "config-incluster"
 )
 
-// K3s service
+// Secret containing k3s kubeconfig and incluster kubeconfig
 type Secret struct {
 	*shared.BaseReconciler
 }
 
-// Init secret for k3s server
+// NewKubeconfigSecret for k3s server
 func NewKubeconfigSecret(namespace string) (_ *v1.Secret, err error) {
 	return &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -123,4 +124,39 @@ func (r *Secret) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlan
 	}
 	log.Info("k3s secret is successfully updated", "secretName", ksecret.Name)
 	return r.BaseReconciler.Reconcile(ctx, hcp)
+}
+
+const (
+	ScriptsConfigMapName               = "k3s-scripts"
+	ScriptSaveKubeconfigIntoSecretName = "save-k3s-kubeconfig.sh"
+	ScriptSaveCertsIntoSecretName      = "save-k3s-certs.sh"
+)
+
+//go:embed embed/save-k3s-kubeconfig.sh
+var saveKubeconfigIntoSecretScript string
+
+// ConfigMap containing data for k3s
+type ConfigMap struct {
+	*shared.BaseReconciler
+}
+
+// NewScriptsConfigMap create a config map with k3s utility scripts
+func NewScriptsConfigMap(namespace string) (*v1.ConfigMap, error) {
+	return &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ScriptsConfigMapName,
+			Namespace: namespace,
+		},
+		Data: map[string]string{
+			ScriptSaveKubeconfigIntoSecretName: saveKubeconfigIntoSecretScript, // add bash script content
+		},
+	}, nil
+}
+
+// Reconcile configmap
+// implements ControlPlaneReconciler
+func (cm *ConfigMap) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
+	log := clog.FromContext(ctx)
+	log.Info("Reconcile k3s configmap")
+	return ctrl.Result{}, nil
 }
