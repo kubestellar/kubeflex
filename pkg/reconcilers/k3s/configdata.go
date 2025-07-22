@@ -31,6 +31,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	clog "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -63,10 +64,10 @@ func handleReconcileError(log logr.Logger, err error) (ctrl.Result, error) {
 	if err != nil {
 		if util.IsTransientError(err) {
 			// Retry
-			log.Error(err, "secret reconcile is on transient err, retrying now")
+			log.Error(err, "reconcile is on transient err, retrying now")
 			return ctrl.Result{Requeue: true}, err // Retry transient errors
 		} else {
-			log.Error(err, "secret reconcile is on err", "error", err)
+			log.Error(err, "reconcile is on err", "error", err)
 			return ctrl.Result{}, fmt.Errorf("failed to reconcile: %w", err)
 		}
 	}
@@ -85,6 +86,10 @@ func (r *Secret) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlan
 		// Secret does not exist
 		if apierrors.IsNotFound(err) {
 			// Create new secret
+			if err := controllerutil.SetControllerReference(hcp, ksecret, r.Scheme); err != nil {
+				log.Error(err, "setting k3s secret controller reference failed")
+				return ctrl.Result{}, err
+			}
 			if err = r.Client.Create(context.TODO(), ksecret); err != nil {
 				return handleReconcileError(log, err)
 			}
@@ -158,5 +163,26 @@ func NewScriptsConfigMap(namespace string) (*v1.ConfigMap, error) {
 func (cm *ConfigMap) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
 	log := clog.FromContext(ctx)
 	log.Info("Reconcile k3s configmap")
+	namespace := GenerateSystemNamespaceName(hcp.Name)
+	cmScripts, _ := NewScriptsConfigMap(namespace)
+	err := cm.Client.Get(ctx, client.ObjectKeyFromObject(cmScripts), cmScripts)
+	if err != nil {
+		// if config map is not found, create a new config map on the cluster
+		if apierrors.IsNotFound(err) {
+			// create a new config map
+			log.Info("k3s-scripts configmap is not found, creating new configmap")
+			// Set Controller Reference on configmap
+			if err := controllerutil.SetControllerReference(hcp, cmScripts, cm.Scheme); err != nil {
+				log.Error(err, "setting k3s scripts configmap controller reference failed")
+				return ctrl.Result{}, err
+			}
+			if err = cm.Client.Create(context.TODO(), cmScripts); err != nil {
+				return handleReconcileError(log, err)
+			}
+		}
+	} else {
+		// if cm exists, ensure it has the right data
+		log.Info("k3s scripts configmap exists")
+	}
 	return ctrl.Result{}, nil
 }
