@@ -41,10 +41,10 @@ const (
 )
 
 // NewRole create manifest for k3s-scripts to patch k3s-config secret
-func NewRole(namespace string) (*rbacv1.Role, error) {
-	return &rbacv1.Role{
+func NewRole(namespace string) (*rbacv1.ClusterRole, error) {
+	return &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: ScriptsConfigMapRoleName, Namespace: namespace,
+			Name: ScriptsConfigMapRoleName,
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -63,15 +63,15 @@ func NewRole(namespace string) (*rbacv1.Role, error) {
 }
 
 // NewRoleBinding create manifest to bind k3s-scripts role to default service account
-func NewRoleBinding(namespace string) (*rbacv1.RoleBinding, error) {
-	return &rbacv1.RoleBinding{
+func NewRoleBinding(namespace string) (*rbacv1.ClusterRoleBinding, error) {
+	return &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ScriptsConfigMapRoleBindingName,
-			Namespace: namespace,
+			Name: ScriptsConfigMapRoleBindingName,
+			// 			Namespace: v1.NamespaceDefault,
 		},
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: rbacv1.GroupName,
-			Kind:     "Role",
+			Kind:     "ClusterRole",
 			Name:     ScriptsConfigMapRoleName,
 		},
 		Subjects: []rbacv1.Subject{
@@ -79,6 +79,7 @@ func NewRoleBinding(namespace string) (*rbacv1.RoleBinding, error) {
 				Kind:      rbacv1.ServiceAccountKind,
 				Name:      v1.NamespaceDefault,
 				Namespace: namespace,
+				// 		Namespace: namespace,
 			},
 		},
 	}, nil

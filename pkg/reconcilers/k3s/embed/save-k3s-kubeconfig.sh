@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/bin/bash -u
+# Envs: DNS_SVC DNS_INGRESS
 set -e
 # Install packages and setup envs
 apk add --no-cache jq yq curl base64
@@ -8,8 +9,6 @@ NAMESPACE=$(cat ${SERVICEACCOUNT}/namespace)
 TOKEN=$(cat ${SERVICEACCOUNT}/token)
 CACERT=${SERVICEACCOUNT}/ca.crt
 KUBECONFIG=/etc/rancher/k3s/config.yaml
-DNS_SVC="https://testk3s.default.svc"
-DNS_INGRESS="https://testk3s.localtest.me:9443"
 # Process kubeconfig
 cp /etc/rancher/k3s/k3s.yaml $KUBECONFIG
 yq e -i ".clusters[0].cluster.server = \"${DNS_INGRESS}\"" $KUBECONFIG

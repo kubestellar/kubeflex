@@ -104,9 +104,19 @@ func NewClusterIPService(cpName string) (_ *v1.Service, err error) {
 	}, nil
 }
 
-// GetStaticDNSRecord fetch static dns in kubernetes form
-func GetStaticDNSRecord(namespace string) string {
+// GetInClusterStaticDNSRecord fetch in cluster DNS
+func GetInClusterStaticDNSRecord(namespace string) string {
 	return fmt.Sprintf("https://%s.%s.svc", ServiceName, namespace)
+}
+
+// GetClusterStaticDNSRecord fetch cluster dns in kubernetes form
+func GetClusterStaticDNSRecord(cfg *shared.SharedConfig) string {
+	return fmt.Sprintf("%s.%s", ServiceName, cfg.Domain)
+}
+
+// GetClusterServerURI compute cluster server URI to reach the k3s server
+func GetClusterServerURI(cfg *shared.SharedConfig) string {
+	return fmt.Sprintf("https://%s:%d", GetClusterStaticDNSRecord(cfg), cfg.ExternalPort)
 }
 
 // Reconcile a service

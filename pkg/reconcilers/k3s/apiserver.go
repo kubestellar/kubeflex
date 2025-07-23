@@ -46,7 +46,7 @@ const (
 	APIServerPort              = 6443               // k3s apiserver port
 )
 
-// K3s API server
+// Server of k4s
 // NOTE: k3s is a single binary containing apiserver, etcd, controller-manager... therefore `Server` refers to all components
 type Server struct {
 	*shared.BaseReconciler
@@ -68,9 +68,14 @@ func containerImage() string {
 	return fmt.Sprintf("%s:%s", ServerDockerImage, imageTag)
 }
 
+// serverTLSSAN returns the TLS SAN value expected by k3s server command
+func serverTLSSAN(cfg *shared.SharedConfig) string {
+	return "--tls-san=" + GetClusterStaticDNSRecord(cfg)
+}
+
 // NewServer generate  API server manifest to apply on controlplane $cpName
 // NOTE: $cpName is used only for object Namespace, not its Name
-func NewServer(cpName string) (*appsv1.StatefulSet, error) {
+func NewServer(cpName string, cfg *shared.SharedConfig) (*appsv1.StatefulSet, error) {
 	return &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      string(ServerName),                  //	always be unique as it has it dedicated namespace
@@ -95,6 +100,7 @@ func NewServer(cpName string) (*appsv1.StatefulSet, error) {
 							// Command: is by default `/bin/k3s`
 							Args: []string{
 								"server",
+								serverTLSSAN(cfg),
 							},
 							Ports: []v1.ContainerPort{
 								{ContainerPort: shared.SecurePort},
@@ -192,7 +198,6 @@ func (r *Server) reconcilePVC(ctx context.Context, hcp *tenancyv1alpha1.ControlP
 		err := r.Client.Get(ctx, client.ObjectKeyFromObject(pvc), pvc)
 		if err != nil {
 			log.Error(err, "k3s:server.go:Reconcile:r.Client.Get pvc failed")
-			r.BaseReconciler.UpdateStatusForSyncingError(ctx, hcp, err) // TODO: to change
 			if apierrors.IsNotFound(err) {
 				log.Error(err, "k3s:server.go:Reconcile:pvc is not found error")
 				log.Info("k3s:server.go:Reconcile:call SetControllerReference on pvc")
@@ -219,15 +224,20 @@ func (r *Server) reconcilePVC(ctx context.Context, hcp *tenancyv1alpha1.ControlP
 // TODO to implement
 func (r *Server) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
 	log := clog.FromContext(ctx)
+	cfg, err := r.BaseReconciler.GetConfig(ctx)
+	if err != nil {
+		log.Error(err, "failed to get shared config from reconciler")
+		return ctrl.Result{}, err
+	}
 	// Reconcile k3s pvc that is required for k3s server to run
 	if result, err := r.reconcilePVC(ctx, hcp); err != nil {
 		// NOTE does not reconcile apiserver if PVC are not present (requirement)
 		return result, err
 	}
 	// Get k3s server from hosting cluster and stored it in k3sServerObject
-	k3sServerObject, _ := NewServer(hcp.Name)
+	k3sServerObject, _ := NewServer(hcp.Name, cfg)
 	log.Info("k3s:server.go:Reconcile:k3s statefulset for server")
-	err := r.Client.Get(ctx, client.ObjectKeyFromObject(k3sServerObject), k3sServerObject)
+	err = r.Client.Get(ctx, client.ObjectKeyFromObject(k3sServerObject), k3sServerObject)
 	if err != nil {
 		log.Error(err, "k3s:server.go:Reconcile:r.Client.Get failed")
 		// r.BaseReconciler.UpdateStatusForSyncingError(ctx, hcp, err) // TODO: to change

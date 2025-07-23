@@ -112,7 +112,7 @@ func (r *Secret) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlan
 	}
 	for cluster := range kconf.Clusters {
 		// Update cluster by adding
-		kconf.Clusters[cluster].Server = GetStaticDNSRecord(namespace)
+		kconf.Clusters[cluster].Server = GetInClusterStaticDNSRecord(namespace)
 	}
 	// Store k3s incluster kubeconfig
 	inClusterConfigYAML, err := clientcmd.Write(*kconf)
