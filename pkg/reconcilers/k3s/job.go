@@ -43,7 +43,7 @@ const (
 	bashContainerImage = "bash:5"
 )
 
-func NewJob(namespace string) (*batchv1.Job, error) {
+func NewJob(namespace string, cfg *shared.SharedConfig) (*batchv1.Job, error) {
 	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      JobName,
@@ -68,6 +68,9 @@ func NewJob(namespace string) (*batchv1.Job, error) {
 							},
 							Args: []string{
 								"./scripts/" + ScriptSaveKubeconfigIntoSecretName,
+							},
+							Env: []v1.EnvVar{
+								{Name: "DNS_SVC", Value: GetInClusterStaticDNSRecord(namespace)}, {Name: "DNS_INGRESS", Value: GetClusterServerURI(cfg)},
 							},
 							VolumeMounts: []v1.VolumeMount{
 								{
@@ -113,10 +116,15 @@ func NewJob(namespace string) (*batchv1.Job, error) {
 // implements Reconciler
 func (r *Job) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
 	log := clog.FromContext(ctx)
+	cfg, err := r.BaseReconciler.GetConfig(ctx)
+	if err != nil {
+		log.Error(err, "cannot fetch required shared config to reconcile job")
+		return ctrl.Result{}, err
+	}
 	// Get k3s job tr is required for k3s server to run
-	job, _ := NewJob(GenerateSystemNamespaceName(hcp.Name))
+	job, _ := NewJob(GenerateSystemNamespaceName(hcp.Name), cfg)
 	log.Info("reconcile k3s job for server")
-	err := r.Client.Get(ctx, client.ObjectKeyFromObject(job), job)
+	err = r.Client.Get(ctx, client.ObjectKeyFromObject(job), job)
 	if err != nil {
 		log.Error(err, "get k3s job failed")
 		if apierrors.IsNotFound(err) {
