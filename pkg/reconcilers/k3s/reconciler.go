@@ -37,6 +37,7 @@ type K3sReconciler struct {
 	*Secret    // k3s secret
 	*ConfigMap
 	*Ingress               // k3s ingress
+	*Job                   // k3s job
 	*shared.BaseReconciler // shared base controller
 }
 
@@ -54,6 +55,7 @@ func New(cl client.Client, scheme *runtime.Scheme, version string, clientSet *ku
 	return &K3sReconciler{
 		BaseReconciler: &br,
 		Namespace:      &Namespace{&br},
+		Job:            &Job{&br},
 		Service:        &Service{&br},
 		Server:         &Server{&br},
 		Secret:         &Secret{&br},
@@ -88,6 +90,9 @@ func (r *K3sReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.Cont
 	}
 	// Reconcile k3s Secret
 	if result, err := r.ConfigMap.Reconcile(ctx, hcp); err != nil {
+		return result, err
+	}
+	if result, err := r.Job.Reconcile(ctx, hcp); err != nil {
 		return result, err
 	}
 	return r.BaseReconciler.Reconcile(ctx, hcp)
