@@ -2,8 +2,9 @@ package kubeconfig
 
 import (
 	"fmt"
-	"k8s.io/apimachinery/pkg/runtime"
 	"testing"
+
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"k8s.io/client-go/tools/clientcmd/api"
 )
@@ -79,7 +80,6 @@ func TestKubeflexConfigWrittenAsKubeConfig(t *testing.T) {
 func TestCheckGlobalKubeflexExtensionNotSet(t *testing.T) {
 	kconf := api.NewConfig()
 	status, data := CheckGlobalKubeflexExtension(*kconf)
-
 	if status != DiagnosisStatusCritical {
 		t.Errorf("Expected status '%s', got '%s'", DiagnosisStatusCritical, status)
 	}
@@ -98,7 +98,6 @@ func TestCheckGlobalKubeflexExtensionEmpty(t *testing.T) {
 	// Don't add any data to the extension
 	kconf.Extensions[ExtensionKubeflexKey] = runtimeExtension
 	status, data := CheckGlobalKubeflexExtension(*kconf)
-
 	if status != DiagnosisStatusWarning {
 		t.Errorf("Expected status '%s', got '%s'", DiagnosisStatusWarning, status)
 	}
@@ -124,7 +123,6 @@ func TestCheckGlobalKubeflexExtensionWithData(t *testing.T) {
 	kconf.Extensions[ExtensionKubeflexKey] = runtimeExtension
 
 	status, data := CheckGlobalKubeflexExtension(*kconf)
-
 	if status != DiagnosisStatusOK {
 		t.Errorf("Expected status '%s', got '%s'", DiagnosisStatusOK, status)
 	}
