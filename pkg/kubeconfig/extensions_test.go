@@ -217,8 +217,9 @@ func TestCheckContextScopeKubeflexExtensionSetNoKubeflexExtensions(t *testing.T)
 		AuthInfo: "user1",
 	}
 	kconf.CurrentContext = "ctx1"
-	result := CheckContextScopeKubeflexExtensionSet(*kconf)
-	if result != DiagnosisStatusOK {
-		t.Errorf("Expected %s, got %s", DiagnosisStatusOK, result)
+
+	result := CheckContextScopeKubeflexExtensionSet(*kconf, "ctx1")
+	if result != DiagnosisStatusMissing {
+		t.Errorf("Expected %s, got %s", DiagnosisStatusMissing, result)
 	}
 }
