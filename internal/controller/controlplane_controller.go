@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
@@ -144,34 +145,143 @@ func (r *ControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
-	// check if API server is already in a ready state
-	ready, _ := util.IsAPIServerDeploymentReady(log, r.Client, *hcp)
-	if ready {
-		tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionAvailable())
-	} else {
-		tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionUnavailable())
+	// FIXED: Process PostCreateHooks INDEPENDENTLY of everything else
+	// This breaks the chicken-egg cycle!
+	if hcp.Spec.PostCreateHook != nil || len(hcp.Spec.PostCreateHooks) > 0 {
+		log.Info("Processing PostCreateHooks independently")
+
+		// Get the appropriate reconciler to process hooks
+		var baseReconciler interface {
+			ReconcileUpdatePostCreateHook(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error
+		}
+
+		switch hcp.Spec.Type {
+		case tenancyv1alpha1.ControlPlaneTypeK8S:
+			reconciler := k8s.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
+			baseReconciler = reconciler
+		case tenancyv1alpha1.ControlPlaneTypeOCM:
+			reconciler := ocm.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
+			baseReconciler = reconciler
+		case tenancyv1alpha1.ControlPlaneTypeVCluster:
+			reconciler := vcluster.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
+			baseReconciler = reconciler
+		case tenancyv1alpha1.ControlPlaneTypeHost:
+			reconciler := host.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
+			baseReconciler = reconciler
+		case tenancyv1alpha1.ControlPlaneTypeExternal:
+			reconciler := external.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
+			baseReconciler = reconciler
+		}
+
+		if baseReconciler != nil {
+			log.Info("Processing PostCreateHooks", "controlPlane", hcp.Name)
+			if err := baseReconciler.ReconcileUpdatePostCreateHook(ctx, hcp); err != nil {
+				log.Error(err, "Failed to process PostCreateHooks")
+				// Don't return error, just log it and continue
+			}
+			// After processing hooks, refresh the hcp object to get updated status
+			if err := r.Get(ctx, client.ObjectKey{Name: hcp.Name}, hcp); err != nil {
+				log.Error(err, "Failed to refresh ControlPlane after hook processing")
+			}
+		}
 	}
 
-	// select the reconciler to use for the type of control plane
+	// ALWAYS call the type-specific reconciler to handle infrastructure (API server, etc.)
+	log.Info("Calling type-specific reconciler for infrastructure setup", "type", hcp.Spec.Type)
+	var reconcileResult ctrl.Result
+	var reconcileError error
+
 	switch hcp.Spec.Type {
 	case tenancyv1alpha1.ControlPlaneTypeK8S:
 		reconciler := k8s.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
-		return reconciler.Reconcile(ctx, hcp)
+		reconcileResult, reconcileError = reconciler.Reconcile(ctx, hcp)
 	case tenancyv1alpha1.ControlPlaneTypeOCM:
 		reconciler := ocm.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
-		return reconciler.Reconcile(ctx, hcp)
+		reconcileResult, reconcileError = reconciler.Reconcile(ctx, hcp)
 	case tenancyv1alpha1.ControlPlaneTypeVCluster:
 		reconciler := vcluster.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
-		return reconciler.Reconcile(ctx, hcp)
+		reconcileResult, reconcileError = reconciler.Reconcile(ctx, hcp)
 	case tenancyv1alpha1.ControlPlaneTypeHost:
 		reconciler := host.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
-		return reconciler.Reconcile(ctx, hcp)
+		reconcileResult, reconcileError = reconciler.Reconcile(ctx, hcp)
 	case tenancyv1alpha1.ControlPlaneTypeExternal:
 		reconciler := external.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
-		return reconciler.Reconcile(ctx, hcp)
+		reconcileResult, reconcileError = reconciler.Reconcile(ctx, hcp)
 	default:
-		return ctrl.Result{}, fmt.Errorf("unsupported control plane type: %s", hcp.Spec.Type)
+		reconcileError = fmt.Errorf("unsupported control plane type: %s", hcp.Spec.Type)
 	}
+
+	// If type-specific reconciler failed, return the error
+	if reconcileError != nil {
+		log.Error(reconcileError, "Type-specific reconciler failed")
+		return reconcileResult, reconcileError
+	}
+
+	// Refresh the hcp object after infrastructure reconciliation
+	if err := r.Get(ctx, client.ObjectKey{Name: hcp.Name}, hcp); err != nil {
+		log.Error(err, "Failed to refresh ControlPlane after infrastructure reconciliation")
+		return ctrl.Result{}, err
+	}
+
+	// NOW determine overall CP readiness based on BOTH API server AND hooks
+	log.Info("Determining final control plane readiness")
+
+	// Check API server readiness
+	apiServerReady, err := util.IsAPIServerDeploymentReady(log, r.Client, *hcp)
+	if err != nil {
+		log.Error(err, "Error checking API server readiness", "controlPlane", hcp.Name)
+	}
+	log.Info("API server readiness check", "controlPlane", hcp.Name, "apiServerReady", apiServerReady)
+
+	// Determine final readiness based on waitForPostCreateHooks setting
+	if hcp.Spec.WaitForPostCreateHooks != nil && *hcp.Spec.WaitForPostCreateHooks {
+		// NEW BEHAVIOR: CP ready = API Server ready AND PostCreateHooks completed
+		log.Info("Checking both API server and PostCreateHook completion",
+			"apiServerReady", apiServerReady,
+			"postCreateHookCompleted", hcp.Status.PostCreateHookCompleted)
+
+		if apiServerReady && hcp.Status.PostCreateHookCompleted {
+			log.Info("Both API server and PostCreateHooks are ready, marking control plane as ready")
+			tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionAvailable())
+		} else {
+			if !apiServerReady && !hcp.Status.PostCreateHookCompleted {
+				log.Info("Waiting for both API server and post-create hooks")
+				tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionWaitingForPostCreateHooks())
+			} else if !apiServerReady {
+				log.Info("Waiting for API server readiness")
+				tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionUnavailable())
+			} else {
+				log.Info("Waiting for post-create hooks to complete")
+				tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionWaitingForPostCreateHooks())
+			}
+		}
+	} else {
+		// DEFAULT BEHAVIOR: CP ready = API Server ready (ignore hooks)
+		if apiServerReady {
+			log.Info("API server ready, marking control plane as ready (not waiting for hooks)")
+			tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionAvailable())
+		} else {
+			log.Info("API server not ready, marking control plane as unavailable")
+			tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionUnavailable())
+		}
+	}
+
+	// Update final status
+	err = r.Status().Update(ctx, hcp)
+	if err != nil {
+		log.Error(err, "Failed to update ControlPlane final status")
+		return ctrl.Result{}, err
+	}
+
+	// If we're still waiting for hooks to complete, requeue to check again later
+	if hcp.Spec.WaitForPostCreateHooks != nil && *hcp.Spec.WaitForPostCreateHooks &&
+		(!apiServerReady || !hcp.Status.PostCreateHookCompleted) {
+		log.Info("Requeuing to check completion later")
+		return ctrl.Result{RequeueAfter: time.Second * 30}, nil
+	}
+
+	// Return the result from the type-specific reconciler
+	return reconcileResult, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

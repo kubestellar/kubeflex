@@ -16,11 +16,41 @@
 set -x # echo so that users can understand what is happening
 set -e # exit on error
 
+SRC_DIR="$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)"
+source "${SRC_DIR}/setup-shell.sh"
+
 :
 : -------------------------------------------------------------------------
 : Create a ControlPlane of type vcluster
 :
 ./bin/kflex create cp2 --type vcluster --chatty-status=false
+
+:
+: -------------------------------------------------------------------------
+: Verify that the kubeconfig has the correct extensions structure
+: with controlplane-name set in the context
+:
+echo "Verifying kubeconfig extensions for control plane cp2..."
+
+context_name="cp2"
+cp_name="cp2"
+
+# Extract the controlplane-name from kubeconfig extensions using yq
+actual_cp_name=$(kubectl config view -o=yaml | yq -r '.contexts[] | select(.name == "'$context_name'") | .context.extensions[] | select(.name == "kubeflex") | .extension.data["controlplane-name"] // ""')
+
+if [ -z "$actual_cp_name" ]; then
+    echo "ERROR: Context $context_name not found or does not have kubeflex extension with controlplane-name"
+    echo "Available contexts:"
+    kubectl config view -o=yaml | yq -r '.contexts[].name'
+    exit 1
+fi
+
+if [ "$actual_cp_name" != "$cp_name" ]; then
+    echo "ERROR: Expected controlplane-name '$cp_name', but found '$actual_cp_name'"
+    exit 1
+fi
+
+echo "SUCCESS: Kubeconfig extensions verified for control plane cp2"
 
 :
 : -------------------------------------------------------------------------

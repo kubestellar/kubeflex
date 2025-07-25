@@ -47,8 +47,8 @@ GIT_VERSION := $(shell go mod edit -json | jq '.Require[] | select(.Path == "k8s
 BUILD_DATE := $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 MAIN_VERSION := $(shell git tag -l --sort=-v:refname | head -n1)
 LDFLAGS := \
-	-X main.Version=${MAIN_VERSION}.${GIT_COMMIT} \
-	-X main.BuildDate=${BUILD_DATE} \
+	-X github.com/kubestellar/kubeflex/cmd/kflex/common.Version=${MAIN_VERSION}.${GIT_COMMIT} \
+	-X github.com/kubestellar/kubeflex/cmd/kflex/common.BuildDate=${BUILD_DATE} \
 	-X k8s.io/client-go/pkg/version.gitCommit=${GIT_COMMIT} \
 	-X k8s.io/client-go/pkg/version.gitTreeState=${GIT_DIRTY} \
 	-X k8s.io/client-go/pkg/version.gitVersion=${GIT_VERSION} \
@@ -204,7 +204,7 @@ ko-local-build:
 
 # this is used for local testing
 .PHONY: kind-load-image
-kind-load-image:
+kind-load-image: ko-local-build
 	kind load docker-image ${IMG} --name kubeflex
 
 .PHONY: install-local-chart
@@ -225,7 +225,7 @@ ENVTEST ?= $(LOCALBIN)/setup-envtest
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v5.1.0
-CONTROLLER_TOOLS_VERSION ?= v0.17.3
+CONTROLLER_TOOLS_VERSION ?= v0.15.0
 
 KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
 .PHONY: kustomize

@@ -104,4 +104,3 @@ EOF
 :
 
 kubectl wait --for=condition=available --timeout=300s -n kubeflex-system deployment/kubeflex-controller-manager
-

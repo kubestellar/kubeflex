@@ -49,19 +49,25 @@ func (r *BaseReconciler) ReconcileAPIServerRoute(ctx context.Context, hcp *tenan
 	}
 
 	err := r.Client.Get(ctx, client.ObjectKeyFromObject(route), route, &client.GetOptions{})
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			route = generateAPIServerRoute(hcp.Name, svcName, namespace, svcPort, domain)
-			if err := controllerutil.SetControllerReference(hcp, route, r.Scheme); err != nil {
-				return fmt.Errorf("failed to SetControllerReference: %w", err)
-			}
-			if err = r.Client.Create(ctx, route, &client.CreateOptions{}); err != nil {
-				return err
-			}
-		}
-		return err
-	}
-	return nil
+    if err != nil {
+        if apierrors.IsNotFound(err) {
+            route = generateAPIServerRoute(hcp.Name, svcName, namespace, svcPort, domain)
+            if err := controllerutil.SetControllerReference(hcp, route, r.Scheme); err != nil {
+                return fmt.Errorf("failed to SetControllerReference: %w", err)
+            }
+            if err = r.Client.Create(ctx, route, &client.CreateOptions{}); err != nil {
+                if util.IsTransientError(err) {
+                    return err // Retry transient errors
+                }
+                return fmt.Errorf("failed to create route: %w", err)
+            }
+        } else if util.IsTransientError(err) {
+            return err // Retry transient errors
+        } else {
+            return fmt.Errorf("failed to get route: %w", err)
+        }
+    }
+    return nil
 }
 
 func generateAPIServerRoute(name, svcName, namespace string, svcPort int, domain string) *routev1.Route {
