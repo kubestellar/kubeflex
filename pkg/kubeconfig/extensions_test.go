@@ -217,9 +217,10 @@ func TestCheckContextScopeKubeflexExtensionSetNoKubeflexExtensions(t *testing.T)
 		AuthInfo: "user1",
 	}
 	kconf.CurrentContext = "ctx1"
-	result := CheckContextScopeKubeflexExtensionSet(*kconf)
-	if result != DiagnosisStatusOK {
-		t.Errorf("Expected %s, got %s", DiagnosisStatusOK, result)
+
+	result := CheckContextScopeKubeflexExtensionSet(*kconf, "ctx1")
+	if result != DiagnosisStatusMissing {
+		t.Errorf("Expected %s, got %s", DiagnosisStatusMissing, result)
 	}
 }
 
@@ -238,7 +239,7 @@ func TestCheckContextScopeKubeflexExtensionSetNoData(t *testing.T) {
 	}
 	kconf.CurrentContext = "ctx1"
 
-	result := CheckContextScopeKubeflexExtensionSet(*kconf)
+	result := CheckContextScopeKubeflexExtensionSet(*kconf, "ctx1")
 	if result != DiagnosisStatusCritical {
 		t.Errorf("Expected %s, got %s", DiagnosisStatusCritical, result)
 	}
