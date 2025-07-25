@@ -239,7 +239,7 @@ func TestCheckContextScopeKubeflexExtensionSetNoData(t *testing.T) {
 	}
 	kconf.CurrentContext = "ctx1"
 
-	result := CheckContextScopeKubeflexExtensionSet(*kconf)
+	result := CheckContextScopeKubeflexExtensionSet(*kconf, "ctx1")
 	if result != DiagnosisStatusCritical {
 		t.Errorf("Expected %s, got %s", DiagnosisStatusCritical, result)
 	}
