@@ -252,7 +252,6 @@ func TestCheckContextScopeKubeflexExtensionSetPartialData(t *testing.T) {
 
 	ext := NewRuntimeKubeflexExtension()
 	ext.Data[ExtensionContextsIsHostingCluster] = "true"
-	// Missing control-plane name
 
 	kconf.Contexts["ctx1"] = &api.Context{
 		Cluster:    "cluster1",
@@ -261,7 +260,7 @@ func TestCheckContextScopeKubeflexExtensionSetPartialData(t *testing.T) {
 	}
 	kconf.CurrentContext = "ctx1"
 
-	result := CheckContextScopeKubeflexExtensionSet(*kconf)
+	result := CheckContextScopeKubeflexExtensionSet(*kconf, "ctx1")
 	if result != DiagnosisStatusWarning {
 		t.Errorf("Expected %s, got %s", DiagnosisStatusWarning, result)
 	}
