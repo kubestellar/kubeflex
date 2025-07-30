@@ -1,13 +1,38 @@
 #!/usr/bin/env bash
+# Copyright 2024 The KubeStellar Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
-set -e
+SRC_DIR="$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)"
+source "${SRC_DIR}/setup-shell.sh"
 
-echo "🧹 Cleaning up any existing resources..."
+set -x # echo commands for better debugging
+set -e # exit on error
+
+:
+: -------------------------------------------------------------------------
+: Clean up any existing test resources
+:
+echo "Cleaning up any existing resources..."
 kubectl delete controlplane cp-missing-hook --ignore-not-found=true
 kubectl delete postcreatehook missing-hook --ignore-not-found=true
 
-echo ""
-echo "🔧 Creating ControlPlane referencing a missing PostCreateHook..."
+:
+: -------------------------------------------------------------------------
+: Test case: ControlPlane with missing PostCreateHook should not fail
+: but should retry until the hook is available
+:
+echo "Creating ControlPlane referencing a missing PostCreateHook..."
 kubectl apply -f - <<EOF
 apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
 kind: ControlPlane
@@ -20,16 +45,21 @@ spec:
   type: k8s
 EOF
 
-echo ""
-echo "⏳ Waiting 10s to check that ControlPlane is not marked as failed..."
+:
+: -------------------------------------------------------------------------
+: Verify ControlPlane is not marked as failed while waiting for hook
+:
+echo "Waiting 10s to check that ControlPlane is not marked as failed..."
 sleep 10
 
-echo ""
-echo "📋 ControlPlane status after 10s (should NOT be failed):"
+echo "ControlPlane status after 10s (should NOT be failed):"
 kubectl get controlplane cp-missing-hook -o jsonpath='{.status.conditions}' | jq '.'
 
-echo ""
-echo "🧪 Creating the missing PostCreateHook..."
+:
+: -------------------------------------------------------------------------
+: Create the missing PostCreateHook
+:
+echo "Creating the missing PostCreateHook..."
 kubectl apply -f - <<EOF
 apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
 kind: PostCreateHook
@@ -52,15 +82,26 @@ spec:
       backoffLimit: 1
 EOF
 
-echo ""
-echo "⏳ Waiting for ControlPlane to become Ready (90s timeout)..."
+:
+: -------------------------------------------------------------------------
+: Verify ControlPlane becomes Ready after hook is created
+:
+echo "Waiting for ControlPlane to become Ready (90s timeout)..."
 kubectl wait --for=condition=Ready controlplane/cp-missing-hook --timeout=90s
 
-echo ""
-echo "📊 FINAL STATUS:"
+echo "FINAL STATUS:"
 kubectl get controlplane cp-missing-hook -o jsonpath='{.status}' | jq '.'
 
-echo ""
-echo "🧹 Cleaning up test resources..."
+:
+: -------------------------------------------------------------------------
+: Clean up test resources
+:
+echo "Cleaning up test resources..."
 kubectl delete controlplane cp-missing-hook --ignore-not-found=true
 kubectl delete postcreatehook missing-hook --ignore-not-found=true
+
+:
+: -------------------------------------------------------------------------
+: SUCCESS: Verified retry logic for missing PostCreateHook
+:
+echo "Test completed successfully"

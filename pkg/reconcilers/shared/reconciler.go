@@ -70,7 +70,7 @@ func (r *BaseReconciler) UpdateStatusForSyncingError(hcp *tenancyv1alpha1.Contro
 	}
 	if errors.Is(e, ErrPostCreateHookNotFound) {
 		// Requeue after 10 seconds, don't mark as failed
-		return ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, nil
+		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 	return ctrl.Result{}, err
 }
