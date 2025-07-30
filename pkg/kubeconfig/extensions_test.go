@@ -223,3 +223,24 @@ func TestCheckContextScopeKubeflexExtensionSetNoKubeflexExtensions(t *testing.T)
 		t.Errorf("Expected %s, got %s", DiagnosisStatusMissing, result)
 	}
 }
+
+func TestCheckContextScopeKubeflexExtensionSetNoData(t *testing.T) {
+	kconf := api.NewConfig()
+	kconf.Clusters["cluster1"] = &api.Cluster{Server: "https://example.com:6443"}
+	kconf.AuthInfos["user1"] = &api.AuthInfo{Token: "token"}
+
+	ext := NewRuntimeKubeflexExtension()
+	ext.Data = nil
+
+	kconf.Contexts["ctx1"] = &api.Context{
+		Cluster:    "cluster1",
+		AuthInfo:   "user1",
+		Extensions: map[string]runtime.Object{ExtensionKubeflexKey: ext},
+	}
+	kconf.CurrentContext = "ctx1"
+
+	result := CheckContextScopeKubeflexExtensionSet(*kconf, "ctx1")
+	if result != DiagnosisStatusCritical {
+		t.Errorf("Expected %s, got %s", DiagnosisStatusCritical, result)
+	}
+}
