@@ -34,11 +34,14 @@ import (
 
 	"github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/util"
+	"errors"
 )
 
 const (
 	FieldManager = "kubeflex"
 )
+
+var ErrPostCreateHookNotFound = errors.New("post create hook not found")
 
 type Vars struct {
 	Namespace        string
@@ -106,9 +109,7 @@ func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp 
 		// Get hook definition
 		pch := &v1alpha1.PostCreateHook{}
 		if err := r.Client.Get(ctx, client.ObjectKey{Name: hookName}, pch); err != nil {
-			errs = append(errs, fmt.Errorf("failed to get PostCreateHook %s: %w", hookName, err))
-			allHooksApplied = false
-			continue
+			return fmt.Errorf("%w: %v", ErrPostCreateHookNotFound, err)
 		}
 
 		// Build variables with precedence: defaults -> global -> user vars -> system
