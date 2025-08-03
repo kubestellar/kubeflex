@@ -21,6 +21,7 @@ import (
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/shared"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -55,7 +56,7 @@ func New(cl client.Client, scheme *runtime.Scheme, version string, clientSet *ku
 	}
 	return &K3sReconciler{
 		BaseReconciler: &br,
-		Namespace:      &Namespace{&br},
+		Namespace:      &Namespace{BaseReconciler: &br, Object: &v1.Namespace{}},
 		Job:            &Job{&br},
 		Service:        &Service{&br},
 		Server:         &Server{&br},
@@ -101,6 +102,10 @@ func (r *K3sReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.Cont
 	// Reconcile k3s Job
 	if result, err := r.Job.Reconcile(ctx, hcp); err != nil {
 		return result, err
+	}
+	// Update secretref status
+	hcp.Status.SecretRef = &tenancyv1alpha1.SecretReference{
+		Namespace: r.Namespace.Object.Name,
 	}
 	return r.BaseReconciler.Reconcile(ctx, hcp)
 }
