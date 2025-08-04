@@ -291,3 +291,19 @@ func TestCheckExtensionInitialContextNameSetFalse(t *testing.T) {
 		t.Errorf("Expected %s when ExtensionInitialContextName is not set, got %s", DiagnosisStatusWarning, status)
 	}
 }
+
+func TestCheckExtensionInitialContextNameSetTrue(t *testing.T) {
+	kconf := api.NewConfig()
+
+	ext := NewRuntimeKubeflexExtension()
+	ext.Data[ExtensionInitialContextName] = "kind-kubeflex"
+
+	kconf.Extensions = map[string]runtime.Object{
+		ExtensionKubeflexKey: ext,
+	}
+
+	status := CheckExtensionInitialContextNameSet(*kconf)
+	if status != DiagnosisStatusOK {
+		t.Errorf("Expected %s when ExtensionInitialContextName is set, got %s", DiagnosisStatusOK, status)
+	}
+}
