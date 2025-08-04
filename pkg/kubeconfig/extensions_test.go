@@ -2,6 +2,9 @@ package kubeconfig
 
 import (
 	"fmt"
+	"github.com/kubestellar/kubeflex/cmd/kflex/common"
+	"k8s.io/client-go/tools/clientcmd"
+	"os"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -206,6 +209,27 @@ func TestCheckHostingClusterContextNameSingle(t *testing.T) {
 	}
 }
 
+func writeKubeconfigToTempFile(t *testing.T, kconf *api.Config) string {
+	data, err := clientcmd.Write(*kconf)
+	if err != nil {
+		t.Fatalf("failed to serialize kubeconfig: %v", err)
+	}
+
+	tmpfile, err := os.CreateTemp("", "kubeconfig-*.yaml")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+
+	if _, err := tmpfile.Write(data); err != nil {
+		t.Fatalf("failed to write kubeconfig: %v", err)
+	}
+	if err := tmpfile.Close(); err != nil {
+		t.Fatalf("failed to close temp file: %v", err)
+	}
+
+	return tmpfile.Name()
+}
+
 func TestCheckContextScopeKubeflexExtensionSetNoKubeflexExtensions(t *testing.T) {
 	kconf := api.NewConfig()
 	kconf.Clusters["cluster1"] = &api.Cluster{Server: "https://example.com:6443"}
@@ -216,7 +240,11 @@ func TestCheckContextScopeKubeflexExtensionSetNoKubeflexExtensions(t *testing.T)
 	}
 	kconf.CurrentContext = "ctx1"
 
-	result := CheckContextScopeKubeflexExtensionSet(*kconf, "ctx1")
+	tmpFile := writeKubeconfigToTempFile(t, kconf)
+	defer os.Remove(tmpFile)
+
+	cp := common.NewCP(tmpFile)
+	result := CheckContextScopeKubeflexExtensionSet(cp, "ctx1")
 	if result != DiagnosisStatusMissing {
 		t.Errorf("Expected %s, got %s", DiagnosisStatusMissing, result)
 	}
@@ -237,7 +265,11 @@ func TestCheckContextScopeKubeflexExtensionSetNoData(t *testing.T) {
 	}
 	kconf.CurrentContext = "ctx1"
 
-	result := CheckContextScopeKubeflexExtensionSet(*kconf, "ctx1")
+	tmpFile := writeKubeconfigToTempFile(t, kconf)
+	defer os.Remove(tmpFile)
+
+	cp := common.NewCP(tmpFile)
+	result := CheckContextScopeKubeflexExtensionSet(cp, "ctx1")
 	if result != DiagnosisStatusCritical {
 		t.Errorf("Expected %s, got %s", DiagnosisStatusCritical, result)
 	}
@@ -258,7 +290,11 @@ func TestCheckContextScopeKubeflexExtensionSetPartialData(t *testing.T) {
 	}
 	kconf.CurrentContext = "ctx1"
 
-	result := CheckContextScopeKubeflexExtensionSet(*kconf, "ctx1")
+	tmpFile := writeKubeconfigToTempFile(t, kconf)
+	defer os.Remove(tmpFile)
+
+	cp := common.NewCP(tmpFile)
+	result := CheckContextScopeKubeflexExtensionSet(cp, "ctx1")
 	if result != DiagnosisStatusWarning {
 		t.Errorf("Expected %s, got %s", DiagnosisStatusWarning, result)
 	}
