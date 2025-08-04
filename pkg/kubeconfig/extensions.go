@@ -19,6 +19,10 @@ package kubeconfig
 import (
 	"encoding/json"
 	"fmt"
+	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
+	"github.com/kubestellar/kubeflex/cmd/kflex/common"
+	"github.com/kubestellar/kubeflex/pkg/client"
+	"k8s.io/client-go/tools/clientcmd"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -234,12 +238,32 @@ func CheckHostingClusterContextName(kconf clientcmdapi.Config) string {
 	}
 }
 
-func VerifyControlPlaneOnHostingCluster(kconf clientcmdapi.Config, ctxName string) string {
-	// TODO: implement actual control plane verification logic
-	return DiagnosisStatusOK
+func VerifyControlPlaneOnHostingCluster(cp common.CP, ctxName string) string {
+	c, err := client.GetClient(cp.Kubeconfig)
+	if err != nil {
+		return DiagnosisStatusCritical
+	}
+
+	var controlPlanes tenancyv1alpha1.ControlPlaneList
+	if err := c.List(cp.Ctx, &controlPlanes); err != nil {
+		return DiagnosisStatusCritical
+	}
+
+	for _, controlPlane := range controlPlanes.Items {
+		if controlPlane.Name == ctxName {
+			return DiagnosisStatusOK
+		}
+	}
+
+	return DiagnosisStatusMissing
 }
 
-func CheckContextScopeKubeflexExtensionSet(kconf clientcmdapi.Config, ctxName string) string {
+func CheckContextScopeKubeflexExtensionSet(cp common.CP, ctxName string) string {
+	kconf, err := clientcmd.LoadFromFile(cp.Kubeconfig)
+	if err != nil {
+		return DiagnosisStatusCritical
+	}
+
 	ctx, ok := kconf.Contexts[ctxName]
 	if !ok {
 		return DiagnosisStatusMissing // Context not found
@@ -269,7 +293,7 @@ func CheckContextScopeKubeflexExtensionSet(kconf clientcmdapi.Config, ctxName st
 		return DiagnosisStatusWarning
 	}
 
-	status := VerifyControlPlaneOnHostingCluster(kconf, ctxName)
+	status := VerifyControlPlaneOnHostingCluster(cp, ctxName)
 	if status != DiagnosisStatusOK {
 		return status
 	}
