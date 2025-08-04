@@ -361,3 +361,22 @@ func CountKubeflexControlPlaneContexts(kconf clientcmdapi.Config) int {
 
 	return count
 }
+
+func CheckExtensionInitialContextNameSet(kconf clientcmdapi.Config) string {
+	runtimeObj, exists := kconf.Extensions[ExtensionKubeflexKey]
+	if !exists {
+		return DiagnosisStatusCritical
+	}
+
+	runtimeExtension := &RuntimeKubeflexExtension{}
+	if err := ConvertRuntimeObjectToRuntimeExtension(runtimeObj, runtimeExtension); err != nil {
+		return DiagnosisStatusCritical
+	}
+
+	val, ok := runtimeExtension.Data[ExtensionInitialContextName]
+	if !ok || val == "" {
+		return DiagnosisStatusWarning
+	}
+
+	return DiagnosisStatusOK
+}
