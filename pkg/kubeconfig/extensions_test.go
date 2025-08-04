@@ -263,3 +263,17 @@ func TestCheckContextScopeKubeflexExtensionSetPartialData(t *testing.T) {
 		t.Errorf("Expected %s, got %s", DiagnosisStatusWarning, result)
 	}
 }
+
+func TestCheckExtensionInitialContextNameSetFalse(t *testing.T) {
+	kconf := api.NewConfig()
+	ext := NewRuntimeKubeflexExtension()
+
+	kconf.Extensions = map[string]runtime.Object{
+		ExtensionKubeflexKey: ext,
+	}
+
+	status := CheckExtensionInitialContextNameSet(*kconf)
+	if status != DiagnosisStatusWarning {
+		t.Errorf("Expected %s when ExtensionInitialContextName is not set, got %s", DiagnosisStatusWarning, status)
+	}
+}
