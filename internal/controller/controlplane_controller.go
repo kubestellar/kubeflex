@@ -145,85 +145,65 @@ func (r *ControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
-	// FIXED: Process PostCreateHooks INDEPENDENTLY of everything else
-	// This breaks the chicken-egg cycle!
-	if hcp.Spec.PostCreateHook != nil || len(hcp.Spec.PostCreateHooks) > 0 {
-		log.Info("Processing PostCreateHooks independently")
-
-		// Get the appropriate reconciler to process hooks
-		var baseReconciler interface {
-			ReconcileUpdatePostCreateHook(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error
-		}
-
-		switch hcp.Spec.Type {
-		case tenancyv1alpha1.ControlPlaneTypeK8S:
-			reconciler := k8s.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
-			baseReconciler = reconciler
-		case tenancyv1alpha1.ControlPlaneTypeOCM:
-			reconciler := ocm.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
-			baseReconciler = reconciler
-		case tenancyv1alpha1.ControlPlaneTypeVCluster:
-			reconciler := vcluster.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
-			baseReconciler = reconciler
-		case tenancyv1alpha1.ControlPlaneTypeHost:
-			reconciler := host.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
-			baseReconciler = reconciler
-		case tenancyv1alpha1.ControlPlaneTypeExternal:
-			reconciler := external.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
-			baseReconciler = reconciler
-		}
-
-		if baseReconciler != nil {
-			log.Info("Processing PostCreateHooks", "controlPlane", hcp.Name)
-			if err := baseReconciler.ReconcileUpdatePostCreateHook(ctx, hcp); err != nil {
-				log.Error(err, "Failed to process PostCreateHooks")
-				// Don't return error, just log it and continue
-			}
-			// After processing hooks, refresh the hcp object to get updated status
-			if err := r.Get(ctx, client.ObjectKey{Name: hcp.Name}, hcp); err != nil {
-				log.Error(err, "Failed to refresh ControlPlane after hook processing")
-			}
-		}
-	}
-
-	// ALWAYS call the type-specific reconciler to handle infrastructure (API server, etc.)
-	log.Info("Calling type-specific reconciler for infrastructure setup", "type", hcp.Spec.Type)
+	// PHASE 1: Type-specific controlplane reconciliation
+	log.Info("Phase 1: Infrastructure setup and kubeconfig creation", "type", hcp.Spec.Type)
 	var reconcileResult ctrl.Result
 	var reconcileError error
 
+	var reconciler interface {
+		Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error)
+		ReconcileUpdatePostCreateHook(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error
+	}
+
 	switch hcp.Spec.Type {
 	case tenancyv1alpha1.ControlPlaneTypeK8S:
-		reconciler := k8s.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
-		reconcileResult, reconcileError = reconciler.Reconcile(ctx, hcp)
+		reconciler = k8s.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
 	case tenancyv1alpha1.ControlPlaneTypeOCM:
-		reconciler := ocm.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
-		reconcileResult, reconcileError = reconciler.Reconcile(ctx, hcp)
+		reconciler = ocm.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
 	case tenancyv1alpha1.ControlPlaneTypeVCluster:
-		reconciler := vcluster.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
-		reconcileResult, reconcileError = reconciler.Reconcile(ctx, hcp)
+		reconciler = vcluster.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
 	case tenancyv1alpha1.ControlPlaneTypeHost:
-		reconciler := host.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
-		reconcileResult, reconcileError = reconciler.Reconcile(ctx, hcp)
+		reconciler = host.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
 	case tenancyv1alpha1.ControlPlaneTypeExternal:
-		reconciler := external.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
-		reconcileResult, reconcileError = reconciler.Reconcile(ctx, hcp)
+		reconciler = external.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
 	default:
 		reconcileError = fmt.Errorf("unsupported control plane type: %s", hcp.Spec.Type)
 	}
 
-	// If type-specific reconciler failed, return the error
 	if reconcileError != nil {
-		log.Error(reconcileError, "Type-specific reconciler failed")
+		log.Error(reconcileError, "Unsupported control plane type")
+		return ctrl.Result{}, reconcileError
+	}
+
+	// Call the type-specific reconciler to handle infrastructure and kubeconfig setup
+	reconcileResult, reconcileError = reconciler.Reconcile(ctx, hcp)
+	if reconcileError != nil {
+		log.Error(reconcileError, "Type-specific reconciliation failed")
 		return reconcileResult, reconcileError
 	}
 
-	// Refresh the hcp object after infrastructure reconciliation
+	// Refresh hcp object after infrastructure reconciliation
 	if err := r.Get(ctx, client.ObjectKey{Name: hcp.Name}, hcp); err != nil {
 		log.Error(err, "Failed to refresh ControlPlane after infrastructure reconciliation")
 		return ctrl.Result{}, err
 	}
 
-	// NOW determine overall CP readiness based on BOTH API server AND hooks
+	// PHASE 2: PostCreateHook processing
+	if hcp.Spec.PostCreateHook != nil || len(hcp.Spec.PostCreateHooks) > 0 {
+		log.Info("Processing PostCreateHooks with complete kubeconfig")
+
+		if err := reconciler.ReconcileUpdatePostCreateHook(ctx, hcp); err != nil {
+			log.Error(err, "Failed to process PostCreateHooks")
+			// Don't return error immediately - let status logic handle it
+		}
+
+		// Refresh hcp object after PCH processing
+		if err := r.Get(ctx, client.ObjectKey{Name: hcp.Name}, hcp); err != nil {
+			log.Error(err, "Failed to refresh ControlPlane after hook processing")
+		}
+	}
+
+	// Determine overall controlplane readiness based on both API server and PCHs
 	log.Info("Determining final control plane readiness")
 
 	// Check API server readiness
