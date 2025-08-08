@@ -19,6 +19,7 @@ package shared
 import (
 	"context"
 	"strconv"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -66,6 +67,10 @@ func (r *BaseReconciler) UpdateStatusForSyncingError(hcp *tenancyv1alpha1.Contro
 	err := r.Status().Update(context.Background(), hcp)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(e, err.Error())
+	}
+	if errors.Is(e, ErrPostCreateHookNotFound) {
+		// Requeue after 10 seconds, don't mark as failed
+		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 	return ctrl.Result{}, err
 }
