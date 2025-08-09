@@ -41,6 +41,12 @@ const (
 	FieldOwner = "kubeflex.kubestellar.io"
 )
 
+// Implemented by all controlplane types for central PCH processing
+type ControlPlaneTypeReconciler interface {
+	Reconcile(context.Context, *tenancyv1alpha1.ControlPlane) (ctrl.Result, error)
+	ReconcileUpdatePostCreateHook(context.Context, *tenancyv1alpha1.ControlPlane) error
+}
+
 // BaseReconciler provide common reconcilers used by other reconcilers
 type BaseReconciler struct {
 	client.Client
