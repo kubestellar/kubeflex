@@ -154,16 +154,6 @@ func (r *VClusterReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1
 	r.UpdateStatusWithSecretRef(hcp, util.VClusterKubeConfigSecret,
 		util.KubeconfigSecretKeyVCluster, util.KubeconfigSecretKeyVClusterInCluster)
 
-	if len(hcp.Spec.PostCreateHooks) > 0 &&
-		tenancyv1alpha1.HasConditionAvailable(hcp.Status.Conditions) {
-		if err := r.ReconcileUpdatePostCreateHook(ctx, hcp); err != nil {
-			if util.IsTransientError(err) {
-				return ctrl.Result{}, err
-			}
-			return r.UpdateStatusForSyncingError(hcp, err)
-		}
-	}
-
 	return r.UpdateStatusForSyncingSuccess(ctx, hcp)
 }
 
