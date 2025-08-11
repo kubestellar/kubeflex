@@ -33,14 +33,17 @@ import (
 	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
+// ReconcileAPIServerRoute ensures an OpenShift Route exists for exposing the API server.
+// If the route does not exist, it will be created. If it already exists, no action is taken.
 func (r *BaseReconciler) ReconcileAPIServerRoute(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane, svcName string, svcPort int, domain string) error {
 	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
 
+	// Default to using the ControlPlane name as the service name if not provided
 	if svcName == "" {
 		svcName = hcp.Name
 	}
 
-	// lookup route
+	// Lookup the Route resource
 	route := &routev1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      hcp.Name,
@@ -49,34 +52,37 @@ func (r *BaseReconciler) ReconcileAPIServerRoute(ctx context.Context, hcp *tenan
 	}
 
 	err := r.Client.Get(ctx, client.ObjectKeyFromObject(route), route, &client.GetOptions{})
-    if err != nil {
-        if apierrors.IsNotFound(err) {
-            route = generateAPIServerRoute(hcp.Name, svcName, namespace, svcPort, domain)
-            if err := controllerutil.SetControllerReference(hcp, route, r.Scheme); err != nil {
-                return fmt.Errorf("failed to SetControllerReference: %w", err)
-            }
-            if err = r.Client.Create(ctx, route, &client.CreateOptions{}); err != nil {
-                if util.IsTransientError(err) {
-                    return err // Retry transient errors
-                }
-                return fmt.Errorf("failed to create route: %w", err)
-            }
-        } else if util.IsTransientError(err) {
-            return err // Retry transient errors
-        } else {
-            return fmt.Errorf("failed to get route: %w", err)
-        }
-    }
-    return nil
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			// Create the Route if it does not exist
+			route = generateAPIServerRoute(hcp.Name, svcName, namespace, svcPort, domain)
+			if err := controllerutil.SetControllerReference(hcp, route, r.Scheme); err != nil {
+				return fmt.Errorf("failed to SetControllerReference: %w", err)
+			}
+			if err = r.Client.Create(ctx, route, &client.CreateOptions{}); err != nil {
+				if util.IsTransientError(err) {
+					return err // Retry transient errors
+				}
+				return fmt.Errorf("failed to create route: %w", err)
+			}
+		} else if util.IsTransientError(err) {
+			return err // Retry transient errors
+		} else {
+			return fmt.Errorf("failed to get route: %w", err)
+		}
+	}
+	return nil
 }
 
+// generateAPIServerRoute returns a configured OpenShift Route object
+// for exposing the API server over HTTPS passthrough termination.
 func generateAPIServerRoute(name, svcName, namespace string, svcPort int, domain string) *routev1.Route {
 	return &routev1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 			Annotations: map[string]string{
-				"openshift.io/host.generated": "true",
+				"openshift.io/host.generated": "true", // Allow OpenShift to auto-generate the host
 			},
 		},
 		Spec: routev1.RouteSpec{
@@ -97,11 +103,12 @@ func generateAPIServerRoute(name, svcName, namespace string, svcPort int, domain
 	}
 }
 
+// GetAPIServerRouteURL retrieves the hostname of the Route associated with the API server.
+// This can be used by clients to connect to the ControlPlane's API server endpoint.
 func (r *BaseReconciler) GetAPIServerRouteURL(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (string, error) {
 	_ = clog.FromContext(ctx)
 	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
 
-	// lookup route
 	route := &routev1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      hcp.Name,
@@ -109,8 +116,7 @@ func (r *BaseReconciler) GetAPIServerRouteURL(ctx context.Context, hcp *tenancyv
 		},
 	}
 
-	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(route), route, &client.GetOptions{})
-	if err != nil {
+	if err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(route), route, &client.GetOptions{}); err != nil {
 		return "", err
 	}
 

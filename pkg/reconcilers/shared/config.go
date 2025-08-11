@@ -17,7 +17,14 @@ limitations under the License.
 package shared
 
 const (
-	DefaulPort    = 443
-	SecurePort    = 9444
+	// DefaultPort is the standard HTTPS port used for secure communication.
+	DefaultPort = 443
+
+	// SecurePort is the custom secure port used by KubeStellar components
+	// for internal communication.
+	SecurePort = 9444
+
+	// CMHealthzPort is the port used by the controller manager to expose
+	// its /healthz endpoint for readiness and liveness probes.
 	CMHealthzPort = 10257
 )
