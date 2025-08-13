@@ -150,7 +150,6 @@ func (r *VClusterReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
-	// Move this call after ReconcileKubeconfigSecret()
 	r.UpdateStatusWithSecretRef(hcp, util.VClusterKubeConfigSecret,
 		util.KubeconfigSecretKeyVCluster, util.KubeconfigSecretKeyVClusterInCluster)
 
