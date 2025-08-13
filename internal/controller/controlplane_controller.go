@@ -43,6 +43,7 @@ import (
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/host"
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/k8s"
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/ocm"
+	"github.com/kubestellar/kubeflex/pkg/reconcilers/shared"
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/vcluster"
 	"github.com/kubestellar/kubeflex/pkg/util"
 )
@@ -147,13 +148,8 @@ func (r *ControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	// PHASE 1: Type-specific controlplane reconciliation
 	log.Info("Phase 1: Infrastructure setup and kubeconfig creation", "type", hcp.Spec.Type)
-	var reconcileResult ctrl.Result
-	var reconcileError error
 
-	var reconciler interface {
-		Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error)
-		ReconcileUpdatePostCreateHook(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error
-	}
+	var reconciler shared.ControlPlaneReconciler
 
 	switch hcp.Spec.Type {
 	case tenancyv1alpha1.ControlPlaneTypeK8S:
@@ -167,28 +163,41 @@ func (r *ControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	case tenancyv1alpha1.ControlPlaneTypeExternal:
 		reconciler = external.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
 	default:
-		reconcileError = fmt.Errorf("unsupported control plane type: %s", hcp.Spec.Type)
-	}
-
-	if reconcileError != nil {
-		log.Error(reconcileError, "Unsupported control plane type")
-		return ctrl.Result{}, reconcileError
+		return ctrl.Result{}, fmt.Errorf("unsupported control plane type: %s", hcp.Spec.Type)
 	}
 
 	// Call the type-specific reconciler to handle infrastructure and kubeconfig setup
-	reconcileResult, reconcileError = reconciler.Reconcile(ctx, hcp)
+	reconcileResult, reconcileError := reconciler.Reconcile(ctx, hcp)
 	if reconcileError != nil {
 		log.Error(reconcileError, "Type-specific reconciliation failed")
 		return reconcileResult, reconcileError
 	}
 
-	// Refresh hcp object after infrastructure reconciliation
+	// Refresh the hcp object after infrastructure reconciliation
 	if err := r.Get(ctx, client.ObjectKey{Name: hcp.Name}, hcp); err != nil {
 		log.Error(err, "Failed to refresh ControlPlane after infrastructure reconciliation")
 		return ctrl.Result{}, err
 	}
 
-	// PHASE 2: PostCreateHook processing
+	// PHASE 2: Check API server readiness
+	apiServerReady, err := util.IsAPIServerDeploymentReady(log, r.Client, *hcp)
+	if err != nil {
+		log.Error(err, "Error checking API server readiness", "controlPlane", hcp.Name)
+	}
+	log.Info("API server readiness check", "controlPlane", hcp.Name, "apiServerReady", apiServerReady)
+
+	// Requeue if API Server is Not Ready
+	if !apiServerReady {
+		log.Info("API Server Not Ready. Requeuing...", "controlPlane", hcp.Name)
+		// Update Status
+		tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionUnavailable())
+		if err = r.Status().Update(ctx, hcp); err != nil {
+			log.Error(err, "Failed to update ControlPlane status")
+		}
+		return ctrl.Result{RequeueAfter: time.Second * 15}, nil
+	}
+
+	// PHASE 3: PostCreateHook processing
 	if hcp.Spec.PostCreateHook != nil || len(hcp.Spec.PostCreateHooks) > 0 {
 		log.Info("Processing PostCreateHooks with complete kubeconfig")
 
@@ -205,15 +214,6 @@ func (r *ControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	// Determine overall controlplane readiness based on both API server and PCHs
 	log.Info("Determining final control plane readiness")
-
-	// Check API server readiness
-	apiServerReady, err := util.IsAPIServerDeploymentReady(log, r.Client, *hcp)
-	if err != nil {
-		log.Error(err, "Error checking API server readiness", "controlPlane", hcp.Name)
-	}
-	log.Info("API server readiness check", "controlPlane", hcp.Name, "apiServerReady", apiServerReady)
-
-	// Determine final readiness based on waitForPostCreateHooks setting
 	if hcp.Spec.WaitForPostCreateHooks != nil && *hcp.Spec.WaitForPostCreateHooks {
 		// NEW BEHAVIOR: CP ready = API Server ready AND PostCreateHooks completed
 		log.Info("Checking both API server and PostCreateHook completion",
