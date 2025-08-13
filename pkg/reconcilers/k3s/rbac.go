@@ -22,6 +22,7 @@ import (
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/shared"
+
 	// "github.com/kubestellar/kubeflex/pkg/reconcilers/shared"
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -95,7 +96,7 @@ func (r *RBAC) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane)
 	log := clog.FromContext(ctx)
 	// ClusterRole
 	log.Info("reconcile k3s role for server")
-	role, _ := NewClusterRole(GenerateSystemNamespaceName(hcp.Name))
+	role, _ := NewClusterRole(ComputeSystemNamespaceName(hcp.Name))
 	err := r.Client.Get(ctx, client.ObjectKeyFromObject(role), role)
 	switch {
 	case err == nil:
@@ -120,7 +121,7 @@ func (r *RBAC) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane)
 	}
 	// ClusterRoleBinding
 	log.Info("reconcile k3s role binding for server")
-	roleBinding, _ := NewClusterRoleBinding(GenerateSystemNamespaceName(hcp.Name))
+	roleBinding, _ := NewClusterRoleBinding(ComputeSystemNamespaceName(hcp.Name))
 	err = r.Client.Get(ctx, client.ObjectKeyFromObject(roleBinding), roleBinding)
 	switch {
 	case err == nil:

@@ -51,6 +51,7 @@ func NewBootstrapSecretJob(br *shared.BaseReconciler) *BootstrapSecretJob {
 	}
 }
 
+// Prepare job object and its manifest
 func (r *BootstrapSecretJob) Prepare(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
 	log := clog.FromContext(ctx)
 	cfg, err := r.GetConfig(ctx)
@@ -58,7 +59,7 @@ func (r *BootstrapSecretJob) Prepare(ctx context.Context, hcp *tenancyv1alpha1.C
 		log.Error(err, "failed to load shared config")
 		return err
 	}
-	namespace := GenerateSystemNamespaceName(hcp.Name)
+	namespace := ComputeSystemNamespaceName(hcp.Name)
 	ingressDNS := GetClusterServerURI(cfg)
 	serviceDNS := GetInClusterStaticDNSRecord(namespace)
 	r.Object = &batchv1.Job{

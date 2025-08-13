@@ -24,10 +24,12 @@ import (
 	// "github.com/go-logr/logr"
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/shared"
+
 	// "github.com/kubestellar/kubeflex/pkg/util"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	// "k8s.io/client-go/tools/clientcmd"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -64,7 +66,7 @@ func NewKubeconfigSecret(namespace string) (_ *v1.Secret, err error) {
 // implements ControlPlaneReconciler
 func (r *KubeconfigSecret) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
 	log := clog.FromContext(ctx)
-	namespace := GenerateSystemNamespaceName(hcp.Name)
+	namespace := ComputeSystemNamespaceName(hcp.Name)
 	ksecret, _ := NewKubeconfigSecret(namespace)
 	// Get secret from cluster if existent
 	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(ksecret), ksecret, &client.GetOptions{})
@@ -150,7 +152,7 @@ func NewScriptsConfigMap(namespace string) (*v1.ConfigMap, error) {
 func (cm *ScriptsConfigMap) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
 	log := clog.FromContext(ctx)
 	log.Info("Reconcile k3s configmap")
-	namespace := GenerateSystemNamespaceName(hcp.Name)
+	namespace := ComputeSystemNamespaceName(hcp.Name)
 	cmScripts, _ := NewScriptsConfigMap(namespace)
 	err := cm.Client.Get(ctx, client.ObjectKeyFromObject(cmScripts), cmScripts)
 	switch {

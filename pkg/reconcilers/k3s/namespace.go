@@ -33,7 +33,6 @@ import (
 
 const (
 	SystemNamespaceSuffix = "-system"
-	ServerSystemNamespace = "k3s" + SystemNamespaceSuffix
 )
 
 // Namespace defines tenant namespace
@@ -42,38 +41,49 @@ type Namespace struct {
 	Object *v1.Namespace
 }
 
-// GenerateSystemNamespaceName follows this convention "$cpName-system"
-func GenerateSystemNamespaceName(cpName string) string {
+// ComputeSystemNamespaceName follows this convention "$cpName-system"
+func ComputeSystemNamespaceName(cpName string) string {
 	return cpName + SystemNamespaceSuffix
 }
 
 // NewSystemNamespace Init system namespace based on $cpName
 // namespace created follows "$cpName-system" naming convention
-func NewSystemNamespace(cpName string) (_ *v1.Namespace, err error) {
-	return &v1.Namespace{
+func NewSystemNamespace(br *shared.BaseReconciler) *Namespace {
+	return &Namespace{
+		BaseReconciler: br,
+		Object:         &v1.Namespace{},
+	}
+}
+
+// Prepare namespace object by computing its manifest
+func (r *Namespace) Prepare(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
+	r.Object = &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: GenerateSystemNamespaceName(cpName),
+			Name: ComputeSystemNamespaceName(hcp.Name),
 		},
-	}, nil
+	}
+	return nil
 }
 
 // Reconcile namespace
 // implements ControlPlaneReconciler
-func (ns *Namespace) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
+func (r *Namespace) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
 	log := clog.FromContext(ctx)
-	ns.Object, _ = NewSystemNamespace(hcp.Name)
-	log.Info("call Reconcile namespace to create", "namespace", ns.Object)
-	err := ns.Client.Get(ctx, client.ObjectKeyFromObject(ns.Object), ns.Object, &client.GetOptions{})
+	if err := r.Prepare(ctx, hcp); err != nil {
+		return ctrl.Result{}, err
+	}
+	log.Info("call Reconcile namespace to create", "namespace", r.Object)
+	err := r.Client.Get(ctx, client.ObjectKeyFromObject(r.Object), r.Object, &client.GetOptions{})
 	switch {
 	case err == nil:
-		log.Info("namespace is already created", "namespace", ns.Object.Name)
+		log.Info("namespace is already created", "namespace", r.Object.Name)
 	case apierrors.IsNotFound(err):
 		log.Error(err, "is not found error")
-		if err := controllerutil.SetControllerReference(hcp, ns.Object, ns.Scheme); err != nil {
+		if err := controllerutil.SetControllerReference(hcp, r.Object, r.Scheme); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to SetControllerReference: %w", err)
 		}
-		log.Info("client.Create on", "namespace", ns.Object)
-		if err = ns.Client.Create(ctx, ns.Object, &client.CreateOptions{}); err != nil {
+		log.Info("client.Create on", "namespace", r.Object)
+		if err = r.Client.Create(ctx, r.Object, &client.CreateOptions{}); err != nil {
 			log.Error(err, "client.Create failed")
 			return ctrl.Result{}, fmt.Errorf("failed to create namespace: %w", err)
 		}

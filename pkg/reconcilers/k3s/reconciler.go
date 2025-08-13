@@ -23,7 +23,6 @@ import (
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/shared"
 	"github.com/kubestellar/kubeflex/pkg/util"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -59,13 +58,13 @@ func New(cl client.Client, scheme *runtime.Scheme, version string, clientSet *ku
 
 	return &K3sReconciler{
 		BaseReconciler:     &br,
-		Namespace:          &Namespace{BaseReconciler: &br, Object: &v1.Namespace{}},
+		Namespace:          NewSystemNamespace(&br),
 		BootstrapSecretJob: NewBootstrapSecretJob(&br),
-		Service:            &Service{&br},
-		Server:             &Server{&br},
+		Service:            NewService(&br),
+		Server:             NewServer(&br),
 		KubeconfigSecret:   &KubeconfigSecret{&br},
 		ScriptsConfigMap:   &ScriptsConfigMap{&br},
-		Ingress:            &Ingress{&br},
+		Ingress:            NewIngress(&br),
 		RBAC:               &RBAC{&br},
 	}
 }
