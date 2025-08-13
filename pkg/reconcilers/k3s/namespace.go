@@ -22,7 +22,6 @@ import (
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/shared"
-	"github.com/kubestellar/kubeflex/pkg/util"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,13 +36,13 @@ const (
 	ServerSystemNamespace = "k3s" + SystemNamespaceSuffix
 )
 
-// K3s service
+// Namespace defines tenant namespace
 type Namespace struct {
 	*shared.BaseReconciler
 	Object *v1.Namespace
 }
 
-// Generate system namespace name following this convention "$cpName-system"
+// GenerateSystemNamespaceName follows this convention "$cpName-system"
 func GenerateSystemNamespaceName(cpName string) string {
 	return cpName + SystemNamespaceSuffix
 }
@@ -61,31 +60,25 @@ func NewSystemNamespace(cpName string) (_ *v1.Namespace, err error) {
 // Reconcile namespace
 // implements ControlPlaneReconciler
 func (ns *Namespace) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
-	// NewSystemNamespace(hcp.Name)
 	log := clog.FromContext(ctx)
 	ns.Object, _ = NewSystemNamespace(hcp.Name)
 	log.Info("call Reconcile namespace to create", "namespace", ns.Object)
 	err := ns.Client.Get(ctx, client.ObjectKeyFromObject(ns.Object), ns.Object, &client.GetOptions{})
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			log.Error(err, "is not found error")
-			if err := controllerutil.SetControllerReference(hcp, ns.Object, ns.Scheme); err != nil {
-				return ctrl.Result{}, fmt.Errorf("failed to SetControllerReference: %w", err)
-			}
-			log.Info("client.Create on", "namespace", ns.Object)
-			if err = ns.Client.Create(ctx, ns.Object, &client.CreateOptions{}); err != nil {
-				if util.IsTransientError(err) {
-					return ctrl.Result{}, err
-				}
-				log.Error(err, "client.Create failed")
-				return ctrl.Result{}, fmt.Errorf("failed to create namespace: %w", err)
-			}
-		} else if util.IsTransientError(err) {
-			return ctrl.Result{}, err
-		} else {
-			log.Error(err, "ns.Client.Get failed")
-			return ctrl.Result{}, fmt.Errorf("failed to get namespace: %w", err)
+	switch {
+	case err == nil:
+		log.Info("namespace is already created", "namespace", ns.Object.Name)
+	case apierrors.IsNotFound(err):
+		log.Error(err, "is not found error")
+		if err := controllerutil.SetControllerReference(hcp, ns.Object, ns.Scheme); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to SetControllerReference: %w", err)
 		}
+		log.Info("client.Create on", "namespace", ns.Object)
+		if err = ns.Client.Create(ctx, ns.Object, &client.CreateOptions{}); err != nil {
+			log.Error(err, "client.Create failed")
+			return ctrl.Result{}, fmt.Errorf("failed to create namespace: %w", err)
+		}
+	default:
+		log.Error(err, "reconcile namespace failed")
 	}
 	log.Info("end of renconcile k3s namespace")
 	return ctrl.Result{}, nil

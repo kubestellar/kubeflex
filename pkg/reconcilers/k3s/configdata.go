@@ -166,23 +166,23 @@ func (cm *ConfigMap) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.Control
 	namespace := GenerateSystemNamespaceName(hcp.Name)
 	cmScripts, _ := NewScriptsConfigMap(namespace)
 	err := cm.Client.Get(ctx, client.ObjectKeyFromObject(cmScripts), cmScripts)
-	if err != nil {
-		// if config map is not found, create a new config map on the cluster
-		if apierrors.IsNotFound(err) {
-			// create a new config map
-			log.Info("k3s-scripts configmap is not found, creating new configmap")
-			// Set Controller Reference on configmap
-			if err := controllerutil.SetControllerReference(hcp, cmScripts, cm.Scheme); err != nil {
-				log.Error(err, "setting k3s scripts configmap controller reference failed")
-				return ctrl.Result{}, err
-			}
-			if err = cm.Client.Create(context.TODO(), cmScripts); err != nil {
-				return handleReconcileError(log, err)
-			}
+	switch {
+	case err == nil:
+		log.Info("configmap is already created", "configmap", cmScripts.Name)
+	case apierrors.IsNotFound(err):
+		// create a new config map
+		log.Info("configmap is not found, creating new configmap")
+		// Set Controller Reference on configmap
+		if err := controllerutil.SetControllerReference(hcp, cmScripts, cm.Scheme); err != nil {
+			log.Error(err, "setting k3s scripts configmap controller reference failed")
+			return ctrl.Result{}, err
 		}
-	} else {
-		// if cm exists, ensure it has the right data
-		log.Info("k3s scripts configmap exists")
+		if err = cm.Client.Create(context.TODO(), cmScripts); err != nil {
+			return handleReconcileError(log, err)
+		}
+		log.Info("configmap is created", "configmap", cmScripts.Name)
+	default:
+		log.Error(err, "k3s configmap reconcile has failed")
 	}
 	return ctrl.Result{}, nil
 }

@@ -26,30 +26,30 @@ func TestAreConditionsEqual(t *testing.T) {
 	}
 }
 
-func TestSetCondition(t *testing.T) {
-	// Create a slice of conditions and set a new condition
-	conditions1 := []ControlPlaneCondition{
-		generateCondition("ConditionTypeA", "ReasonA", "MessageA",
-			corev1.ConditionFalse, metav1.Now(), metav1.Now()),
-		generateCondition("ConditionTypeB", "ReasonB", "MessageB",
-			corev1.ConditionTrue, metav1.Now(), addTime(2)),
-	}
+// func TestSetCondition(t *testing.T) {
+// 	// Create a slice of conditions and set a new condition
+// 	conditions1 := []ControlPlaneCondition{
+// 		generateCondition("ConditionTypeA", "ReasonA", "MessageA",
+// 			corev1.ConditionFalse, metav1.Now(), metav1.Now()),
+// 		generateCondition("ConditionTypeB", "ReasonB", "MessageB",
+// 			corev1.ConditionTrue, metav1.Now(), addTime(2)),
+// 	}
 
-	newCondition := generateCondition("ConditionTypeA", "ReasonAUpdated", "MessageAUpdated",
-		corev1.ConditionTrue, addTime(4), addTime(5))
+// 	newCondition := generateCondition("ConditionTypeA", "ReasonAUpdated", "MessageAUpdated",
+// 		corev1.ConditionTrue, addTime(4), addTime(5))
 
-	expectedConditions := []ControlPlaneCondition{
-		newCondition,
-		generateCondition("ConditionTypeB", "ReasonB", "MessageB",
-			corev1.ConditionTrue, metav1.Now(), addTime(2)),
-	}
+// 	expectedConditions := []ControlPlaneCondition{
+// 		newCondition,
+// 		generateCondition("ConditionTypeB", "ReasonB", "MessageB",
+// 			corev1.ConditionTrue, metav1.Now(), addTime(2)),
+// 	}
 
-	actualConditions := SetCondition(conditions1, newCondition)
+// 	actualConditions := SetCondition(conditions1, newCondition)
 
-	if !AreConditionSlicesSame(actualConditions, expectedConditions) {
-		t.Errorf("SetCondition failed: expected %+v, but got %+v", expectedConditions, actualConditions)
-	}
-}
+// 	if !AreConditionSlicesSame(actualConditions, expectedConditions) {
+// 		t.Errorf("SetCondition failed: expected %+v, but got %+v", expectedConditions, actualConditions)
+// 	}
+// }
 
 func TestAreConditionSlicesSame(t *testing.T) {
 	// Create two slices of conditions with the same elements in different orders

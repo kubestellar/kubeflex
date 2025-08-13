@@ -40,8 +40,8 @@ const (
 	ScriptsConfigMapRoleBindingName = ScriptsConfigMapName + "-rb"
 )
 
-// NewRole create manifest for k3s-scripts to patch k3s-config secret
-func NewRole(namespace string) (*rbacv1.ClusterRole, error) {
+// NewClusterRole create manifest for k3s-scripts to patch k3s-config secret
+func NewClusterRole(namespace string) (*rbacv1.ClusterRole, error) {
 	return &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: ScriptsConfigMapRoleName,
@@ -62,8 +62,8 @@ func NewRole(namespace string) (*rbacv1.ClusterRole, error) {
 	}, nil
 }
 
-// NewRoleBinding create manifest to bind k3s-scripts role to default service account
-func NewRoleBinding(namespace string) (*rbacv1.ClusterRoleBinding, error) {
+// NewClusterRoleBinding create manifest to bind k3s-scripts role to default service account
+func NewClusterRoleBinding(namespace string) (*rbacv1.ClusterRoleBinding, error) {
 	return &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: ScriptsConfigMapRoleBindingName,
@@ -89,53 +89,59 @@ type RBAC struct {
 	*shared.BaseReconciler
 }
 
+// Reconcile RBAC for k3s
+// implements ControlPlaneReconciler
 func (r *RBAC) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
 	log := clog.FromContext(ctx)
+	// ClusterRole
 	log.Info("reconcile k3s role for server")
-	role, _ := NewRole(GenerateSystemNamespaceName(hcp.Name))
+	role, _ := NewClusterRole(GenerateSystemNamespaceName(hcp.Name))
 	err := r.Client.Get(ctx, client.ObjectKeyFromObject(role), role)
-	if err != nil {
-		log.Error(err, "get k3s role  failed")
-		if apierrors.IsNotFound(err) {
-			log.Error(err, "k3s role is not found error")
-			log.Info("k3s SetControllerReference on role ")
-			// Set owner reference of the API server object
-			if err := controllerutil.SetControllerReference(hcp, role, r.Scheme); err != nil {
-				log.Error(err, "k3s SetControllerReference role failed")
-				return ctrl.Result{}, err
-			}
-			// Create k3s  on cluster
-			log.Info("create k3s role on cluster")
-			if err = r.Client.Create(ctx, role); err != nil {
-				log.Error(err, "k3s creation of role  failed")
-				return ctrl.Result{RequeueAfter: 10}, err
-			}
-		} else {
+	switch {
+	case err == nil:
+		log.Info("k3s clusterrole is already created", "clusterrole", role.Name)
+	case apierrors.IsNotFound(err):
+		log.Error(err, "k3s role is not found error")
+		log.Info("k3s SetControllerReference on role ")
+		// Set owner reference of the API server object
+		if err := controllerutil.SetControllerReference(hcp, role, r.Scheme); err != nil {
+			log.Error(err, "k3s SetControllerReference role failed")
 			return ctrl.Result{}, err
 		}
-	}
-	log.Info("reconcile k3s role binding for server")
-	roleBinding, _ := NewRoleBinding(GenerateSystemNamespaceName(hcp.Name))
-	err = r.Client.Get(ctx, client.ObjectKeyFromObject(roleBinding), roleBinding)
-	if err != nil {
+		// Create k3s  on cluster
+		log.Info("create k3s role on cluster")
+		if err = r.Client.Create(ctx, role); err != nil {
+			log.Error(err, "k3s creation of role  failed")
+			return ctrl.Result{RequeueAfter: 10}, err
+		}
+	default:
 		log.Error(err, "get k3s role binding failed")
-		if apierrors.IsNotFound(err) {
-			log.Error(err, "k3s role binding  is not found error")
-			log.Info("k3s SetControllerReference on role binding ")
-			// Set owner reference of the API server object
-			if err := controllerutil.SetControllerReference(hcp, roleBinding, r.Scheme); err != nil {
-				log.Error(err, "k3s SetControllerReference role failed")
-				return ctrl.Result{}, err
-			}
-			// Create k3s role binding on cluster
-			log.Info("create k3s role biding on cluster")
-			if err = r.Client.Create(ctx, roleBinding); err != nil {
-				log.Error(err, "k3s creation of role binding  failed")
-				return ctrl.Result{RequeueAfter: 10}, err
-			}
-		} else {
+		return ctrl.Result{}, err
+	}
+	// ClusterRoleBinding
+	log.Info("reconcile k3s role binding for server")
+	roleBinding, _ := NewClusterRoleBinding(GenerateSystemNamespaceName(hcp.Name))
+	err = r.Client.Get(ctx, client.ObjectKeyFromObject(roleBinding), roleBinding)
+	switch {
+	case err == nil:
+		log.Info("k3s clusterrolebinding is already created", "clusterrolebinding", roleBinding.Name)
+	case apierrors.IsNotFound(err):
+		log.Error(err, "k3s role binding  is not found error")
+		log.Info("k3s SetControllerReference on role binding ")
+		// Set owner reference of the API server object
+		if err := controllerutil.SetControllerReference(hcp, roleBinding, r.Scheme); err != nil {
+			log.Error(err, "k3s SetControllerReference role failed")
 			return ctrl.Result{}, err
 		}
+		// Create k3s role binding on cluster
+		log.Info("create k3s role biding on cluster")
+		if err = r.Client.Create(ctx, roleBinding); err != nil {
+			log.Error(err, "k3s creation of role binding  failed")
+			return ctrl.Result{RequeueAfter: 10}, err
+		}
+	default:
+		log.Error(err, "get k3s role binding failed")
+		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
 }

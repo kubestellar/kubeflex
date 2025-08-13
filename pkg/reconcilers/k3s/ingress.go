@@ -88,11 +88,11 @@ func NewIngress(host string, serviceName string) *networkingv1.Ingress {
 // Reconcile the ingress
 func (ingress *Ingress) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
 	log := clog.FromContext(ctx)
-	log.Info("ingress.go:Reconcile: reconciling k3s ingress")
+	log.Info("reconciling k3s ingress")
 	// Get config to init Ingress
 	cfg, err := ingress.BaseReconciler.GetConfig(ctx)
 	if err != nil {
-		log.Error(err, "ingress.go:Reconcile:missing shared configuration kubeflex configmap")
+		log.Error(err, "missing shared configuration kubeflex configmap")
 		return ctrl.Result{}, err
 	}
 	// NOTE: host cannot have https:// prefix - see RFC 1123
@@ -100,21 +100,23 @@ func (ingress *Ingress) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.Cont
 	ingr := NewIngress(ingrHost, hcp.Name)
 	// Get ingress on cluster to verify its existence
 	err = ingress.Client.Get(ctx, client.ObjectKeyFromObject(ingr), ingr)
-	if err != nil {
-		log.Error(err, "ingress.go:Reconcile:k3s ingress failed to be fetched")
-		if apierrors.IsNotFound(err) {
-			if err = controllerutil.SetControllerReference(hcp, ingr, ingress.Scheme); err != nil {
-				log.Error(err, "ingress.go:Reconcile:k3s ingress failed to set controller reference")
-				return ctrl.Result{}, err
-			}
-			// Create new ingress on the cluster
-			if err = ingress.Client.Create(ctx, ingr); err != nil {
-				log.Error(err, "ingress.go: failed to create k3s ingress on the cluster")
-			}
-			log.Info("ingress.go:Reconcile: k3s ingress is successfully created")
-		} else {
+	switch {
+	case err == nil:
+		log.Info("k3s ingress is already created", "ingress", ingrHost)
+	case apierrors.IsNotFound(err):
+		log.Error(err, "k3s ingress failed to be fetched")
+		if err = controllerutil.SetControllerReference(hcp, ingr, ingress.Scheme); err != nil {
+			log.Error(err, "k3s ingress failed to set controller reference")
 			return ctrl.Result{}, err
 		}
+		// Create new ingress on the cluster
+		if err = ingress.Client.Create(ctx, ingr); err != nil {
+			log.Error(err, "ingress.go: failed to create k3s ingress on the cluster")
+		}
+		log.Info("k3s ingress is successfully created")
+	default:
+		log.Error(err, "k3s ingress reconcile has failed")
+		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
 }
