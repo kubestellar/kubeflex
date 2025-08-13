@@ -41,6 +41,12 @@ const (
 	FieldOwner = "kubeflex.kubestellar.io"
 )
 
+// Implemented by all controlplane types for central PCH processing
+type ControlPlaneReconciler interface {
+	Reconcile(context.Context, *tenancyv1alpha1.ControlPlane) (ctrl.Result, error)
+	ReconcileUpdatePostCreateHook(context.Context, *tenancyv1alpha1.ControlPlane) error
+}
+
 // BaseReconciler provide common reconcilers used by other reconcilers
 type BaseReconciler struct {
 	client.Client
@@ -72,7 +78,7 @@ func (r *BaseReconciler) UpdateStatusForSyncingError(hcp *tenancyv1alpha1.Contro
 		// Requeue after 10 seconds, don't mark as failed
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
-	return ctrl.Result{}, err
+	return ctrl.Result{}, e
 }
 
 func (r *BaseReconciler) UpdateStatusForSyncingSuccess(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
