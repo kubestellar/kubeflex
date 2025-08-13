@@ -78,7 +78,7 @@ func (r *BaseReconciler) UpdateStatusForSyncingError(hcp *tenancyv1alpha1.Contro
 		// Requeue after 10 seconds, don't mark as failed
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
-	return ctrl.Result{}, err
+	return ctrl.Result{}, e
 }
 
 func (r *BaseReconciler) UpdateStatusForSyncingSuccess(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
