@@ -42,7 +42,8 @@ const (
 
 type CPCtx struct {
 	common.CP
-	Type tenancyv1alpha1.ControlPlaneType
+	Type    tenancyv1alpha1.ControlPlaneType
+	verbose int // Doesn't need to be exported
 }
 
 func Command() *cobra.Command {
@@ -60,12 +61,14 @@ func Command() *cobra.Command {
 			chattyStatus, _ := flagset.GetBool(common.ChattyStatusFlag)
 			overwriteExistingCtx, _ := flagset.GetBool(OverwriteExistingContextFlag)
 			setCurrentCtxAsHosting, _ := flagset.GetBool(SetCurrentForHostingFlag)
+			verbose, _ := flagset.GetInt(common.VerbosityFlag)
 			cpName := ""
 			if len(args) == 1 {
 				cpName = args[0]
 			}
 			cp := CPCtx{
-				CP: common.NewCP(kubeconfig, common.WithName(cpName)),
+				CP:      common.NewCP(kubeconfig, common.WithName(cpName)),
+				verbose: verbose,
 			}
 			return cp.ExecuteCtx(chattyStatus, true, overwriteExistingCtx, setCurrentCtxAsHosting)
 		},
@@ -128,14 +131,16 @@ func (cpCtx *CPCtx) ExecuteCtx(chattyStatus, failIfNone, overwriteExistingCtx, s
 		if overwriteExistingCtx {
 			util.PrintStatus("Overwriting existing context for control plane", done, &wg, chattyStatus)
 			if err = kubeconfig.DeleteAll(kconf, cpCtx.Name); err != nil {
-				fmt.Fprintf(os.Stderr, "no kubeconfig context for %s was found: %s\n", cpCtx.Name, err)
+				if cpCtx.verbose > 0 {
+					fmt.Fprintf(os.Stderr, "note: context %s does not exist in kubeconfig (expected during the first overwrite), creating a fresh context...\n", cpCtx.Name)
+				}
 			}
 			done <- true
 		}
 		util.PrintStatus(fmt.Sprintf("Switching to context %s...", cpCtx.Name), done, &wg, chattyStatus)
 		if err = kubeconfig.SwitchContext(kconf, cpCtx.Name); err != nil {
-			if overwriteExistingCtx {
-				fmt.Fprintf(os.Stderr, "trying to load new context %s from server...\n", cpCtx.Name)
+			if overwriteExistingCtx && cpCtx.verbose > 0 {
+				fmt.Fprintf(os.Stderr, "info: context %s not found in kubeconfig, trying to load a fresh context from server...\n", cpCtx.Name)
 			} else {
 				fmt.Fprintf(os.Stderr, "kubeconfig context %s not found (%s), trying to load from server...\n", cpCtx.Name, err)
 			}
