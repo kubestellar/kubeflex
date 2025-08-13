@@ -33,9 +33,9 @@ import (
 	clog "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-// Job bootstrapping k3s configmap server
-type Job struct {
+type BootstrapSecretJob struct {
 	*shared.BaseReconciler
+	Object *batchv1.Job
 }
 
 const (
@@ -43,8 +43,25 @@ const (
 	bashContainerImage = "bash:5"
 )
 
-func NewJob(namespace string, cfg *shared.SharedConfig) (*batchv1.Job, error) {
-	return &batchv1.Job{
+// NewBootstrapSecretJob create job to booststrap k3s kubeconfig into secret
+func NewBootstrapSecretJob(br *shared.BaseReconciler) *BootstrapSecretJob {
+	return &BootstrapSecretJob{
+		BaseReconciler: br,
+		Object:         &batchv1.Job{},
+	}
+}
+
+func (r *BootstrapSecretJob) Prepare(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
+	log := clog.FromContext(ctx)
+	cfg, err := r.GetConfig(ctx)
+	if err != nil {
+		log.Error(err, "failed to load shared config")
+		return err
+	}
+	namespace := GenerateSystemNamespaceName(hcp.Name)
+	ingressDNS := GetClusterServerURI(cfg)
+	serviceDNS := GetInClusterStaticDNSRecord(namespace)
+	r.Object = &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      JobName,
 			Namespace: namespace,
@@ -70,7 +87,7 @@ func NewJob(namespace string, cfg *shared.SharedConfig) (*batchv1.Job, error) {
 								"./scripts/" + ScriptSaveKubeconfigIntoSecretName,
 							},
 							Env: []v1.EnvVar{
-								{Name: "DNS_SVC", Value: GetInClusterStaticDNSRecord(namespace)}, {Name: "DNS_INGRESS", Value: GetClusterServerURI(cfg)},
+								{Name: "DNS_SVC", Value: serviceDNS}, {Name: "DNS_INGRESS", Value: ingressDNS},
 							},
 							VolumeMounts: []v1.VolumeMount{
 								{
@@ -109,35 +126,32 @@ func NewJob(namespace string, cfg *shared.SharedConfig) (*batchv1.Job, error) {
 				},
 			},
 		},
-	}, nil
+	}
+	return nil
 }
 
 // Reconcile the boostrap job
 // implements Reconciler
-func (r *Job) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
+func (r *BootstrapSecretJob) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
 	log := clog.FromContext(ctx)
-	cfg, err := r.BaseReconciler.GetConfig(ctx)
-	if err != nil {
-		log.Error(err, "cannot fetch required shared config to reconcile job")
+	if err := r.Prepare(ctx, hcp); err != nil {
 		return ctrl.Result{}, err
 	}
-	// Get k3s job tr is required for k3s server to run
-	job, _ := NewJob(GenerateSystemNamespaceName(hcp.Name), cfg)
 	log.Info("reconcile k3s job for server")
-	err = r.Client.Get(ctx, client.ObjectKeyFromObject(job), job)
+	err := r.Client.Get(ctx, client.ObjectKeyFromObject(r.Object), r.Object)
 	if err != nil {
 		log.Error(err, "get k3s job failed")
 		if apierrors.IsNotFound(err) {
 			log.Error(err, "k3s job is not found error")
 			log.Info("k3s SetControllerReference on job")
 			// Set owner reference of the API server object
-			if err := controllerutil.SetControllerReference(hcp, job, r.Scheme); err != nil {
+			if err := controllerutil.SetControllerReference(hcp, r.Object, r.Scheme); err != nil {
 				log.Error(err, "k3s SetControllerReference job failed")
 				return ctrl.Result{}, err
 			}
 			// Create k3s job on cluster
-			log.Info("create k3s job on cluster", "job", job)
-			if err = r.Client.Create(ctx, job); err != nil {
+			log.Info("create k3s job on cluster", "job", r.Object)
+			if err = r.Client.Create(ctx, r.Object); err != nil {
 				log.Error(err, "k3s creation of job failed")
 				return ctrl.Result{RequeueAfter: 10}, err
 			}

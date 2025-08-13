@@ -18,17 +18,17 @@ package k3s
 
 import (
 	"context"
-	"fmt"
+	// "fmt"
 
 	_ "embed"
-	"github.com/go-logr/logr"
+	// "github.com/go-logr/logr"
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/shared"
-	"github.com/kubestellar/kubeflex/pkg/util"
+	// "github.com/kubestellar/kubeflex/pkg/util"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/clientcmd"
+	// "k8s.io/client-go/tools/clientcmd"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -41,8 +41,8 @@ const (
 	KubeconfigSecretKeyInCluster = "config-incluster"
 )
 
-// Secret containing k3s kubeconfig and incluster kubeconfig
-type Secret struct {
+// KubeconfigSecret containing k3s kubeconfig and incluster kubeconfig
+type KubeconfigSecret struct {
 	*shared.BaseReconciler
 }
 
@@ -60,75 +60,62 @@ func NewKubeconfigSecret(namespace string) (_ *v1.Secret, err error) {
 	}, nil
 }
 
-func handleReconcileError(log logr.Logger, err error) (ctrl.Result, error) {
-	if err != nil {
-		if util.IsTransientError(err) {
-			// Retry
-			log.Error(err, "reconcile is on transient err, retrying now")
-			return ctrl.Result{Requeue: true}, err // Retry transient errors
-		} else {
-			log.Error(err, "reconcile is on err", "error", err)
-			return ctrl.Result{}, fmt.Errorf("failed to reconcile: %w", err)
-		}
-	}
-	return ctrl.Result{}, nil
-}
-
 // Reconcile a secret
 // implements ControlPlaneReconciler
-func (r *Secret) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
+func (r *KubeconfigSecret) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
 	log := clog.FromContext(ctx)
 	namespace := GenerateSystemNamespaceName(hcp.Name)
 	ksecret, _ := NewKubeconfigSecret(namespace)
 	// Get secret from cluster if existent
 	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(ksecret), ksecret, &client.GetOptions{})
-	if err != nil {
-		// Secret does not exist
-		if apierrors.IsNotFound(err) {
-			// Create new secret
-			if err := controllerutil.SetControllerReference(hcp, ksecret, r.Scheme); err != nil {
-				log.Error(err, "setting k3s secret controller reference failed")
-				return ctrl.Result{}, err
-			}
-			if err = r.Client.Create(context.TODO(), ksecret); err != nil {
-				return handleReconcileError(log, err)
-			}
-			log.Info("k3s secret is successfully created", "secretName", ksecret.Name)
-		} else {
-			return handleReconcileError(log, err)
+	switch {
+	case err == nil:
+		log.Info("kubeconfig secret is already created", "secret", ksecret.Name)
+	case apierrors.IsNotFound(err):
+		// Create new secret
+		if err := controllerutil.SetControllerReference(hcp, ksecret, r.Scheme); err != nil {
+			log.Error(err, "setting k3s secret controller reference failed")
+			return ctrl.Result{}, err
 		}
+		if err = r.Client.Create(context.TODO(), ksecret); err != nil {
+			log.Error(err, "failed to create k3s secret")
+			return ctrl.Result{}, err
+		}
+		log.Info("k3s secret is successfully created", "secretName", ksecret.Name)
+	default:
+		log.Error(err, "reconcile kubeconfig secret has failed")
+		return ctrl.Result{}, err
 	}
-	// Secret exist
-	log.Info("secret is found on the kubernetes cluster", "secretName", ksecret.Name)
+	log.Info("reconcile secret data to inject in client kubeconfig")
 	// Store hosting cluster kubeconfig
-	kconf, err := clientcmd.Load(ksecret.Data[KubeconfigSecretKey])
-	if err != nil {
-		log.Error(err, "failed to load kubeconfig from secret", "secretName", KubeconfigSecretName, "secretKey", KubeconfigSecretKey)
-		return ctrl.Result{}, err
-	}
-	// TODO: ksecret.Data[KubeconfigSecretKey] is empty, how to populate?
-	if string(ksecret.Data[KubeconfigSecretKey]) == "" {
-		log.Info("secret data is empty, populating its value...", "secretName", ksecret.Name, "secretKey", KubeconfigSecretKey)
-	}
-	for cluster := range kconf.Clusters {
-		// Update cluster by adding
-		kconf.Clusters[cluster].Server = GetInClusterStaticDNSRecord(namespace)
-	}
-	// Store k3s incluster kubeconfig
-	inClusterConfigYAML, err := clientcmd.Write(*kconf)
-	if err != nil {
-		log.Error(err, "failed to write k3s kubeconfig")
-		return ctrl.Result{}, err
-	}
-	ksecret.Data[KubeconfigSecretKeyInCluster] = inClusterConfigYAML
-	log.Info("hosting cluster kubeconfig has new values, but not updated yet")
-	log.Info("k3s in-cluster kubeconfig has new values, but not updated yet")
-	if err = r.Client.Update(context.TODO(), ksecret); err != nil {
-		log.Error(err, "on failure during update attempt of secret", "secretName", ksecret.Name)
-		return handleReconcileError(log, err)
-	}
-	log.Info("k3s secret is successfully updated", "secretName", ksecret.Name)
-	return r.BaseReconciler.Reconcile(ctx, hcp)
+	// kconf, err := clientcmd.Load(ksecret.Data[KubeconfigSecretKey])
+	// if err != nil {
+	// 	log.Error(err, "failed to load kubeconfig from secret", "secretName", KubeconfigSecretName, "secretKey", KubeconfigSecretKey)
+	// 	return ctrl.Result{}, err
+	// }
+	// if string(ksecret.Data[KubeconfigSecretKey]) == "" {
+	// 	err = fmt.Errorf("kubeconfig secret is empty")
+	// 	log.Error(err, "secret data is empty", "secretName", ksecret.Name, "secretKey", KubeconfigSecretKey)
+	// 	return ctrl.Result{RequeueAfter: RetryAfterDuration}, err
+	// }
+	// // Change cluster.server value of loopback with static DNS record
+	// for cluster := range kconf.Clusters {
+	// 	kconf.Clusters[cluster].Server = GetInClusterStaticDNSRecord(namespace)
+	// }
+	// // Store k3s incluster kubeconfig
+	// inClusterConfigYAML, err := clientcmd.Write(*kconf)
+	// if err != nil {
+	// 	log.Error(err, "failed to write k3s kubeconfig")
+	// 	return ctrl.Result{}, err
+	// }
+	// ksecret.Data[KubeconfigSecretKeyInCluster] = inClusterConfigYAML
+	// log.Info("k3s in-cluster kubeconfig has new values, but not updated yet")
+	// if err = r.Client.Update(context.TODO(), ksecret); err != nil {
+	// 	log.Error(err, "on failure during update attempt of secret", "secretName", ksecret.Name)
+	// 	return ctrl.Result{}, err
+	// }
+	// log.Info("k3s secret is successfully updated", "secretName", ksecret.Name)
+	return ctrl.Result{}, nil
 }
 
 const (
@@ -140,8 +127,8 @@ const (
 //go:embed embed/save-k3s-kubeconfig.sh
 var saveKubeconfigIntoSecretScript string
 
-// ConfigMap containing data for k3s
-type ConfigMap struct {
+// ScriptsConfigMap containing data for k3s
+type ScriptsConfigMap struct {
 	*shared.BaseReconciler
 }
 
@@ -160,7 +147,7 @@ func NewScriptsConfigMap(namespace string) (*v1.ConfigMap, error) {
 
 // Reconcile configmap
 // implements ControlPlaneReconciler
-func (cm *ConfigMap) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
+func (cm *ScriptsConfigMap) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
 	log := clog.FromContext(ctx)
 	log.Info("Reconcile k3s configmap")
 	namespace := GenerateSystemNamespaceName(hcp.Name)
@@ -178,7 +165,8 @@ func (cm *ConfigMap) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.Control
 			return ctrl.Result{}, err
 		}
 		if err = cm.Client.Create(context.TODO(), cmScripts); err != nil {
-			return handleReconcileError(log, err)
+			log.Error(err, "failed to create configmap", "configmap", cmScripts.Name)
+			return ctrl.Result{}, err
 		}
 		log.Info("configmap is created", "configmap", cmScripts.Name)
 	default:

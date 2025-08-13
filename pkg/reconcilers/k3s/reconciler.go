@@ -37,11 +37,11 @@ type K3sReconciler struct {
 	*Namespace             // k3s namespace
 	*Service               // k3s service
 	*Server                // k3s api server
-	*Secret                // k3s secret
-	*ConfigMap             // k3s scripts configmap
+	*KubeconfigSecret      // k3s secret
+	*ScriptsConfigMap      // k3s scripts configmap
 	*RBAC                  // k3s rbac
 	*Ingress               // k3s ingress
-	*Job                   // k3s job
+	*BootstrapSecretJob    // k3s job
 	*shared.BaseReconciler // shared base controller
 }
 
@@ -56,16 +56,17 @@ func New(cl client.Client, scheme *runtime.Scheme, version string, clientSet *ku
 		DynamicClient: dynamicClient,
 		EventRecorder: eventRecorder,
 	}
+
 	return &K3sReconciler{
-		BaseReconciler: &br,
-		Namespace:      &Namespace{BaseReconciler: &br, Object: &v1.Namespace{}},
-		Job:            &Job{&br},
-		Service:        &Service{&br},
-		Server:         &Server{&br},
-		Secret:         &Secret{&br},
-		ConfigMap:      &ConfigMap{&br},
-		Ingress:        &Ingress{&br},
-		RBAC:           &RBAC{&br},
+		BaseReconciler:     &br,
+		Namespace:          &Namespace{BaseReconciler: &br, Object: &v1.Namespace{}},
+		BootstrapSecretJob: NewBootstrapSecretJob(&br),
+		Service:            &Service{&br},
+		Server:             &Server{&br},
+		KubeconfigSecret:   &KubeconfigSecret{&br},
+		ScriptsConfigMap:   &ScriptsConfigMap{&br},
+		Ingress:            &Ingress{&br},
+		RBAC:               &RBAC{&br},
 	}
 }
 
@@ -87,14 +88,14 @@ func (r *K3sReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.Cont
 		return result, err
 	}
 	// Reconcile k3s Secret
-	if result, err := r.Secret.Reconcile(ctx, hcp); err != nil {
+	if result, err := r.KubeconfigSecret.Reconcile(ctx, hcp); err != nil {
 		if util.IsTransientError(err) {
 			return ctrl.Result{RequeueAfter: RetryAfterDuration}, err
 		}
 		return result, err
 	}
 	// Reconcile k3s ConfigMap
-	if result, err := r.ConfigMap.Reconcile(ctx, hcp); err != nil {
+	if result, err := r.ScriptsConfigMap.Reconcile(ctx, hcp); err != nil {
 		if util.IsTransientError(err) {
 			return ctrl.Result{RequeueAfter: RetryAfterDuration}, err
 		}
@@ -122,7 +123,7 @@ func (r *K3sReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.Cont
 		return result, err
 	}
 	// Reconcile k3s Job
-	if result, err := r.Job.Reconcile(ctx, hcp); err != nil {
+	if result, err := r.BootstrapSecretJob.Reconcile(ctx, hcp); err != nil {
 		if util.IsTransientError(err) {
 			return ctrl.Result{RequeueAfter: RetryAfterDuration}, err
 		}
