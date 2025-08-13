@@ -89,6 +89,7 @@ func (r *Namespace) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlP
 		}
 	default:
 		log.Error(err, "reconcile namespace failed")
+		return ctrl.Result{}, err
 	}
 	log.Info("end of renconcile k3s namespace")
 	return ctrl.Result{}, nil

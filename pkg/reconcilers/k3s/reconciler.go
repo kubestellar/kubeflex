@@ -62,10 +62,10 @@ func New(cl client.Client, scheme *runtime.Scheme, version string, clientSet *ku
 		BootstrapSecretJob: NewBootstrapSecretJob(&br),
 		Service:            NewService(&br),
 		Server:             NewServer(&br),
-		KubeconfigSecret:   &KubeconfigSecret{&br},
-		ScriptsConfigMap:   &ScriptsConfigMap{&br},
+		KubeconfigSecret:   NewKubeconfigSecret(&br),
+		ScriptsConfigMap:   NewScriptsConfigMap(&br),
 		Ingress:            NewIngress(&br),
-		RBAC:               &RBAC{&br},
+		RBAC:               NewRBAC(&br),
 	}
 }
 

@@ -46,58 +46,68 @@ const (
 // KubeconfigSecret containing k3s kubeconfig and incluster kubeconfig
 type KubeconfigSecret struct {
 	*shared.BaseReconciler
+	Object *v1.Secret
 }
 
 // NewKubeconfigSecret for k3s server
-func NewKubeconfigSecret(namespace string) (_ *v1.Secret, err error) {
-	return &v1.Secret{
+func NewKubeconfigSecret(br *shared.BaseReconciler) *KubeconfigSecret {
+	return &KubeconfigSecret{
+		BaseReconciler: br,
+		Object:         &v1.Secret{},
+	}
+}
+
+// Prepare kubeconfig secret object and its manifest
+func (r *KubeconfigSecret) Prepare(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
+	r.Object = &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      KubeconfigSecretName,
-			Namespace: namespace,
+			Namespace: ComputeSystemNamespaceName(hcp.Name),
 		},
 		Data: map[string][]byte{
 			KubeconfigSecretKey:          {},
 			KubeconfigSecretKeyInCluster: {},
 		},
-	}, nil
+	}
+	return nil
 }
 
 // Reconcile a secret
 // implements ControlPlaneReconciler
 func (r *KubeconfigSecret) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
 	log := clog.FromContext(ctx)
-	namespace := ComputeSystemNamespaceName(hcp.Name)
-	ksecret, _ := NewKubeconfigSecret(namespace)
-	// Get secret from cluster if existent
-	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(ksecret), ksecret, &client.GetOptions{})
+	if err := r.Prepare(ctx, hcp); err != nil {
+		return ctrl.Result{}, err
+	}
+	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(r.Object), r.Object)
 	switch {
 	case err == nil:
-		log.Info("kubeconfig secret is already created", "secret", ksecret.Name)
+		log.Info("kubeconfig secret is already created", "secret", r.Object.Name)
 	case apierrors.IsNotFound(err):
 		// Create new secret
-		if err := controllerutil.SetControllerReference(hcp, ksecret, r.Scheme); err != nil {
+		if err := controllerutil.SetControllerReference(hcp, r.Object, r.Scheme); err != nil {
 			log.Error(err, "setting k3s secret controller reference failed")
 			return ctrl.Result{}, err
 		}
-		if err = r.Client.Create(context.TODO(), ksecret); err != nil {
+		if err = r.Client.Create(context.TODO(), r.Object); err != nil {
 			log.Error(err, "failed to create k3s secret")
 			return ctrl.Result{}, err
 		}
-		log.Info("k3s secret is successfully created", "secretName", ksecret.Name)
+		log.Info("k3s secret is successfully created", "secretName", r.Object.Name)
 	default:
 		log.Error(err, "reconcile kubeconfig secret has failed")
 		return ctrl.Result{}, err
 	}
 	log.Info("reconcile secret data to inject in client kubeconfig")
 	// Store hosting cluster kubeconfig
-	// kconf, err := clientcmd.Load(ksecret.Data[KubeconfigSecretKey])
+	// kconf, err := clientcmd.Load(r.Object.Data[KubeconfigSecretKey])
 	// if err != nil {
 	// 	log.Error(err, "failed to load kubeconfig from secret", "secretName", KubeconfigSecretName, "secretKey", KubeconfigSecretKey)
 	// 	return ctrl.Result{}, err
 	// }
-	// if string(ksecret.Data[KubeconfigSecretKey]) == "" {
+	// if string(r.Object.Data[KubeconfigSecretKey]) == "" {
 	// 	err = fmt.Errorf("kubeconfig secret is empty")
-	// 	log.Error(err, "secret data is empty", "secretName", ksecret.Name, "secretKey", KubeconfigSecretKey)
+	// 	log.Error(err, "secret data is empty", "secretName", r.Object.Name, "secretKey", KubeconfigSecretKey)
 	// 	return ctrl.Result{RequeueAfter: RetryAfterDuration}, err
 	// }
 	// // Change cluster.server value of loopback with static DNS record
@@ -110,13 +120,13 @@ func (r *KubeconfigSecret) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.C
 	// 	log.Error(err, "failed to write k3s kubeconfig")
 	// 	return ctrl.Result{}, err
 	// }
-	// ksecret.Data[KubeconfigSecretKeyInCluster] = inClusterConfigYAML
+	// r.Object.Data[KubeconfigSecretKeyInCluster] = inClusterConfigYAML
 	// log.Info("k3s in-cluster kubeconfig has new values, but not updated yet")
-	// if err = r.Client.Update(context.TODO(), ksecret); err != nil {
-	// 	log.Error(err, "on failure during update attempt of secret", "secretName", ksecret.Name)
+	// if err = r.Client.Update(context.TODO(), r.Object); err != nil {
+	// 	log.Error(err, "on failure during update attempt of secret", "secretName", r.Object.Name)
 	// 	return ctrl.Result{}, err
 	// }
-	// log.Info("k3s secret is successfully updated", "secretName", ksecret.Name)
+	// log.Info("k3s secret is successfully updated", "secretName", r.Object.Name)
 	return ctrl.Result{}, nil
 }
 
@@ -132,47 +142,59 @@ var saveKubeconfigIntoSecretScript string
 // ScriptsConfigMap containing data for k3s
 type ScriptsConfigMap struct {
 	*shared.BaseReconciler
+	Object *v1.ConfigMap
 }
 
 // NewScriptsConfigMap create a config map with k3s utility scripts
-func NewScriptsConfigMap(namespace string) (*v1.ConfigMap, error) {
-	return &v1.ConfigMap{
+func NewScriptsConfigMap(br *shared.BaseReconciler) *ScriptsConfigMap {
+	return &ScriptsConfigMap{
+		BaseReconciler: br,
+		Object:         &v1.ConfigMap{},
+	}
+}
+
+// Prepare kubeconfig secret object and its manifest
+func (r *ScriptsConfigMap) Prepare(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
+	r.Object = &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ScriptsConfigMapName,
-			Namespace: namespace,
+			Namespace: ComputeSystemNamespaceName(hcp.Name),
 		},
 		Data: map[string]string{
 			ScriptSaveKubeconfigIntoSecretName: saveKubeconfigIntoSecretScript, // add bash script content
 		},
-	}, nil
+	}
+	return nil
 }
 
 // Reconcile configmap
 // implements ControlPlaneReconciler
-func (cm *ScriptsConfigMap) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
+func (r *ScriptsConfigMap) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
 	log := clog.FromContext(ctx)
+	if err := r.Prepare(ctx, hcp); err != nil {
+		return ctrl.Result{}, err
+	}
 	log.Info("Reconcile k3s configmap")
-	namespace := ComputeSystemNamespaceName(hcp.Name)
-	cmScripts, _ := NewScriptsConfigMap(namespace)
-	err := cm.Client.Get(ctx, client.ObjectKeyFromObject(cmScripts), cmScripts)
+	err := r.Client.Get(ctx, client.ObjectKeyFromObject(r.Object), r.Object)
 	switch {
 	case err == nil:
-		log.Info("configmap is already created", "configmap", cmScripts.Name)
+		log.Info("configmap is already created", "configmap", r.Object.Name)
 	case apierrors.IsNotFound(err):
 		// create a new config map
 		log.Info("configmap is not found, creating new configmap")
 		// Set Controller Reference on configmap
-		if err := controllerutil.SetControllerReference(hcp, cmScripts, cm.Scheme); err != nil {
+		if err := controllerutil.SetControllerReference(hcp, r.Object, r.Scheme); err != nil {
 			log.Error(err, "setting k3s scripts configmap controller reference failed")
 			return ctrl.Result{}, err
 		}
-		if err = cm.Client.Create(context.TODO(), cmScripts); err != nil {
-			log.Error(err, "failed to create configmap", "configmap", cmScripts.Name)
+		if err = r.Client.Create(context.TODO(), r.Object); err != nil {
+			log.Error(err, "failed to create configmap", "configmap", r.Object.Name)
 			return ctrl.Result{}, err
 		}
-		log.Info("configmap is created", "configmap", cmScripts.Name)
+		log.Info("configmap is created", "configmap", r.Object.Name)
 	default:
 		log.Error(err, "k3s configmap reconcile has failed")
+		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
 }

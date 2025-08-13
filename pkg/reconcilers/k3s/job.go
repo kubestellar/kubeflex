@@ -140,25 +140,23 @@ func (r *BootstrapSecretJob) Reconcile(ctx context.Context, hcp *tenancyv1alpha1
 	}
 	log.Info("reconcile k3s job for server")
 	err := r.Client.Get(ctx, client.ObjectKeyFromObject(r.Object), r.Object)
-	if err != nil {
-		log.Error(err, "get k3s job failed")
-		if apierrors.IsNotFound(err) {
-			log.Error(err, "k3s job is not found error")
-			log.Info("k3s SetControllerReference on job")
-			// Set owner reference of the API server object
-			if err := controllerutil.SetControllerReference(hcp, r.Object, r.Scheme); err != nil {
-				log.Error(err, "k3s SetControllerReference job failed")
-				return ctrl.Result{}, err
-			}
-			// Create k3s job on cluster
-			log.Info("create k3s job on cluster", "job", r.Object)
-			if err = r.Client.Create(ctx, r.Object); err != nil {
-				log.Error(err, "k3s creation of job failed")
-				return ctrl.Result{RequeueAfter: 10}, err
-			}
-		} else {
+	switch {
+	case err == nil:
+		log.Info("bootstrap secret job is already created", "job", r.Object.Name)
+	case apierrors.IsNotFound(err):
+		log.Error(err, "k3s job is not found error")
+		log.Info("k3s SetControllerReference on job")
+		if err := controllerutil.SetControllerReference(hcp, r.Object, r.Scheme); err != nil {
+			log.Error(err, "k3s SetControllerReference job failed")
 			return ctrl.Result{}, err
 		}
+		if err = r.Client.Create(ctx, r.Object); err != nil {
+			log.Error(err, "k3s creation of job failed")
+			return ctrl.Result{RequeueAfter: 10}, err
+		}
+	default:
+		log.Error(err, "failed to reconcile bootstrap secret job")
+		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
 }

@@ -134,7 +134,7 @@ func (r *Service) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPla
 	if err := r.Prepare(ctx, hcp); err != nil {
 		return ctrl.Result{}, err
 	}
-	log.Info("starting reconciling services...")
+	log.Info("starting reconciling k3s service.")
 	// Get k3s ClusterIP service to verify its existence on cluster
 	err := r.Client.Get(ctx, client.ObjectKeyFromObject(r.Object), r.Object)
 	switch {
