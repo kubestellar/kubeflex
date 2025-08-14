@@ -68,7 +68,7 @@ func (r *Ingress) Prepare(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane
 			APIVersion: "networking.k8s.io/v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ServerName,
+			Name:      hcp.Name,
 			Namespace: ComputeSystemNamespaceName(hcp.Name),
 			Annotations: map[string]string{
 				"nginx.ingress.kubernetes.io/ssl-passthrough": "true",
@@ -78,7 +78,7 @@ func (r *Ingress) Prepare(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane
 			IngressClassName: ptr.To(IngressClassNameNGINX),
 			Rules: []networkingv1.IngressRule{
 				{
-					Host: fmt.Sprintf("%s.%s", ServiceName, cfg.Domain),
+					Host: fmt.Sprintf("%s.%s", hcp.Name, cfg.Domain),
 
 					IngressRuleValue: networkingv1.IngressRuleValue{
 						HTTP: &networkingv1.HTTPIngressRuleValue{
