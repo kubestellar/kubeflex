@@ -1,4 +1,6 @@
 /*
+Package k3s
+
 Copyright 2023 The KubeStellar Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -39,18 +41,35 @@ const (
 
 type Ingress struct {
 	*shared.BaseReconciler
+	Object *networkingv1.Ingress
 }
 
 // NewIngress create k3s ingress to reach k3s apiserver from outside the cluster
-func NewIngress(host string, serviceName string) *networkingv1.Ingress {
-	return &networkingv1.Ingress{
+func NewIngress(br *shared.BaseReconciler) *Ingress {
+	return &Ingress{
+		BaseReconciler: br,
+		Object:         &networkingv1.Ingress{},
+	}
+}
+
+// Prepare ingress and its manifest
+func (r *Ingress) Prepare(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
+	// NOTE: host cannot have https:// prefix - see RFC 1123
+	log := clog.FromContext(ctx)
+	cfg, err := r.BaseReconciler.GetConfig(ctx)
+	if err != nil {
+		log.Error(err, "missing shared configuration kubeflex configmap")
+		return err
+	}
+
+	r.Object = &networkingv1.Ingress{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Ingress",
 			APIVersion: "networking.k8s.io/v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ServerName,
-			Namespace: ServerSystemNamespace,
+			Namespace: ComputeSystemNamespaceName(hcp.Name),
 			Annotations: map[string]string{
 				"nginx.ingress.kubernetes.io/ssl-passthrough": "true",
 			},
@@ -59,7 +78,8 @@ func NewIngress(host string, serviceName string) *networkingv1.Ingress {
 			IngressClassName: ptr.To(IngressClassNameNGINX),
 			Rules: []networkingv1.IngressRule{
 				{
-					Host: host,
+					Host: fmt.Sprintf("%s.%s", ServiceName, cfg.Domain),
+
 					IngressRuleValue: networkingv1.IngressRuleValue{
 						HTTP: &networkingv1.HTTPIngressRuleValue{
 							Paths: []networkingv1.HTTPIngressPath{
@@ -68,7 +88,7 @@ func NewIngress(host string, serviceName string) *networkingv1.Ingress {
 									Path:     "/",
 									Backend: networkingv1.IngressBackend{
 										Service: &networkingv1.IngressServiceBackend{
-											Name: serviceName,
+											Name: ServiceName,
 											Port: networkingv1.ServiceBackendPort{
 												Number: shared.DefaultPort,
 												// Name:   shared.DefaultPortName,
@@ -83,38 +103,34 @@ func NewIngress(host string, serviceName string) *networkingv1.Ingress {
 			},
 		},
 	}
+	return nil
 }
 
 // Reconcile the ingress
-func (ingress *Ingress) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
+func (r *Ingress) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
 	log := clog.FromContext(ctx)
-	log.Info("ingress.go:Reconcile: reconciling k3s ingress")
-	// Get config to init Ingress
-	cfg, err := ingress.BaseReconciler.GetConfig(ctx)
-	if err != nil {
-		log.Error(err, "ingress.go:Reconcile:missing shared configuration kubeflex configmap")
+	if err := r.Prepare(ctx, hcp); err != nil {
 		return ctrl.Result{}, err
 	}
-	// NOTE: host cannot have https:// prefix - see RFC 1123
-	ingrHost := fmt.Sprintf("%s.%s", ServiceName, cfg.Domain)
-	ingr := NewIngress(ingrHost, hcp.Name)
-	// Get ingress on cluster to verify its existence
-	err = ingress.Client.Get(ctx, client.ObjectKeyFromObject(ingr), ingr)
-	if err != nil {
-		log.Error(err, "ingress.go:Reconcile:k3s ingress failed to be fetched")
-		if apierrors.IsNotFound(err) {
-			if err = controllerutil.SetControllerReference(hcp, ingr, ingress.Scheme); err != nil {
-				log.Error(err, "ingress.go:Reconcile:k3s ingress failed to set controller reference")
-				return ctrl.Result{}, err
-			}
-			// Create new ingress on the cluster
-			if err = ingress.Client.Create(ctx, ingr); err != nil {
-				log.Error(err, "ingress.go: failed to create k3s ingress on the cluster")
-			}
-			log.Info("ingress.go:Reconcile: k3s ingress is successfully created")
-		} else {
+	log.Info("reconciling k3s ingress")
+	err := r.Client.Get(ctx, client.ObjectKeyFromObject(r.Object), r.Object)
+	switch {
+	case err == nil:
+		log.Info("k3s ingress is already created", "ingress", r.Object.Name)
+	case apierrors.IsNotFound(err):
+		log.Error(err, "k3s ingress failed to be fetched")
+		if err = controllerutil.SetControllerReference(hcp, r.Object, r.Scheme); err != nil {
+			log.Error(err, "failed to set controller reference on ingress")
 			return ctrl.Result{}, err
 		}
+		// Create new ingress on the cluster
+		if err = r.Client.Create(ctx, r.Object); err != nil {
+			log.Error(err, "failed to create k3s ingress on the cluster")
+		}
+		log.Info("k3s ingress is successfully created")
+	default:
+		log.Error(err, "k3s ingress reconcile has failed")
+		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
 }

@@ -37,71 +37,51 @@ const (
 	HeadlessServiceName = ServiceName + "-headless"
 )
 
-// K3s service
 type Service struct {
 	*shared.BaseReconciler
+	Object *v1.Service
 }
 
-// build labels for k3s service
+// serviceLables build labels for k3s service
 func serviceLabels() map[string]string {
 	labels := serverLabels()
 	return labels
 }
 
 // NewHeadlessService creates a new headless service for k3s statefulset
-func NewHeadlessService(cpName string) (_ *v1.Service, err error) {
-	return &v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      HeadlessServiceName,
-			Namespace: GenerateSystemNamespaceName(cpName),
-			Labels:    serviceLabels(),
-		},
-		Spec: v1.ServiceSpec{
-			Type:      v1.ServiceTypeClusterIP,
-			ClusterIP: v1.ClusterIPNone,
-			Ports: []v1.ServicePort{
-				{
-					// HTTPS :443
-					Port: shared.DefaultPort,
-					// NOTE: why target pot should be shared.SecurePort
-					TargetPort: intstr.FromInt32(shared.SecurePort),
-					// HTTPS
-					Name:     string(shared.DefaultPortName),
-					Protocol: v1.ProtocolTCP,
-				},
-			},
-			// Attach service to k3s apiserver
-			Selector: serverLabels(),
-		},
-	}, nil
-}
+// func NewHeadlessService(cpName string) (_ *v1.Service, err error) {
+// 	return &v1.Service{
+// 		ObjectMeta: metav1.ObjectMeta{
+// 			Name:      HeadlessServiceName,
+// 			Namespace: ComputeSystemNamespaceName(cpName),
+// 			Labels:    serviceLabels(),
+// 		},
+// 		Spec: v1.ServiceSpec{
+// 			Type:      v1.ServiceTypeClusterIP,
+// 			ClusterIP: v1.ClusterIPNone,
+// 			Ports: []v1.ServicePort{
+// 				{
+// 					// HTTPS :443
+// 					Port: shared.DefaultPort,
+// 					// NOTE: why target pot should be shared.SecurePort
+// 					TargetPort: intstr.FromInt32(shared.SecurePort),
+// 					// HTTPS
+// 					Name:     string(shared.DefaultPortName),
+// 					Protocol: v1.ProtocolTCP,
+// 				},
+// 			},
+// 			// Attach service to k3s apiserver
+// 			Selector: serverLabels(),
+// 		},
+// 	}, nil
+// }
 
 // NewClusterIPService creates a new service for k3s ingress
-// TODO: refactor as a single function to create Service with option pattern
-func NewClusterIPService(cpName string) (_ *v1.Service, err error) {
-	return &v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      ServiceName,
-			Namespace: GenerateSystemNamespaceName(cpName),
-			Labels:    serviceLabels(),
-		},
-		Spec: v1.ServiceSpec{
-			Type: v1.ServiceTypeClusterIP,
-			Ports: []v1.ServicePort{
-				{
-					// HTTPS :443
-					Port: shared.DefaultPort,
-					// k3s apiserver listen port
-					TargetPort: intstr.FromInt32(APIServerPort),
-					// HTTPS
-					Name:     string(shared.DefaultPortName),
-					Protocol: v1.ProtocolTCP,
-				},
-			},
-			// Attach service to k3s apiserver
-			Selector: serverLabels(),
-		},
-	}, nil
+func NewService(br *shared.BaseReconciler) *Service {
+	return &Service{
+		BaseReconciler: br,
+		Object:         &v1.Service{},
+	}
 }
 
 // GetInClusterStaticDNSRecord fetch in cluster DNS
@@ -119,34 +99,62 @@ func GetClusterServerURI(cfg *shared.SharedConfig) string {
 	return fmt.Sprintf("https://%s:%d", GetClusterStaticDNSRecord(cfg), cfg.ExternalPort)
 }
 
+// Prepare service object and its manifest
+func (r *Service) Prepare(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
+	r.Object = &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ServiceName,
+			Namespace: ComputeSystemNamespaceName(hcp.Name),
+			Labels:    serviceLabels(),
+		},
+		Spec: v1.ServiceSpec{
+			Type: v1.ServiceTypeClusterIP,
+			Ports: []v1.ServicePort{
+				{
+					// HTTPS :443
+					Port: shared.DefaultPort,
+					// k3s apiserver listen port
+					TargetPort: intstr.FromInt(APIServerPort),
+					// HTTPS
+					Name:     string(shared.DefaultPortName),
+					Protocol: v1.ProtocolTCP,
+				},
+			},
+			// Attach service to k3s apiserver
+			Selector: serverLabels(),
+		},
+	}
+	return nil
+}
+
 // Reconcile a service
 // implements ControlPlaneReconciler
-// TODO: to implement
-func (svc *Service) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
+func (r *Service) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
 	log := clog.FromContext(ctx)
-	log.Info("k3s:service.go:Reconcile:starting reconciling services...")
+	if err := r.Prepare(ctx, hcp); err != nil {
+		return ctrl.Result{}, err
+	}
+	log.Info("starting reconciling k3s service.")
 	// Get k3s ClusterIP service to verify its existence on cluster
-	k3sService := &v1.Service{}
-	err := svc.Client.Get(ctx, client.ObjectKey{Namespace: GenerateSystemNamespaceName(hcp.Name), Name: ServiceName}, k3sService)
-	if err != nil {
-		log.Error(err, "k3s:service.go:Reconcile:r.Client.Get clusterIP service failed")
-		if apierrors.IsNotFound(err) {
-			// Create k3s ClusterIP service on the cluster
-			log.Error(err, "service.go:Reconcile:clusterIP service is not found")
-			k3sService, _ = NewClusterIPService(hcp.Name)
-			if err := controllerutil.SetControllerReference(hcp, k3sService, svc.Scheme); err != nil {
-				log.Error(err, "service.go:Reconcile:failed to set k3s service as secondary resource to hcp")
-				return ctrl.Result{}, nil
-			}
-			log.Info("service.go:Reconcile: create the missing k3s clusterIP service...")
-			if err := svc.Client.Create(ctx, k3sService); err != nil {
-				log.Error(err, "service.go:Reconcile:creation of a new clusterIP for k3s failed")
-				return ctrl.Result{}, err
-			}
-
-		} else {
+	err := r.Client.Get(ctx, client.ObjectKeyFromObject(r.Object), r.Object)
+	switch {
+	case err == nil:
+		log.Info("k3s service is already created")
+	case apierrors.IsNotFound(err):
+		// Create k3s ClusterIP service on the cluster
+		log.Error(err, "k3s service is not found")
+		if err := controllerutil.SetControllerReference(hcp, r.Object, r.Scheme); err != nil {
+			log.Error(err, "failed to set k3s service as secondary resource to hcp")
+			return ctrl.Result{}, nil
+		}
+		if err := r.Client.Create(ctx, r.Object); err != nil {
+			log.Error(err, "failed to create a service for k3s")
 			return ctrl.Result{}, err
 		}
+		log.Info("k3s service is succesfully created")
+	default:
+		log.Error(err, "failed to reconcile service")
+		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
 }

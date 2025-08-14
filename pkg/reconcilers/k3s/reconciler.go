@@ -18,9 +18,11 @@ package k3s
 
 import (
 	"context"
+	"time"
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/shared"
+	"github.com/kubestellar/kubeflex/pkg/util"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -34,17 +36,17 @@ type K3sReconciler struct {
 	*Namespace             // k3s namespace
 	*Service               // k3s service
 	*Server                // k3s api server
-	*Secret                // k3s secret
-	*ConfigMap             // k3s scripts configmap
+	*KubeconfigSecret      // k3s secret
+	*ScriptsConfigMap      // k3s scripts configmap
 	*RBAC                  // k3s rbac
 	*Ingress               // k3s ingress
-	*Job                   // k3s job
+	*BootstrapSecretJob    // k3s job
 	*shared.BaseReconciler // shared base controller
 }
 
-// Init new K3sReconciler
-// create a BaseReconciler datastruct that is shared to Service and k3s Server.
-// Both Service and k3s Server interact on the same reference of BaseReconciler
+const RetryAfterDuration = 5 * time.Second
+
+// New create a base reconciler
 func New(cl client.Client, scheme *runtime.Scheme, version string, clientSet *kubernetes.Clientset, dynamicClient *dynamic.DynamicClient, eventRecorder record.EventRecorder) *K3sReconciler {
 	br := shared.BaseReconciler{
 		Client:        cl,
@@ -53,54 +55,90 @@ func New(cl client.Client, scheme *runtime.Scheme, version string, clientSet *ku
 		DynamicClient: dynamicClient,
 		EventRecorder: eventRecorder,
 	}
+
 	return &K3sReconciler{
-		BaseReconciler: &br,
-		Namespace:      &Namespace{&br},
-		Job:            &Job{&br},
-		Service:        &Service{&br},
-		Server:         &Server{&br},
-		Secret:         &Secret{&br},
-		ConfigMap:      &ConfigMap{&br},
-		Ingress:        &Ingress{&br},
-		RBAC:           &RBAC{&br},
+		BaseReconciler:     &br,
+		Namespace:          NewSystemNamespace(&br),
+		BootstrapSecretJob: NewBootstrapSecretJob(&br),
+		Service:            NewService(&br),
+		Server:             NewServer(&br),
+		KubeconfigSecret:   NewKubeconfigSecret(&br),
+		ScriptsConfigMap:   NewScriptsConfigMap(&br),
+		Ingress:            NewIngress(&br),
+		RBAC:               NewRBAC(&br),
 	}
 }
 
 // Reconcile K3s control plane
 // implements ControlPlaneReconciler
-// TODO: to implement
 func (r *K3sReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
 	// Reconcile mandatory k3s namespace
 	if result, err := r.Namespace.Reconcile(ctx, hcp); err != nil {
-		return result, err
-	}
-	// Reconcile k3s Server
-	if result, err := r.Server.Reconcile(ctx, hcp); err != nil {
-		return result, err
-	}
-	// Reconcile k3s Service
-	if result, err := r.Service.Reconcile(ctx, hcp); err != nil {
-		return result, err
-	}
-	// Reconcile k3s Ingress
-	if result, err := r.Ingress.Reconcile(ctx, hcp); err != nil {
-		return result, err
-	}
-	// Reconcile k3s Secret
-	if result, err := r.Secret.Reconcile(ctx, hcp); err != nil {
-		return result, err
-	}
-	// Reconcile k3s Secret
-	if result, err := r.ConfigMap.Reconcile(ctx, hcp); err != nil {
-		return result, err
+		if util.IsTransientError(err) {
+			return ctrl.Result{RequeueAfter: RetryAfterDuration}, err
+		}
+		return r.BaseReconciler.UpdateStatusForSyncingError(ctx, hcp, result, err)
 	}
 	// Reconcile k3s RBAC
 	if result, err := r.RBAC.Reconcile(ctx, hcp); err != nil {
-		return result, err
+		if util.IsTransientError(err) {
+			return ctrl.Result{RequeueAfter: RetryAfterDuration}, err
+		}
+		return r.BaseReconciler.UpdateStatusForSyncingError(ctx, hcp, result, err)
+	}
+	// Reconcile k3s ConfigMap
+	if result, err := r.ScriptsConfigMap.Reconcile(ctx, hcp); err != nil {
+		if util.IsTransientError(err) {
+			return ctrl.Result{RequeueAfter: RetryAfterDuration}, err
+		}
+		return r.BaseReconciler.UpdateStatusForSyncingError(ctx, hcp, result, err)
+	}
+	// Reconcile k3s Server
+	if result, err := r.Server.Reconcile(ctx, hcp); err != nil {
+		if util.IsTransientError(err) {
+			return ctrl.Result{RequeueAfter: RetryAfterDuration}, err
+		}
+		return r.BaseReconciler.UpdateStatusForSyncingError(ctx, hcp, result, err)
+	}
+	// Reconcile k3s Service
+	if result, err := r.Service.Reconcile(ctx, hcp); err != nil {
+		if util.IsTransientError(err) {
+			return ctrl.Result{RequeueAfter: RetryAfterDuration}, err
+		}
+		return r.BaseReconciler.UpdateStatusForSyncingError(ctx, hcp, result, err)
+	}
+	// Reconcile k3s Ingress
+	if result, err := r.Ingress.Reconcile(ctx, hcp); err != nil {
+		if util.IsTransientError(err) {
+			return ctrl.Result{RequeueAfter: RetryAfterDuration}, err
+		}
+		return r.BaseReconciler.UpdateStatusForSyncingError(ctx, hcp, result, err)
+	}
+	// Reconcile k3s Secret
+	if result, err := r.KubeconfigSecret.Reconcile(ctx, hcp); err != nil {
+		if util.IsTransientError(err) {
+			return ctrl.Result{RequeueAfter: RetryAfterDuration}, err
+		}
+		return r.BaseReconciler.UpdateStatusForSyncingError(ctx, hcp, result, err)
 	}
 	// Reconcile k3s Job
-	if result, err := r.Job.Reconcile(ctx, hcp); err != nil {
-		return result, err
+	if result, err := r.BootstrapSecretJob.Reconcile(ctx, hcp); err != nil {
+		if util.IsTransientError(err) {
+			return ctrl.Result{RequeueAfter: RetryAfterDuration}, err
+		}
+		return r.BaseReconciler.UpdateStatusForSyncingError(ctx, hcp, result, err)
 	}
+	// Update secretref status
+	// NOTE perhaps a better design would be to embed each object manifest
+	// within its reconciler (see r.Namespace.Object.Name)
+	hcp.Status.SecretRef = &tenancyv1alpha1.SecretReference{
+		Namespace:    r.Namespace.Object.Name,
+		Name:         r.KubeconfigSecret.Object.Name,
+		Key:          KubeconfigSecretKey,
+		InClusterKey: KubeconfigSecretKeyInCluster,
+	}
+	// NOTE add PostCreateHook if it makes sense below
+
+	// Update reconcile status to success
 	return r.BaseReconciler.Reconcile(ctx, hcp)
 }

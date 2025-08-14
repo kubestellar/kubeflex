@@ -40,7 +40,7 @@ const (
 	FieldOwner = "kubeflex.kubestellar.io"
 )
 
-// Kubeflex ControlPlane reconciler
+// ControlPlaneReconciler defines Reconcile loop
 // each controlplane type must implement ControlPlaneReconciler as
 // internal/controller/controlplane_controller.go Reconcile acts
 // as a reconciler factory according to a controlplane type
@@ -69,39 +69,39 @@ type SharedConfig struct {
 	ExternalURL   string
 }
 
-// Reconcile
-// implements ControlPlaneReconciler
+// Reconcile update syncing status to success
+// NOTE perhaps PostCreateHook logic should be embedded below
 func (r *BaseReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
 	return r.UpdateStatusForSyncingSuccess(ctx, hcp)
 }
 
-// TODO: as part of the interface ControlPlaneReconciler it makes more sense to have a ctrl.Result as a parameter which will be return by this function.
-func (r *BaseReconciler) UpdateStatusForSyncingError(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane, err error) (ctrl.Result, error) {
+// UpdateStatusForSyncingError change EventRecorder and ControlPlane Status to sync failed
+func (r *BaseReconciler) UpdateStatusForSyncingError(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane, result ctrl.Result, err error) (ctrl.Result, error) {
+	log := clog.FromContext(ctx)
 	if r.EventRecorder != nil {
 		r.EventRecorder.Event(hcp, "Warning", "SyncFail", err.Error())
 	}
-	log := clog.FromContext(ctx)
 	tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionReconcileError(err))
 	if err1 := r.Status().Update(context.Background(), hcp); err1 != nil {
 		log.Error(err1, "update status for syncing error failed")
 		return ctrl.Result{}, errors.Wrap(err, err1.Error())
 	}
-	log.Error(err, "update status for syncing error is done")
-	return ctrl.Result{}, nil
+	log.Info("update status for syncing error is done")
+	return result, err
 }
 
-// TODO: as part of the interface ControlPlaneReconciler it makes more sense to have a ctrl.Result as a parameter which will be return by this function.
+// UpdateStatusForSyncingSuccess change EventRecorder and ControlPlane Status to success
 func (r *BaseReconciler) UpdateStatusForSyncingSuccess(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
+	log := clog.FromContext(ctx)
 	if r.EventRecorder != nil {
 		r.EventRecorder.Event(hcp, "Normal", "SyncSuccess", "")
 	}
-	log := clog.FromContext(ctx)
 	tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionReconcileSuccess())
 	if err := r.Status().Update(context.Background(), hcp); err != nil {
 		log.Error(err, "update status for syncing success failed")
 		return ctrl.Result{}, err
 	}
-
+	log.Info("update status for syncing success is done")
 	return ctrl.Result{}, nil
 }
 
@@ -132,8 +132,7 @@ func (r *BaseReconciler) GetConfig(ctx context.Context) (*SharedConfig, error) {
 	}, nil
 }
 
-// TODO: It is confusing that this UpdateStatusWithSecretRef does not return the same type of parameters than UpdateStatusForSyncingSuccess and UpdateStatusForSyncingError which are contributing to the Reconcile function.
-// It would be better to rename the function to avoid confusion
+// UpdateStatusWithSecretRef change hcp.Status.SecretRef
 func (r *BaseReconciler) UpdateStatusWithSecretRef(hcp *tenancyv1alpha1.ControlPlane, secretName, key, inClusterKey string) {
 	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
 	hcp.Status.SecretRef = &tenancyv1alpha1.SecretReference{

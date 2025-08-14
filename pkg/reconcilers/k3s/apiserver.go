@@ -34,11 +34,10 @@ import (
 	clog "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-// k3s constants
 const (
 	ServerName                 = "k3s-server"
 	ServerDockerImage          = "rancher/k3s"
-	StorageName                = "data-k3s-server"
+	StorageDataName            = "data-k3s-server"
 	StorageKubeconfigName      = "k3s-config"
 	StorageClassName           = "standard" // kind default storage class name which is rancher/local-storage (same as k3s but different name)
 	StorageMountPath           = "/data"
@@ -46,10 +45,11 @@ const (
 	APIServerPort              = 6443               // k3s apiserver port
 )
 
-// Server of k4s
-// NOTE: k3s is a single binary containing apiserver, etcd, controller-manager... therefore `Server` refers to all components
 type Server struct {
 	*shared.BaseReconciler
+	ServerObject                 *appsv1.StatefulSet
+	KubeconfigStorageClaimObject *v1.PersistentVolumeClaim
+	DataStorageClaimObject       *v1.PersistentVolumeClaim
 }
 
 // build labels for k3s apiserver
@@ -57,7 +57,7 @@ func serverLabels() map[string]string {
 	return map[string]string{
 		"controller.kubeflex.dev/type":         string(tenancyv1alpha1.ControlPlaneTypeK3s),
 		"controller.kubeflex.dev/service-name": ServiceName,
-		"controller.kubeflex.dev/pvc-name":     StorageName,
+		"controller.kubeflex.dev/pvc-name":     StorageDataName,
 	}
 }
 
@@ -73,13 +73,29 @@ func serverTLSSAN(cfg *shared.SharedConfig) string {
 	return "--tls-san=" + GetClusterStaticDNSRecord(cfg)
 }
 
-// NewServer generate  API server manifest to apply on controlplane $cpName
+// NewServer return Server object
+func NewServer(br *shared.BaseReconciler) *Server {
+	return &Server{
+		BaseReconciler:               br,
+		ServerObject:                 &appsv1.StatefulSet{},
+		KubeconfigStorageClaimObject: &v1.PersistentVolumeClaim{},
+		DataStorageClaimObject:       &v1.PersistentVolumeClaim{},
+	}
+}
+
+// Prepare k3s server object and its manifest
 // NOTE: $cpName is used only for object Namespace, not its Name
-func NewServer(cpName string, cfg *shared.SharedConfig) (*appsv1.StatefulSet, error) {
-	return &appsv1.StatefulSet{
+func (r *Server) Prepare(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
+	log := clog.FromContext(ctx)
+	cfg, err := r.GetConfig(ctx)
+	if err != nil {
+		log.Error(err, "failed to get shared config")
+		return err
+	}
+	r.ServerObject = &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      string(ServerName),                  //	always be unique as it has it dedicated namespace
-			Namespace: GenerateSystemNamespaceName(cpName), // must be dedicated name
+			Name:      string(ServerName),                   //	always be unique as it has it dedicated namespace
+			Namespace: ComputeSystemNamespaceName(hcp.Name), // must be dedicated name
 			Labels:    serverLabels(),
 		},
 		Spec: appsv1.StatefulSetSpec{
@@ -108,7 +124,7 @@ func NewServer(cpName string, cfg *shared.SharedConfig) (*appsv1.StatefulSet, er
 							VolumeMounts: []v1.VolumeMount{
 								// VolumeMount k3s data
 								{
-									Name:      StorageName,
+									Name:      StorageDataName,
 									MountPath: StorageMountPath,
 									ReadOnly:  false,
 								},
@@ -134,10 +150,10 @@ func NewServer(cpName string, cfg *shared.SharedConfig) (*appsv1.StatefulSet, er
 					Volumes: []v1.Volume{
 						// Volume k3s data
 						{
-							Name: StorageName,
+							Name: StorageDataName,
 							VolumeSource: v1.VolumeSource{
 								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-									ClaimName: StorageName,
+									ClaimName: StorageDataName,
 								},
 							},
 						},
@@ -163,15 +179,18 @@ func NewServer(cpName string, cfg *shared.SharedConfig) (*appsv1.StatefulSet, er
 				},
 			},
 		},
-	}, nil
+	}
+	r.KubeconfigStorageClaimObject = computeNewPVC(StorageKubeconfigName, ComputeSystemNamespaceName(hcp.Name))
+	r.DataStorageClaimObject = computeNewPVC(StorageDataName, ComputeSystemNamespaceName(hcp.Name))
+	return nil
 }
 
-// NewPVC generate k3s pvc manifest
-func NewPVC(cpName string, pvcName string) (*v1.PersistentVolumeClaim, error) {
+// computeNewPVC return PVC manifest with a given name and namespace
+func computeNewPVC(name string, namespace string) *v1.PersistentVolumeClaim {
 	return &v1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      pvcName,
-			Namespace: GenerateSystemNamespaceName(cpName),
+			Name:      name,
+			Namespace: namespace,
 			Labels:    serverLabels(),
 		},
 		Spec: v1.PersistentVolumeClaimSpec{
@@ -180,87 +199,75 @@ func NewPVC(cpName string, pvcName string) (*v1.PersistentVolumeClaim, error) {
 			},
 			Resources: v1.VolumeResourceRequirements{
 				Requests: v1.ResourceList{
-					v1.ResourceStorage: resource.MustParse("2Gi"),
+					v1.ResourceStorage: resource.MustParse("1Gi"),
 				},
 			},
 			StorageClassName: ptr.To(StorageClassName),
 		},
-	}, nil
-}
-
-func (r *Server) reconcilePVC(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
-	log := clog.FromContext(ctx)
-	// Get k3s pvc that is required for k3s server to run
-	pvcNames := []string{StorageName, StorageKubeconfigName}
-	for _, pvcName := range pvcNames {
-		pvc, _ := NewPVC(hcp.Name, pvcName)
-		log.Info("k3s:server.go:Reconcile: reconcile k3s PVC for server")
-		err := r.Client.Get(ctx, client.ObjectKeyFromObject(pvc), pvc)
-		if err != nil {
-			log.Error(err, "k3s:server.go:Reconcile:r.Client.Get pvc failed")
-			if apierrors.IsNotFound(err) {
-				log.Error(err, "k3s:server.go:Reconcile:pvc is not found error")
-				log.Info("k3s:server.go:Reconcile:call SetControllerReference on pvc")
-				// Set owner reference of the API server object
-				if err := controllerutil.SetControllerReference(hcp, pvc, r.Scheme); err != nil {
-					log.Error(err, "k3s:server.go:Reconcile:SetControllerReference on pvc failed")
-					return ctrl.Result{}, err
-				}
-				// Create the k3s server
-				log.Info("k3s:server.go:Reconcile:call r.Client.Create on", "pvc", pvc)
-				if err = r.Client.Create(ctx, pvc); err != nil {
-					log.Error(err, "k3s:server.go:Reconcile:r.Client.Create pvc failed")
-					return ctrl.Result{RequeueAfter: 10}, err
-				}
-			}
-			return ctrl.Result{}, err
-		}
 	}
-	return ctrl.Result{}, nil
 }
 
 // Reconcile k3s server
 // implements ControlPlaneReconciler
-// TODO to implement
 func (r *Server) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
 	log := clog.FromContext(ctx)
-	cfg, err := r.BaseReconciler.GetConfig(ctx)
-	if err != nil {
-		log.Error(err, "failed to get shared config from reconciler")
+	if err := r.Prepare(ctx, hcp); err != nil {
 		return ctrl.Result{}, err
 	}
 	// Reconcile k3s pvc that is required for k3s server to run
-	if result, err := r.reconcilePVC(ctx, hcp); err != nil {
-		// NOTE does not reconcile apiserver if PVC are not present (requirement)
+	if result, err := r.reconcilePVC(ctx, hcp, r.KubeconfigStorageClaimObject); err != nil {
 		return result, err
 	}
-	// Get k3s server from hosting cluster and stored it in k3sServerObject
-	k3sServerObject, _ := NewServer(hcp.Name, cfg)
-	log.Info("k3s:server.go:Reconcile:k3s statefulset for server")
-	err = r.Client.Get(ctx, client.ObjectKeyFromObject(k3sServerObject), k3sServerObject)
-	if err != nil {
-		log.Error(err, "k3s:server.go:Reconcile:r.Client.Get failed")
-		// r.BaseReconciler.UpdateStatusForSyncingError(ctx, hcp, err) // TODO: to change
-		if apierrors.IsNotFound(err) {
-			log.Error(err, "k3s:server.go:Reconcile:is not found error")
-			log.Info("k3s:server.go:Reconcile:call NewServer() on k3sServerObject")
-			log.Info("k3s:server.go:Reconcile:call SetControllerReference")
-			// Set owner reference of the API server object
-			if err := controllerutil.SetControllerReference(hcp, k3sServerObject, r.Scheme); err != nil {
-				log.Error(err, "k3s:server.go:Reconcile:SetControllerReference failed")
-				return ctrl.Result{}, err
-			}
-			// Create the k3s server
-			log.Info("k3s:server.go:Reconcile:call r.Client.Create on", "k3sServerObject", k3sServerObject)
-			if err = r.Client.Create(ctx, k3sServerObject); err != nil {
-				log.Error(err, "k3s:server.go:Reconcile:r.Client.Create failed")
-				return ctrl.Result{RequeueAfter: 10}, err
-			}
+	if result, err := r.reconcilePVC(ctx, hcp, r.DataStorageClaimObject); err != nil {
+		return result, err
+	}
+	log.Info("reconcile k3s server")
+	err := r.Client.Get(ctx, client.ObjectKeyFromObject(r.ServerObject), r.ServerObject)
+	switch {
+	case err == nil:
+		log.Info("k3s server is already created")
+	case apierrors.IsNotFound(err):
+		log.Error(err, "is not found error")
+		// Set owner reference of the API server object
+		if err := controllerutil.SetControllerReference(hcp, r.ServerObject, r.Scheme); err != nil {
+			log.Error(err, "SetControllerReference failed")
+			return ctrl.Result{}, err
 		}
-		log.Info("k3s:server.go:Reconcile:end of reconcile k3s server")
+		// Create the k3s server
+		if err = r.Client.Create(ctx, r.ServerObject); err != nil {
+			log.Error(err, "r.Client.Create failed")
+			return ctrl.Result{RequeueAfter: 10}, err
+		}
+		log.Info("k3s server is succesfully created")
+	default:
+		log.Error(err, "failed to reconcile k3s server")
+		return ctrl.Result{}, nil
+	}
+	return ctrl.Result{}, nil
+}
+
+// reconcilePVC reconcile PVC tied to k3s server
+func (r *Server) reconcilePVC(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane, pvc *v1.PersistentVolumeClaim) (ctrl.Result, error) {
+	log := clog.FromContext(ctx)
+	log.Info(" reconcile k3s PVC for server", "pvc", pvc.Name)
+	err := r.Client.Get(ctx, client.ObjectKeyFromObject(pvc), pvc)
+	switch {
+	case err == nil:
+		log.Info("pvc is already created", "pvc", pvc.Name)
+	case apierrors.IsNotFound(err):
+		log.Error(err, "pvc is not found error")
+		if err := controllerutil.SetControllerReference(hcp, pvc, r.Scheme); err != nil {
+			log.Error(err, "SetControllerReference on pvc failed")
+			return ctrl.Result{}, err
+		}
+		if err = r.Client.Create(ctx, pvc); err != nil {
+			log.Error(err, "r.Client.Create pvc failed")
+			return ctrl.Result{}, err
+		}
+		log.Info("pvc is succesfully created for k3s", "pvc", pvc.Name)
+	default:
+		log.Error(err, "failed to reconcile pvc", "pvc", pvc.Name)
 		return ctrl.Result{}, err
 	}
-	// Update to success
-	log.Info("k3s:server.go:Reconcile:reconcile is a success...")
-	return r.BaseReconciler.Reconcile(ctx, hcp) // TODO: to change
+	return ctrl.Result{}, nil
 }
