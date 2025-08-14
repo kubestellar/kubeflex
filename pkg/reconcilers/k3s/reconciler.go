@@ -77,63 +77,63 @@ func (r *K3sReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.Cont
 		if util.IsTransientError(err) {
 			return ctrl.Result{RequeueAfter: RetryAfterDuration}, err
 		}
-		return result, err
+		return r.BaseReconciler.UpdateStatusForSyncingError(ctx, hcp, result, err)
 	}
 	// Reconcile k3s RBAC
 	if result, err := r.RBAC.Reconcile(ctx, hcp); err != nil {
 		if util.IsTransientError(err) {
 			return ctrl.Result{RequeueAfter: RetryAfterDuration}, err
 		}
-		return result, err
+		return r.BaseReconciler.UpdateStatusForSyncingError(ctx, hcp, result, err)
 	}
 	// Reconcile k3s Secret
 	if result, err := r.KubeconfigSecret.Reconcile(ctx, hcp); err != nil {
 		if util.IsTransientError(err) {
 			return ctrl.Result{RequeueAfter: RetryAfterDuration}, err
 		}
-		return result, err
+		return r.BaseReconciler.UpdateStatusForSyncingError(ctx, hcp, result, err)
 	}
 	// Reconcile k3s ConfigMap
 	if result, err := r.ScriptsConfigMap.Reconcile(ctx, hcp); err != nil {
 		if util.IsTransientError(err) {
 			return ctrl.Result{RequeueAfter: RetryAfterDuration}, err
 		}
-		return result, err
+		return r.BaseReconciler.UpdateStatusForSyncingError(ctx, hcp, result, err)
 	}
 	// Reconcile k3s Server
 	if result, err := r.Server.Reconcile(ctx, hcp); err != nil {
 		if util.IsTransientError(err) {
 			return ctrl.Result{RequeueAfter: RetryAfterDuration}, err
 		}
-		return result, err
+		return r.BaseReconciler.UpdateStatusForSyncingError(ctx, hcp, result, err)
 	}
 	// Reconcile k3s Service
 	if result, err := r.Service.Reconcile(ctx, hcp); err != nil {
 		if util.IsTransientError(err) {
 			return ctrl.Result{RequeueAfter: RetryAfterDuration}, err
 		}
-		return result, err
+		return r.BaseReconciler.UpdateStatusForSyncingError(ctx, hcp, result, err)
 	}
 	// Reconcile k3s Ingress
 	if result, err := r.Ingress.Reconcile(ctx, hcp); err != nil {
 		if util.IsTransientError(err) {
 			return ctrl.Result{RequeueAfter: RetryAfterDuration}, err
 		}
-		return result, err
+		return r.BaseReconciler.UpdateStatusForSyncingError(ctx, hcp, result, err)
 	}
 	// Reconcile k3s Job
 	if result, err := r.BootstrapSecretJob.Reconcile(ctx, hcp); err != nil {
 		if util.IsTransientError(err) {
 			return ctrl.Result{RequeueAfter: RetryAfterDuration}, err
 		}
-		return result, err
+		return r.BaseReconciler.UpdateStatusForSyncingError(ctx, hcp, result, err)
 	}
 	// Update secretref status
 	// NOTE perhaps a better design would be to embed each object manifest
 	// within its reconciler (see r.Namespace.Object.Name)
 	hcp.Status.SecretRef = &tenancyv1alpha1.SecretReference{
 		Namespace:    r.Namespace.Object.Name,
-		Name:         KubeconfigSecretName,
+		Name:         r.KubeconfigSecret.Object.Name,
 		Key:          KubeconfigSecretKey,
 		InClusterKey: KubeconfigSecretKeyInCluster,
 	}

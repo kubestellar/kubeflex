@@ -57,24 +57,24 @@ func (r *K8sReconciler) Reconcile(ctx context.Context, hcp *v1alpha1.ControlPlan
 
 	cfg, err := r.BaseReconciler.GetConfig(ctx)
 	if err != nil {
-		return r.UpdateStatusForSyncingError(ctx, hcp, err)
+		return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 	}
 
 	if err := r.BaseReconciler.ReconcileNamespace(ctx, hcp); err != nil {
-		return r.UpdateStatusForSyncingError(ctx, hcp, err)
+		return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 	}
 
 	if err = r.ReconcileAPIServerService(ctx, hcp); err != nil {
-		return r.UpdateStatusForSyncingError(ctx, hcp, err)
+		return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 	}
 
 	if cfg.IsOpenShift {
 		if err = r.ReconcileAPIServerRoute(ctx, hcp, "", shared.SecurePort, cfg.Domain); err != nil {
-			return r.UpdateStatusForSyncingError(ctx, hcp, err)
+			return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 		}
 		routeURL, err = r.GetAPIServerRouteURL(ctx, hcp)
 		if err != nil {
-			return r.UpdateStatusForSyncingError(ctx, hcp, err)
+			return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 		}
 		// re-queue until valid route URL is retrieved
 		if routeURL == "" {
@@ -82,13 +82,13 @@ func (r *K8sReconciler) Reconcile(ctx context.Context, hcp *v1alpha1.ControlPlan
 		}
 	} else {
 		if err = r.ReconcileAPIServerIngress(ctx, hcp, "", shared.DefaultPort, cfg.Domain); err != nil {
-			return r.UpdateStatusForSyncingError(ctx, hcp, err)
+			return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 		}
 	}
 
 	crts, err := r.ReconcileCertsSecret(ctx, hcp, cfg, routeURL)
 	if err != nil {
-		return r.UpdateStatusForSyncingError(ctx, hcp, err)
+		return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 	}
 
 	confGen := &certs.ConfigGen{
@@ -100,22 +100,22 @@ func (r *K8sReconciler) Reconcile(ctx context.Context, hcp *v1alpha1.ControlPlan
 	// reconcile kubeconfig for admin
 	confGen.Target = certs.Admin
 	if err = r.ReconcileKubeconfigSecret(ctx, crts, confGen, hcp); err != nil {
-		return r.UpdateStatusForSyncingError(ctx, hcp, err)
+		return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 	}
 
 	// reconcile kubeconfig for cm
 	confGen.Target = certs.ControllerManager
 	confGen.CpHost = hcp.Name
 	if err = r.ReconcileKubeconfigSecret(ctx, crts, confGen, hcp); err != nil {
-		return r.UpdateStatusForSyncingError(ctx, hcp, err)
+		return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 	}
 
 	if err = r.ReconcileAPIServerDeployment(ctx, hcp, cfg.IsOpenShift); err != nil {
-		return r.UpdateStatusForSyncingError(ctx, hcp, err)
+		return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 	}
 
 	if err = r.ReconcileCMDeployment(ctx, hcp); err != nil {
-		return r.UpdateStatusForSyncingError(ctx, hcp, err)
+		return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 	}
 
 	r.UpdateStatusWithSecretRef(hcp, util.AdminConfSecret, util.KubeconfigSecretKeyDefault, util.KubeconfigSecretKeyInCluster)
@@ -123,7 +123,7 @@ func (r *K8sReconciler) Reconcile(ctx context.Context, hcp *v1alpha1.ControlPlan
 	if hcp.Spec.PostCreateHook != nil &&
 		v1alpha1.HasConditionAvailable(hcp.Status.Conditions) {
 		if err := r.ReconcileUpdatePostCreateHook(ctx, hcp); err != nil {
-			return r.UpdateStatusForSyncingError(ctx, hcp, err)
+			return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 		}
 	}
 
