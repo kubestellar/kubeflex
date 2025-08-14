@@ -79,7 +79,7 @@ func (r *BootstrapSecretJob) Prepare(ctx context.Context, hcp *tenancyv1alpha1.C
 					RestartPolicy: v1.RestartPolicyOnFailure,
 					Containers: []v1.Container{
 						{
-							Name:  "executer",
+							Name:  "executer-1",
 							Image: bashContainerImage,
 							Command: []string{
 								"bash",
@@ -88,7 +88,8 @@ func (r *BootstrapSecretJob) Prepare(ctx context.Context, hcp *tenancyv1alpha1.C
 								"./scripts/" + ScriptSaveKubeconfigIntoSecretName,
 							},
 							Env: []v1.EnvVar{
-								{Name: "DNS_SVC", Value: serviceDNS}, {Name: "DNS_INGRESS", Value: ingressDNS},
+								{Name: "DNS_SVC", Value: serviceDNS},
+								{Name: "DNS_INGRESS", Value: ingressDNS},
 							},
 							VolumeMounts: []v1.VolumeMount{
 								{
@@ -100,6 +101,32 @@ func (r *BootstrapSecretJob) Prepare(ctx context.Context, hcp *tenancyv1alpha1.C
 									Name:      StorageKubeconfigName,
 									MountPath: StorageKubeconfigMountPath,
 									ReadOnly:  false,
+								},
+							},
+						},
+						{
+							Name:  "executer-2",
+							Image: bashContainerImage,
+							Command: []string{
+								"bash",
+							},
+							Args: []string{
+								"./scripts/" + ScriptSaveTokenIntoSecretName,
+							},
+							Env: []v1.EnvVar{
+								{Name: "K3S_CONTROLPLANE_SECRET_NAME", Value: KubeconfigSecretName},
+								{Name: "K3S_DATA_DIR", Value: StorageMountPath},
+							},
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      ScriptsConfigMapName,
+									MountPath: "/scripts",
+									ReadOnly:  true,
+								},
+								{
+									Name:      StorageDataName,
+									MountPath: StorageMountPath,
+									ReadOnly:  true,
 								},
 							},
 						},
@@ -120,6 +147,14 @@ func (r *BootstrapSecretJob) Prepare(ctx context.Context, hcp *tenancyv1alpha1.C
 							VolumeSource: v1.VolumeSource{
 								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
 									ClaimName: StorageKubeconfigName,
+								},
+							},
+						},
+						{
+							Name: StorageDataName,
+							VolumeSource: v1.VolumeSource{
+								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+									ClaimName: StorageDataName,
 								},
 							},
 						},

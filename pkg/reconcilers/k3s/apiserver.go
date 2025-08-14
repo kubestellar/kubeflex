@@ -37,10 +37,10 @@ import (
 const (
 	ServerName                 = "k3s-server"
 	ServerDockerImage          = "rancher/k3s"
-	StorageDataName            = "data-k3s-server"
+	StorageDataName            = "k3s-data"
 	StorageKubeconfigName      = "k3s-config"
 	StorageClassName           = "standard" // kind default storage class name which is rancher/local-storage (same as k3s but different name)
-	StorageMountPath           = "/data"
+	StorageMountPath           = "/var/lib/rancher/k3s"
 	StorageKubeconfigMountPath = "/etc/rancher/k3s" // directory
 	APIServerPort              = 6443               // k3s apiserver port
 )
@@ -71,6 +71,10 @@ func containerImage() string {
 // serverTLSSAN returns the TLS SAN value expected by k3s server command
 func serverTLSSAN(cfg *shared.SharedConfig) string {
 	return "--tls-san=" + GetClusterStaticDNSRecord(cfg)
+}
+
+func serverDataDir(path string) string {
+	return "--data-dir=" + path
 }
 
 // NewServer return Server object
@@ -117,7 +121,12 @@ func (r *Server) Prepare(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane)
 							Args: []string{
 								"server",
 								serverTLSSAN(cfg),
+								serverDataDir(StorageMountPath),
+							}, Env: []v1.EnvVar{
+								{Name: "K3S_CONTROLPLANE_SECRET_NAME", Value: KubeconfigSecretName},
+								{Name: "K3S_DATA_DIR", Value: StorageMountPath},
 							},
+
 							Ports: []v1.ContainerPort{
 								{ContainerPort: shared.SecurePort},
 							},
@@ -165,15 +174,6 @@ func (r *Server) Prepare(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane)
 								},
 							},
 						},
-						// Volume k3s secrets that contains kubeconfig????
-						// {
-						// 	Name: "k3s-config",
-						// 	VolumeSource: v1.VolumeSource{
-						// 		Secret: &v1.SecretVolumeSource{
-						// 			SecretName: "k3s-config",
-						// 		},
-						// 	},
-						// },
 					},
 					RestartPolicy: "Always",
 				},
