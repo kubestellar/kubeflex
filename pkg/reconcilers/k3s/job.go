@@ -79,7 +79,7 @@ func (r *BootstrapSecretJob) Prepare(ctx context.Context, hcp *tenancyv1alpha1.C
 					RestartPolicy: v1.RestartPolicyOnFailure,
 					Containers: []v1.Container{
 						{
-							Name:  ScriptSaveKubeconfigIntoSecretName,
+							Name:  "executer-1",
 							Image: bashContainerImage,
 							Command: []string{
 								"bash",
@@ -105,7 +105,7 @@ func (r *BootstrapSecretJob) Prepare(ctx context.Context, hcp *tenancyv1alpha1.C
 							},
 						},
 						{
-							Name:  ScriptSaveTokenIntoSecretName,
+							Name:  "executer-2",
 							Image: bashContainerImage,
 							Command: []string{
 								"bash",
@@ -126,7 +126,7 @@ func (r *BootstrapSecretJob) Prepare(ctx context.Context, hcp *tenancyv1alpha1.C
 								{
 									Name:      StorageDataName,
 									MountPath: StorageMountPath,
-									ReadOnly:  false,
+									ReadOnly:  true,
 								},
 							},
 						},

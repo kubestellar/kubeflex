@@ -122,7 +122,11 @@ func (r *Server) Prepare(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane)
 								"server",
 								serverTLSSAN(cfg),
 								serverDataDir(StorageMountPath),
+							}, Env: []v1.EnvVar{
+								{Name: "K3S_CONTROLPLANE_SECRET_NAME", Value: KubeconfigSecretName},
+								{Name: "K3S_DATA_DIR", Value: StorageMountPath},
 							},
+
 							Ports: []v1.ContainerPort{
 								{ContainerPort: shared.SecurePort},
 							},
