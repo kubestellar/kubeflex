@@ -57,8 +57,8 @@ func adjustConfigKeys(kconf *clientcmdapi.Config, cpName, controlPlaneType strin
 		RenameKey(kconf.Contexts, ControlPlaneTypeVClusterDefault, certs.GenerateContextName(cpName))
 	case string(tenancyv1alpha1.ControlPlaneTypeK3s):
 		RenameKey(kconf.Clusters, ControlPlaneTypeK3sDefault, certs.GenerateClusterName(cpName))
-		RenameKey(kconf.Clusters, ControlPlaneTypeK3sDefault, certs.GenerateAuthInfoAdminName(cpName))
-		RenameKey(kconf.Clusters, ControlPlaneTypeK3sDefault, certs.GenerateContextName(cpName))
+		RenameKey(kconf.AuthInfos, ControlPlaneTypeK3sDefault, certs.GenerateAuthInfoAdminName(cpName))
+		RenameKey(kconf.Contexts, ControlPlaneTypeK3sDefault, certs.GenerateContextName(cpName))
 	default:
 		return
 	}
@@ -74,12 +74,17 @@ func loadKubeconfigFromControlPlane(ctx context.Context, client kubernetes.Clien
 	var kubeconfigSecret *corev1.Secret
 	var errGet error
 	namespace := util.GenerateNamespaceFromControlPlaneName(name)
-	err := wait.PollUntilContextTimeout(ctx, 1*time.Second, 15*time.Minute, false, func(ctx context.Context) (bool, error) {
+	err := wait.PollUntilContextTimeout(ctx, 10*time.Second, 15*time.Minute, false, func(ctx context.Context) (bool, error) {
 		kubeconfigSecret, errGet = client.CoreV1().Secrets(namespace).Get(ctx,
 			util.GetKubeconfSecretNameByControlPlaneType(controlPlaneType), // TODO to replace as it introduces bug
 			metav1.GetOptions{})
 		if errGet != nil {
 			return false, nil
+		}
+		for _, v := range kubeconfigSecret.Data {
+			if len(v) == 0 {
+				return false, nil
+			}
 		}
 		return true, nil
 	})
