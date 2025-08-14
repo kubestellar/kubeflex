@@ -42,6 +42,7 @@ const (
 	VClusterNodePortServiceName          = "vcluster-nodeport"                    // TODO to replace as it is defined in reconciler component (k3s)
 	VClusterServiceName                  = "vcluster"                             // TODO to replace as it is defined in reconciler component (k3s)
 	K3sKubeConfigSecret                  = "k3s-config"                           // TODO to replace as it is defined in reconciler component (k3s)
+	K3sServerDeploymentName              = "k3s-server"                           // TODO to replace as it is defined in reconciler component (k3s)
 	KubeconfigSecretKeyDefault           = "kubeconfig"
 	KubeconfigSecretKeyInCluster         = "kubeconfig-incluster"
 	KubeconfigSecretKeyVCluster          = "config"           // NOTE reuse by k3s
@@ -137,7 +138,7 @@ func GetAPIServerDeploymentNameByControlPlaneType(controlPlaneType string) strin
 	case string(tenancyv1alpha1.ControlPlaneTypeVCluster):
 		return VClusterServerDeploymentName
 	case string(tenancyv1alpha1.ControlPlaneTypeK3s):
-		return ""
+		return K3sServerDeploymentName
 	default:
 		// TODO - should we instead throw an error?
 		return APIServerDeploymentName

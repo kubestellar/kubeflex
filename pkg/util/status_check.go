@@ -138,7 +138,7 @@ func IsAPIServerDeploymentReady(log logr.Logger, c client.Client, hcp tenancyv1a
 	case tenancyv1alpha1.ControlPlaneTypeHost, tenancyv1alpha1.ControlPlaneTypeExternal:
 		// host or external is always available
 		return true, nil
-	case tenancyv1alpha1.ControlPlaneTypeVCluster:
+	case tenancyv1alpha1.ControlPlaneTypeVCluster, tenancyv1alpha1.ControlPlaneTypeK3s:
 		s := &v1.StatefulSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      GetAPIServerDeploymentNameByControlPlaneType(string(hcp.Spec.Type)),
@@ -151,11 +151,9 @@ func IsAPIServerDeploymentReady(log logr.Logger, c client.Client, hcp tenancyv1a
 		}
 
 		// we need to ensure that there is al least one replica in the spec
-		if s.Status.ReadyReplicas == s.Status.Replicas &&
+		return s.Status.ReadyReplicas == s.Status.Replicas &&
 			s.Status.Replicas == *s.Spec.Replicas &&
-			*s.Spec.Replicas > 0 {
-			return true, nil
-		}
+			*s.Spec.Replicas > 0, nil
 	case tenancyv1alpha1.ControlPlaneTypeK8S, tenancyv1alpha1.ControlPlaneTypeOCM:
 		d := &v1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
@@ -169,15 +167,11 @@ func IsAPIServerDeploymentReady(log logr.Logger, c client.Client, hcp tenancyv1a
 		}
 
 		// we need to ensure that there is al least one replica in the spec
-		if d.Status.ReadyReplicas == d.Status.Replicas &&
+		return d.Status.ReadyReplicas == d.Status.Replicas &&
 			d.Status.Replicas == *d.Spec.Replicas &&
-			*d.Spec.Replicas > 0 {
-			return true, nil
-		}
+			*d.Spec.Replicas > 0, nil
 	default:
 		log.Error(fmt.Errorf("control plane type not supported"), "isAPIServerDeploymentReady failed", "type", hcp.Spec.Type)
 		return false, nil
 	}
-
-	return false, nil
 }
