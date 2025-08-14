@@ -60,7 +60,7 @@ func (r *BootstrapSecretJob) Prepare(ctx context.Context, hcp *tenancyv1alpha1.C
 		return err
 	}
 	namespace := ComputeSystemNamespaceName(hcp.Name)
-	ingressDNS := GetClusterServerURI(cfg)
+	ingressDNS := GetClusterServerURI(hcp.Name, cfg)
 	serviceDNS := GetInClusterStaticDNSRecord(namespace)
 	r.Object = &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{

@@ -69,8 +69,8 @@ func containerImage() string {
 }
 
 // serverTLSSAN returns the TLS SAN value expected by k3s server command
-func serverTLSSAN(cfg *shared.SharedConfig) string {
-	return "--tls-san=" + GetClusterStaticDNSRecord(cfg)
+func serverTLSSAN(cpName string, cfg *shared.SharedConfig) string {
+	return "--tls-san=" + GetClusterStaticDNSRecord(cpName, cfg)
 }
 
 func serverDataDir(path string) string {
@@ -120,7 +120,7 @@ func (r *Server) Prepare(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane)
 							// Command: is by default `/bin/k3s`
 							Args: []string{
 								"server",
-								serverTLSSAN(cfg),
+								serverTLSSAN(hcp.Name, cfg),
 								serverDataDir(StorageMountPath),
 							}, Env: []v1.EnvVar{
 								{Name: "K3S_CONTROLPLANE_SECRET_NAME", Value: KubeconfigSecretName},

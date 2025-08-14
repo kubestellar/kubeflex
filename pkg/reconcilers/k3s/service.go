@@ -90,13 +90,13 @@ func GetInClusterStaticDNSRecord(namespace string) string {
 }
 
 // GetClusterStaticDNSRecord fetch cluster dns in kubernetes form
-func GetClusterStaticDNSRecord(cfg *shared.SharedConfig) string {
-	return fmt.Sprintf("%s.%s", ServiceName, cfg.Domain)
+func GetClusterStaticDNSRecord(cpName string, cfg *shared.SharedConfig) string {
+	return fmt.Sprintf("%s.%s", cpName, cfg.Domain)
 }
 
 // GetClusterServerURI compute cluster server URI to reach the k3s server
-func GetClusterServerURI(cfg *shared.SharedConfig) string {
-	return fmt.Sprintf("https://%s:%d", GetClusterStaticDNSRecord(cfg), cfg.ExternalPort)
+func GetClusterServerURI(cpName string, cfg *shared.SharedConfig) string {
+	return fmt.Sprintf("https://%s:%d", GetClusterStaticDNSRecord(cpName, cfg), cfg.ExternalPort)
 }
 
 // Prepare service object and its manifest

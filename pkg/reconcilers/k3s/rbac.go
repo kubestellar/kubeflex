@@ -19,6 +19,7 @@ package k3s
 import (
 	"context"
 	_ "embed"
+	"fmt"
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/shared"
@@ -78,7 +79,7 @@ func (r *RBAC) Prepare(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) e
 	}
 	r.ClusterRoleBindingScriptsConfigMap = &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: ScriptsConfigMapRoleBindingName,
+			Name: fmt.Sprintf("%s-%s", ScriptsConfigMapRoleBindingName, hcp.Name),
 		},
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: rbacv1.GroupName,
