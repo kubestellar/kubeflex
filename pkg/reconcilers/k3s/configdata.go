@@ -132,12 +132,16 @@ func (r *KubeconfigSecret) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.C
 
 const (
 	ScriptsConfigMapName               = "k3s-scripts"
-	ScriptSaveKubeconfigIntoSecretName = "save-k3s-kubeconfig.sh"
-	ScriptSaveCertsIntoSecretName      = "save-k3s-certs.sh"
+	ScriptSaveKubeconfigIntoSecretName = "save-k3s-kubeconfig.sh" // must be the same as go:embed
+	ScriptSaveTokenIntoSecretName      = "save-k3s-token.sh"      // must be the same as go:embed
+	ScriptSaveCertsIntoSecretName      = "save-k3s-certs.sh"      // must be the same as go:embed
 )
 
 //go:embed embed/save-k3s-kubeconfig.sh
 var saveKubeconfigIntoSecretScript string
+
+//go:embed embed/save-k3s-token.sh
+var saveTokenIntoSecretScript string
 
 // ScriptsConfigMap containing data for k3s
 type ScriptsConfigMap struct {
@@ -162,6 +166,7 @@ func (r *ScriptsConfigMap) Prepare(ctx context.Context, hcp *tenancyv1alpha1.Con
 		},
 		Data: map[string]string{
 			ScriptSaveKubeconfigIntoSecretName: saveKubeconfigIntoSecretScript, // add bash script content
+			ScriptSaveTokenIntoSecretName:      saveTokenIntoSecretScript,      // add bash script content
 		},
 	}
 	return nil
