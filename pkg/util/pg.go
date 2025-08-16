@@ -40,6 +40,7 @@ func DropDatabase(ctx context.Context, cpName string, crClient client.Client) er
 	return nil
 }
 
+// TODO: change func signature to be more explicit
 func ReplaceNotAllowedCharsInDBName(name string) string {
 	return strings.ReplaceAll(name, "-", "_")
 }

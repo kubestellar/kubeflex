@@ -43,12 +43,12 @@ func (r *VClusterReconciler) ReconcileKubeconfigSecret(ctx context.Context, hcp 
 	}
 
 	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(ksecret), ksecret, &client.GetOptions{})
-    if err != nil {
-        if util.IsTransientError(err) {
-            return err // Retry transient errors
-        }
-        return fmt.Errorf("failed to get kubeconfig secret: %w", err);
-    }
+	if err != nil {
+		if util.IsTransientError(err) {
+			return err // Retry transient errors
+		}
+		return fmt.Errorf("failed to get kubeconfig secret: %w", err)
+	}
 
 	kconfig := ksecret.Data[util.KubeconfigSecretKeyVCluster]
 	if kconfig == nil {
@@ -75,12 +75,12 @@ func (r *VClusterReconciler) ReconcileKubeconfigSecret(ctx context.Context, hcp 
 	ksecret.Data[util.KubeconfigSecretKeyVClusterInCluster] = inclusterConfig
 
 	err = r.Client.Update(context.TODO(), ksecret, &client.UpdateOptions{})
-    if err != nil {
-        if util.IsTransientError(err) {
-            return err // Retry transient errors
-        }
-        return fmt.Errorf("failed to update kubeconfig secret: %w", err);
-    }
+	if err != nil {
+		if util.IsTransientError(err) {
+			return err // Retry transient errors
+		}
+		return fmt.Errorf("failed to update kubeconfig secret: %w", err)
+	}
 
-    return nil
+	return nil
 }

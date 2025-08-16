@@ -41,6 +41,17 @@ const (
 	FieldOwner = "kubeflex.kubestellar.io"
 )
 
+// ControlPlaneReconciler defines Reconcile loop
+// each controlplane type must implement ControlPlaneReconciler as
+// internal/controller/controlplane_controller.go Reconcile acts
+// as a reconciler factory according to a controlplane type
+type ControlPlaneReconciler interface {
+	// Reconcile is part of the main kubernetes reconciliation loop which aims to
+	// move the current state of the cluster closer to the desired state.
+	// NOTE: returns a ctrl.Result to comply with kubernetes Reconcile. It does not make much sense to talk about Reconcile without returning a ctrl.Result
+	Reconcile(context.Context, *tenancyv1alpha1.ControlPlane) (ctrl.Result, error)
+}
+
 // BaseReconciler provide common reconcilers used by other reconcilers
 type BaseReconciler struct {
 	client.Client
@@ -59,33 +70,45 @@ type SharedConfig struct {
 	ExternalURL   string
 }
 
-func (r *BaseReconciler) UpdateStatusForSyncingError(hcp *tenancyv1alpha1.ControlPlane, e error) (ctrl.Result, error) {
-	if r.EventRecorder != nil {
-		r.EventRecorder.Event(hcp, "Warning", "SyncFail", e.Error())
-	}
-	tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionReconcileError(e))
-	err := r.Status().Update(context.Background(), hcp)
-	if err != nil {
-		return ctrl.Result{}, errors.Wrap(e, err.Error())
-	}
-	if errors.Is(e, ErrPostCreateHookNotFound) {
-		// Requeue after 10 seconds, don't mark as failed
-		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
-	}
-	return ctrl.Result{}, err
+// Reconcile update syncing status to success
+// NOTE perhaps PostCreateHook logic should be embedded below
+func (r *BaseReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
+	return r.UpdateStatusForSyncingSuccess(ctx, hcp)
 }
 
+// UpdateStatusForSyncingError change EventRecorder and ControlPlane Status to sync failed
+func (r *BaseReconciler) UpdateStatusForSyncingError(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane, result ctrl.Result, err error) (ctrl.Result, error) {
+	log := clog.FromContext(ctx)
+	if r.EventRecorder != nil {
+		r.EventRecorder.Event(hcp, "Warning", "SyncFail", err.Error())
+	}
+	tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionReconcileError(err))
+	if err1 := r.Status().Update(context.Background(), hcp); err1 != nil {
+		log.Error(err1, "update status for syncing error failed")
+		// TODO to move up to reconciler level
+		if errors.Is(err1, ErrPostCreateHookNotFound) {
+			// Requeue after 10 seconds, don't mark as failed
+			return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
+		}
+		return ctrl.Result{}, errors.Wrap(err, err1.Error())
+	}
+	log.Info("update status for syncing error is done")
+	return result, err
+}
+
+// UpdateStatusForSyncingSuccess change EventRecorder and ControlPlane Status to success
 func (r *BaseReconciler) UpdateStatusForSyncingSuccess(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) (ctrl.Result, error) {
+	log := clog.FromContext(ctx)
 	if r.EventRecorder != nil {
 		r.EventRecorder.Event(hcp, "Normal", "SyncSuccess", "")
 	}
-	_ = clog.FromContext(ctx)
 	tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionReconcileSuccess())
-	err := r.Status().Update(context.Background(), hcp)
-	if err != nil {
+	if err := r.Status().Update(context.Background(), hcp); err != nil {
+		log.Error(err, "update status for syncing success failed")
 		return ctrl.Result{}, err
 	}
-	return ctrl.Result{}, err
+	log.Info("update status for syncing success is done")
+	return ctrl.Result{}, nil
 }
 
 func (r *BaseReconciler) GetConfig(ctx context.Context) (*SharedConfig, error) {
@@ -115,6 +138,7 @@ func (r *BaseReconciler) GetConfig(ctx context.Context) (*SharedConfig, error) {
 	}, nil
 }
 
+// UpdateStatusWithSecretRef change hcp.Status.SecretRef
 func (r *BaseReconciler) UpdateStatusWithSecretRef(hcp *tenancyv1alpha1.ControlPlane, secretName, key, inClusterKey string) {
 	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
 	hcp.Status.SecretRef = &tenancyv1alpha1.SecretReference{
