@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/kubestellar/kubeflex/pkg/reconcilers/shared"
 	"github.com/kubestellar/kubeflex/pkg/util"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -47,25 +48,25 @@ func (r *VClusterReconciler) ReconcileNodePortService(ctx context.Context, hcp *
 	}
 
 	err := r.Client.Get(ctx, client.ObjectKeyFromObject(service), service, &client.GetOptions{})
-    if err != nil {
-        if apierrors.IsNotFound(err) {
-            service := generateNodePortService(util.VClusterNodePortServiceName, namespace)
-            if err := controllerutil.SetControllerReference(hcp, service, r.Scheme); err != nil {
-                return fmt.Errorf("failed to SetControllerReference: %w", err)
-            }
-            if err = r.Client.Create(ctx, service, &client.CreateOptions{}); err != nil {
-                if util.IsTransientError(err) {
-                    return err // Retry transient errors
-                }
-                return fmt.Errorf("failed to create service: %w", err)
-            }
-        } else if util.IsTransientError(err) {
-            return err // Retry transient errors
-        } else {
-            return fmt.Errorf("failed to get service: %w", err)
-        }
-    }
-    return nil
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			service := generateNodePortService(util.VClusterNodePortServiceName, namespace)
+			if err := controllerutil.SetControllerReference(hcp, service, r.Scheme); err != nil {
+				return fmt.Errorf("failed to SetControllerReference: %w", err)
+			}
+			if err = r.Client.Create(ctx, service, &client.CreateOptions{}); err != nil {
+				if util.IsTransientError(err) {
+					return err // Retry transient errors
+				}
+				return fmt.Errorf("failed to create service: %w", err)
+			}
+		} else if util.IsTransientError(err) {
+			return err // Retry transient errors
+		} else {
+			return fmt.Errorf("failed to get service: %w", err)
+		}
+	}
+	return nil
 }
 
 func generateNodePortService(name, namespace string) *corev1.Service {
@@ -83,7 +84,7 @@ func generateNodePortService(name, namespace string) *corev1.Service {
 			Ports: []corev1.ServicePort{
 				{
 					Port:       443,
-					Name:       "https",
+					Name:       shared.DefaultPortName,
 					Protocol:   "TCP",
 					TargetPort: intstr.FromInt(TargetPort),
 				},

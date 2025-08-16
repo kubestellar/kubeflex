@@ -18,6 +18,7 @@ package shared
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -34,7 +35,6 @@ import (
 
 	"github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/util"
-	"errors"
 )
 
 const (

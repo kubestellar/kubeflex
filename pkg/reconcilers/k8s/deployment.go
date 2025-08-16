@@ -51,14 +51,17 @@ func (r *K8sReconciler) ReconcileAPIServerDeployment(ctx context.Context, hcp *t
 	err := r.Client.Get(context.TODO(), client.ObjectKeyFromObject(deployment), deployment, &client.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
+			// Init API server deployment object
 			dbName := util.ReplaceNotAllowedCharsInDBName(hcp.Name)
 			deployment, err = r.generateAPIServerDeployment(namespace, dbName, isOCP)
 			if err != nil {
 				return err
 			}
+			// Set owner reference of the API server deployment object
 			if err := controllerutil.SetControllerReference(hcp, deployment, r.Scheme); err != nil {
 				return err
 			}
+			// Create API server deployment resource on kubernetes cluster
 			if err = r.Client.Create(context.TODO(), deployment, &client.CreateOptions{}); err != nil {
 				return err
 			}
