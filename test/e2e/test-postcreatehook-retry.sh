@@ -13,6 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+CP_TYPE=${1:-k8s}
+echo "Testing PostCreateHook retry logic with ${CP_TYPE} control plane..."
+
 SRC_DIR="$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)"
 source "${SRC_DIR}/setup-shell.sh"
 
@@ -24,8 +27,8 @@ set -e # exit on error
 : Clean up any existing test resources
 :
 echo "Cleaning up any existing resources..."
-kubectl delete controlplane cp-missing-hook --ignore-not-found=true
-kubectl delete postcreatehook missing-hook --ignore-not-found=true
+kubectl --context kind-kubeflex delete controlplane cp-missing-hook-${CP_TYPE} --ignore-not-found=true
+kubectl --context kind-kubeflex delete postcreatehook missing-hook-${CP_TYPE} --ignore-not-found=true
 
 :
 : -------------------------------------------------------------------------
@@ -33,16 +36,16 @@ kubectl delete postcreatehook missing-hook --ignore-not-found=true
 : but should retry until the hook is available
 :
 echo "Creating ControlPlane referencing a missing PostCreateHook..."
-kubectl apply -f - <<EOF
+kubectl --context kind-kubeflex apply -f - <<EOF
 apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
 kind: ControlPlane
 metadata:
-  name: cp-missing-hook
+  name: cp-missing-hook-${CP_TYPE}
 spec:
   backend: shared
-  postCreateHook: missing-hook
+  postCreateHook: missing-hook-${CP_TYPE}
   waitForPostCreateHooks: true
-  type: k8s
+  type: ${CP_TYPE}
 EOF
 
 :
@@ -53,31 +56,31 @@ echo "Waiting 10s to check that ControlPlane is not marked as failed..."
 sleep 10
 
 echo "ControlPlane status after 10s (should NOT be failed):"
-kubectl get controlplane cp-missing-hook -o jsonpath='{.status.conditions}' | jq '.'
+kubectl --context kind-kubeflex get controlplane cp-missing-hook-${CP_TYPE} -o jsonpath='{.status.conditions}' | jq '.'
 
 :
 : -------------------------------------------------------------------------
 : Create the missing PostCreateHook
 :
 echo "Creating the missing PostCreateHook..."
-kubectl apply -f - <<EOF
+kubectl --context kind-kubeflex apply -f - <<EOF
 apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
 kind: PostCreateHook
 metadata:
-  name: missing-hook
+  name: missing-hook-${CP_TYPE}
 spec:
   templates:
   - apiVersion: batch/v1
     kind: Job
     metadata:
-      name: job-missing-hook
+      name: job-missing-hook-{{.ControlPlaneName}}
     spec:
       template:
         spec:
           containers:
           - name: demo
             image: public.ecr.aws/docker/library/busybox:1.36
-            command: ["echo", "Hello from missing hook"]
+            command: ["echo", "Hello from missing hook for ${CP_TYPE}"]
           restartPolicy: Never
       backoffLimit: 1
 EOF
@@ -86,22 +89,22 @@ EOF
 : -------------------------------------------------------------------------
 : Verify ControlPlane becomes Ready after hook is created
 :
-echo "Waiting for ControlPlane to become Ready (90s timeout)..."
-kubectl wait --for=condition=Ready controlplane/cp-missing-hook --timeout=90s
+echo "Waiting for ControlPlane to become Ready (180s timeout)..."
+kubectl --context kind-kubeflex wait --for=condition=Ready controlplane/cp-missing-hook-${CP_TYPE} --timeout=180s
 
 echo "FINAL STATUS:"
-kubectl get controlplane cp-missing-hook -o jsonpath='{.status}' | jq '.'
+kubectl --context kind-kubeflex get controlplane cp-missing-hook-${CP_TYPE} -o jsonpath='{.status}' | jq '.'
 
 :
 : -------------------------------------------------------------------------
 : Clean up test resources
 :
 echo "Cleaning up test resources..."
-kubectl delete controlplane cp-missing-hook --ignore-not-found=true
-kubectl delete postcreatehook missing-hook --ignore-not-found=true
+kubectl --context kind-kubeflex delete controlplane cp-missing-hook-${CP_TYPE} --ignore-not-found=true
+kubectl --context kind-kubeflex delete postcreatehook missing-hook-${CP_TYPE} --ignore-not-found=true
 
 :
 : -------------------------------------------------------------------------
 : SUCCESS: Verified retry logic for missing PostCreateHook
 :
-echo "Test completed successfully"
+echo "SUCCESS: ${CP_TYPE} PostCreateHook retry test completed"

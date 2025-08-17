@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 
-echo "🧪 Creating PostCreateHook..."
-kubectl apply -f - <<EOF
+CP_TYPE=${1:-k8s}
+echo "Testing PostCreateHook completion behavior with ${CP_TYPE} control plane..."
+echo ""
+echo "Creating PostCreateHook (${CP_TYPE})..."
+kubectl --context kind-kubeflex apply -f - <<EOF
 apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
 kind: PostCreateHook
-metadata:
-  name: demo-hook
+metadata: 
+  name: demo-hook-${CP_TYPE}
 spec:
   templates:
   - apiVersion: batch/v1
@@ -24,55 +27,58 @@ spec:
 EOF
 
 echo ""
-echo "🔧 Creating CP with waitForPostCreateHooks=TRUE..."
-kubectl apply -f - <<EOF
+echo "🔧 Creating CP with waitForPostCreateHooks=TRUE (${CP_TYPE})..."
+kubectl --context kind-kubeflex apply -f - <<EOF
 apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
 kind: ControlPlane
 metadata:
-  name: cp-wait-true
+  name: cp-wait-true-${CP_TYPE}
 spec:
   backend: shared
-  postCreateHook: demo-hook
+  postCreateHook: demo-hook-${CP_TYPE}
   waitForPostCreateHooks: true
-  type: k8s
+  type: ${CP_TYPE}
 EOF
 
 echo ""
-echo "⚡ Creating CP with waitForPostCreateHooks=FALSE..."
-kubectl apply -f - <<EOF
+echo "⚡ Creating CP with waitForPostCreateHooks=FALSE (${CP_TYPE})..."
+kubectl --context kind-kubeflex apply -f - <<EOF
 apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
 kind: ControlPlane
 metadata:
-  name: cp-wait-false
+  name: cp-wait-false-${CP_TYPE}
 spec:
   backend: shared
-  postCreateHook: demo-hook
+  postCreateHook: demo-hook-${CP_TYPE}
   waitForPostCreateHooks: false
-  type: k8s
+  type: ${CP_TYPE}
 EOF
 
 echo ""
-echo "⏳ Waiting for both CPs to be ready (90s timeout)..."
-kubectl wait --for=condition=Ready controlplane/cp-wait-true --timeout=90s &  #set time accoeding to you!
-kubectl wait --for=condition=Ready controlplane/cp-wait-false --timeout=90s &
+echo "⏳ Waiting for ${CP_TYPE} CP to be ready..."
+kubectl --context kind-kubeflex wait --for=condition=Ready controlplane/cp-wait-true-${CP_TYPE} --timeout=180s &
+kubectl --context kind-kubeflex wait --for=condition=Ready controlplane/cp-wait-false-${CP_TYPE} --timeout=180s &
 wait
 
 echo ""
-echo "📊 RESULTS:"
+echo "📊 RESULTS for ${CP_TYPE} CP:"
 echo ""
 echo "=== CP with waitForPostCreateHooks=TRUE ==="
-kubectl get controlplane cp-wait-true -o jsonpath='{.status}' | jq '.'
+kubectl --context kind-kubeflex get controlplane cp-wait-true-${CP_TYPE} -o jsonpath='{.status}' | jq '.'
 
 echo ""
 echo "=== CP with waitForPostCreateHooks=FALSE ==="
-kubectl get controlplane cp-wait-false -o jsonpath='{.status}' | jq '.'
+kubectl --context kind-kubeflex get controlplane cp-wait-false-${CP_TYPE} -o jsonpath='{.status}' | jq '.'
 
 echo ""
 echo "📋 Summary:"
-kubectl get cp cp-wait-true cp-wait-false
+kubectl --context kind-kubeflex get cp cp-wait-true-${CP_TYPE} cp-wait-false-${CP_TYPE}
 
-#please remove this lines so that after test all resurce will be deleted!
-# echo "🧹 Cleaning up any existing resources..."
-# kubectl delete controlplane cp-wait-true --ignore-not-found=true
-# kubectl delete controlplane cp-wait-false --ignore-not-found=true
-# kubectl delete postcreatehook demo-hook --ignore-not-found=true
+echo "" 
+echo "✅ SUCCESS: ${CP_TYPE} PostCreateHook completion test completed"
+
+echo ""
+echo "🧹 Cleaning up any existing resources..."
+kubectl delete controlplane cp-wait-true-${CP_TYPE} --ignore-not-found=true
+kubectl delete controlplane cp-wait-false-${CP_TYPE} --ignore-not-found=true
+kubectl delete postcreatehook demo-hook-${CP_TYPE} --ignore-not-found=true

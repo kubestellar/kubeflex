@@ -24,3 +24,9 @@ ${SRC_DIR}/manage-type-k8s.sh
 ${SRC_DIR}/manage-type-vcluster.sh
 ${SRC_DIR}/manage-type-external.sh
 ${SRC_DIR}/manage-ctx.sh
+${SRC_DIR}/test-postcreate-completion.sh k8s
+${SRC_DIR}/test-postcreate-completion.sh vcluster
+${SRC_DIR}/test-postcreatehook-retry.sh k8s
+${SRC_DIR}/test-postcreatehook-retry.sh vcluster
+
+echo "SUCCESS: ALL TESTS PASSED..."

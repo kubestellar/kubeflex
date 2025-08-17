@@ -70,6 +70,12 @@ kubectl --context cp2 wait --for=condition=Available deploy/my-nginx --timeout=1
 
 :
 : -------------------------------------------------------------------------
+: Test PostCreateHook in-cluster kubeconfig access
+:
+${SRC_DIR}/test-kubeconfig-access.sh vcluster
+
+:
+: -------------------------------------------------------------------------
 : Delete ControlPlane cp2
 :
 ./bin/kflex delete cp2 --chatty-status=false

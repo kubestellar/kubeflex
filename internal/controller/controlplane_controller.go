@@ -203,12 +203,13 @@ func (r *ControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 		if err := reconciler.ReconcileUpdatePostCreateHook(ctx, hcp); err != nil {
 			log.Error(err, "Failed to process PostCreateHooks")
-			// Don't return error immediately - let status logic handle it
+			return ctrl.Result{}, err
 		}
 
 		// Refresh hcp object after PCH processing
 		if err := r.Get(ctx, client.ObjectKey{Name: hcp.Name}, hcp); err != nil {
 			log.Error(err, "Failed to refresh ControlPlane after hook processing")
+			return ctrl.Result{}, err
 		}
 	}
 
