@@ -28,11 +28,10 @@ const (
 
 // DiagnosisResult represents the result of the kubeflex extension diagnosis
 type DiagnosisResult struct {
-	Status  string                    `json:"status"`
-	Message string                    `json:"message"`
+	Status  string                         `json:"status"`
+	Message string                         `json:"message"`
 	Data    *kubeconfig.KubeflexExtensions `json:"data,omitempty"`
 }
-
 
 func CommandDiagnose() *cobra.Command {
 	var outputFormat string
@@ -70,8 +69,8 @@ func ExecuteDiagnose(kubeconfigFile string, outputFormat string) error {
 	status, data := kubeconfig.CheckGlobalKubeflexExtension(*kconf)
 
 	result := DiagnosisResult{
-		Status:  status,
-		Data:    data,
+		Status: status,
+		Data:   data,
 	}
 
 	// Set appropriate message based on status
