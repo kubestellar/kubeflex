@@ -57,6 +57,7 @@ func Command() *cobra.Command {
 			domain, _ := flagset.GetString(DomainFlag)
 			externalPort, _ := flagset.GetInt(ExternalPortFlag)
 			hostContainer, _ := flagset.GetString(HostContainerNameFlag)
+			clusterName, _ := flagset.GetString("cluster-name")
 			done := make(chan bool)
 			var wg sync.WaitGroup
 			var isOCP bool
@@ -76,7 +77,7 @@ func Command() *cobra.Command {
 				if isOCP {
 					return fmt.Errorf("openShift cluster detected on existing context\nSwitch to a non-OpenShift context with `kubectl config use-context <context-name>` and retry")
 				}
-				cluster.CreateKindCluster(chattyStatus)
+				cluster.CreateKindCluster(chattyStatus, clusterName)
 			}
 
 			cp := common.NewCP(kubeconfig)
@@ -90,6 +91,7 @@ func Command() *cobra.Command {
 	flagset.StringP(DomainFlag, "d", "localtest.me", "domain for FQDN")
 	flagset.StringP(HostContainerNameFlag, "n", "kubeflex-control-plane", "Name of the hosting cluster container (kind or k3d only)")
 	flagset.IntP(ExternalPortFlag, "p", 9443, "external port used by ingress")
+	flagset.String("cluster-name", "kubeflex", "Name of the kind cluster to create")
 	return command
 }
 
