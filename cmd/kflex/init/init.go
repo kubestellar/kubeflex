@@ -45,10 +45,10 @@ const (
 
 func Command() *cobra.Command {
 	command := &cobra.Command{
-		Use:   "init",
+		Use:   "init [cluster-name]",
 		Short: "Initialize kubeflex",
 		Long:  `Installs the default shared storage backend and the kubeflex operator`,
-		Args:  cobra.ExactArgs(0),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			flagset := cmd.Flags()
 			kubeconfig, _ := flagset.GetString(common.KubeconfigFlag)
@@ -57,7 +57,12 @@ func Command() *cobra.Command {
 			domain, _ := flagset.GetString(DomainFlag)
 			externalPort, _ := flagset.GetInt(ExternalPortFlag)
 			hostContainer, _ := flagset.GetString(HostContainerNameFlag)
-			clusterName, _ := flagset.GetString("cluster-name")
+			
+			// Handle positional cluster name parameter
+			clusterName := "kind-kubeflex" // default
+			if len(args) > 0 {
+				clusterName = args[0]
+			}
 			done := make(chan bool)
 			var wg sync.WaitGroup
 			var isOCP bool
@@ -91,7 +96,6 @@ func Command() *cobra.Command {
 	flagset.StringP(DomainFlag, "d", "localtest.me", "domain for FQDN")
 	flagset.StringP(HostContainerNameFlag, "n", "kubeflex-control-plane", "Name of the hosting cluster container (kind or k3d only)")
 	flagset.IntP(ExternalPortFlag, "p", 9443, "external port used by ingress")
-	flagset.String("cluster-name", "kubeflex", "Name of the kind cluster to create")
 	return command
 }
 

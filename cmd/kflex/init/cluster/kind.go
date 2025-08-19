@@ -29,10 +29,6 @@ import (
 	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
-const (
-	clusterName = "kubeflex"
-)
-
 // KindConfig is a struct that represents the kind cluster configuration
 type KindConfig struct {
 	Name string
