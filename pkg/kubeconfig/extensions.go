@@ -17,11 +17,11 @@ limitations under the License.
 package kubeconfig
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
-	"github.com/kubestellar/kubeflex/cmd/kflex/common"
-	"github.com/kubestellar/kubeflex/pkg/client"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"time"
 
@@ -43,6 +43,7 @@ const (
 	DiagnosisStatusWarning             = "warning"
 	DiagnosisStatusOK                  = "ok"
 	DiagnosisStatusMissing             = "no kubeflex extension found"
+	LabelSelectorControlPlane          = "app.kubernetes.io/component=control-plane"
 )
 
 // Internal structure of Kubeflex global extension in a Kubeconfig file
@@ -238,40 +239,54 @@ func CheckHostingClusterContextName(kconf clientcmdapi.Config) string {
 	}
 }
 
-func VerifyControlPlaneOnHostingCluster(cp common.CP, ctxName string) string {
-	c, err := client.GetClient(cp.Kubeconfig)
+func VerifyControlPlaneOnHostingCluster(kconf clientcmdapi.Config, ctxName string) string {
+	restConfig, err := clientcmd.NewDefaultClientConfig(kconf, &clientcmd.ConfigOverrides{}).ClientConfig()
 	if err != nil {
 		return DiagnosisStatusCritical
 	}
 
-	var controlPlanes tenancyv1alpha1.ControlPlaneList
-	if err := c.List(cp.Ctx, &controlPlanes); err != nil {
+	clientset, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
 		return DiagnosisStatusCritical
 	}
 
-	for _, controlPlane := range controlPlanes.Items {
-		if controlPlane.Name == ctxName {
-			return DiagnosisStatusOK
+	_, err = clientset.CoreV1().Namespaces().Get(context.Background(), ctxName, metav1.GetOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return DiagnosisStatusMissing
+		}
+		return DiagnosisStatusCritical
+	}
+
+	pods, err := clientset.CoreV1().Pods(ctxName).List(context.Background(), metav1.ListOptions{
+		LabelSelector: LabelSelectorControlPlane,
+	})
+	if err != nil {
+		return DiagnosisStatusCritical
+	}
+
+	for _, pod := range pods.Items {
+		if pod.Status.Phase == corev1.PodRunning {
+			for _, cond := range pod.Status.Conditions {
+				if cond.Type == corev1.PodReady && cond.Status == corev1.ConditionTrue {
+					return DiagnosisStatusOK
+				}
+			}
 		}
 	}
 
 	return DiagnosisStatusMissing
 }
 
-func CheckContextScopeKubeflexExtensionSet(cp common.CP, ctxName string) string {
-	kconf, err := clientcmd.LoadFromFile(cp.Kubeconfig)
-	if err != nil {
-		return DiagnosisStatusCritical
-	}
-
+func CheckContextScopeKubeflexExtensionSet(kconf clientcmdapi.Config, ctxName string) string {
 	ctx, ok := kconf.Contexts[ctxName]
 	if !ok {
-		return DiagnosisStatusMissing // Context not found
+		return DiagnosisStatusMissing
 	}
 
 	ext, ok := ctx.Extensions[ExtensionKubeflexKey]
 	if !ok {
-		return DiagnosisStatusMissing // No kubeflex extension found
+		return DiagnosisStatusMissing
 	}
 
 	ctxExtension := &RuntimeKubeflexExtension{}
@@ -293,7 +308,7 @@ func CheckContextScopeKubeflexExtensionSet(cp common.CP, ctxName string) string 
 		return DiagnosisStatusWarning
 	}
 
-	status := VerifyControlPlaneOnHostingCluster(cp, ctxName)
+	status := VerifyControlPlaneOnHostingCluster(kconf, ctxName)
 	if status != DiagnosisStatusOK {
 		return status
 	}
