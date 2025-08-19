@@ -56,7 +56,7 @@ echo "SUCCESS: Kubeconfig extensions verified for control plane $CP_NAME"
 :
 kubectl --context kind-kubeflex -n $CP_NAME-system wait --for=jsonpath='{.status.availableReplicas}'=1 statefulset/k3s-server --timeout=120s
 kubectl --context kind-kubeflex -n $CP_NAME-system wait --for=condition=Complete job/k3s-bootstrap-kubeconfig --timeout=120s
-kubectl --context kind-kubeflex -n $CP_NAME-system wait --for=jsonpath='{.status.conditions[?(@.type == "Ready")]}' --timeout=120s
+kubectl --context kind-kubeflex -n $CP_NAME-system wait --for=jsonpath='{.status.conditions[?(@.type == "Ready")]}' cps/$CP_NAME --timeout=120s
 
 : -------------------------------------------------------------------------
 : Create a Deployment in ControlPlane $CP_NAME, then wait for the Deployment
