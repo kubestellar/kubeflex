@@ -24,3 +24,4 @@ ${SRC_DIR}/manage-type-k8s.sh
 ${SRC_DIR}/manage-type-vcluster.sh
 ${SRC_DIR}/manage-type-external.sh
 ${SRC_DIR}/manage-ctx.sh
+${SRC_DIR}/test-custom-cluster-name.sh

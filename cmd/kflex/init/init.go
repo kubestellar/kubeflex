@@ -41,6 +41,7 @@ const (
 	DomainFlag            = "domain"
 	HostContainerNameFlag = "host-container-name" // REFACTOR? replace with host-container-name?
 	ExternalPortFlag      = "external-port"       // REFACTOR? replace with external-port?
+	DefaultKindClusterName = "kind-kubeflex"       // Default cluster name for kind clusters
 )
 
 func Command() *cobra.Command {
@@ -59,7 +60,7 @@ func Command() *cobra.Command {
 			hostContainer, _ := flagset.GetString(HostContainerNameFlag)
 			
 			// Handle positional cluster name parameter
-			clusterName := "kind-kubeflex" // default
+			clusterName := DefaultKindClusterName // default
 			if len(args) > 0 {
 				clusterName = args[0]
 			}
