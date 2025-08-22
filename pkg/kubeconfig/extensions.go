@@ -20,8 +20,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/client-go/kubernetes"
+	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/clientcmd"
 	"time"
 
@@ -239,43 +240,50 @@ func CheckHostingClusterContextName(kconf clientcmdapi.Config) string {
 	}
 }
 
+func GetControlPlaneByContextName(kconf clientcmdapi.Config, ctxName string) string {
+	ctx, ok := kconf.Contexts[ctxName]
+	if !ok {
+		return DiagnosisStatusMissing
+	}
+	ext, ok := ctx.Extensions[ExtensionKubeflexKey]
+	if !ok {
+		return DiagnosisStatusMissing
+	}
+	ctxExtension := &RuntimeKubeflexExtension{}
+	if err := ConvertRuntimeObjectToRuntimeExtension(ext, ctxExtension); err != nil {
+		return DiagnosisStatusCritical
+	}
+	return ctxExtension.Data[ExtensionControlPlaneName]
+}
+
 func VerifyControlPlaneOnHostingCluster(kconf clientcmdapi.Config, ctxName string) string {
-	restConfig, err := clientcmd.NewDefaultClientConfig(kconf, &clientcmd.ConfigOverrides{}).ClientConfig()
-	if err != nil {
-		return DiagnosisStatusCritical
+	cpName := GetControlPlaneByContextName(kconf, ctxName)
+	if cpName == "" {
+		return DiagnosisStatusMissing
 	}
-
-	clientset, err := kubernetes.NewForConfig(restConfig)
-	if err != nil {
-		return DiagnosisStatusCritical
-	}
-
-	_, err = clientset.CoreV1().Namespaces().Get(context.Background(), ctxName, metav1.GetOptions{})
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return DiagnosisStatusMissing
-		}
-		return DiagnosisStatusCritical
-	}
-
-	pods, err := clientset.CoreV1().Pods(ctxName).List(context.Background(), metav1.ListOptions{
-		LabelSelector: LabelSelectorControlPlane,
+	currentContext := kconf.CurrentContext
+	clientConfig := clientcmd.NewDefaultClientConfig(kconf, &clientcmd.ConfigOverrides{
+		CurrentContext: currentContext,
 	})
-	if err != nil {
+	restConfig, _ := clientConfig.ClientConfig()
+	dynamicClient, _ := dynamic.NewForConfig(restConfig)
+	gvr := schema.GroupVersionResource{
+		Group:    "tenancy.kflex.kubestellar.org",
+		Version:  "v1alpha1",
+		Resource: "controlplanes",
+	}
+	controlPlane, _ := dynamicClient.Resource(gvr).Get(context.Background(), cpName, metav1.GetOptions{})
+	cp := &tenancyv1alpha1.ControlPlane{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(controlPlane.Object, cp); err != nil {
 		return DiagnosisStatusCritical
 	}
-
-	for _, pod := range pods.Items {
-		if pod.Status.Phase == corev1.PodRunning {
-			for _, cond := range pod.Status.Conditions {
-				if cond.Type == corev1.PodReady && cond.Status == corev1.ConditionTrue {
-					return DiagnosisStatusOK
-				}
-			}
+	conditions := cp.Status.Conditions
+	for _, condition := range conditions {
+		if condition.Type == "Ready" {
+			return DiagnosisStatusOK
 		}
 	}
-
-	return DiagnosisStatusMissing
+	return DiagnosisStatusCritical
 }
 
 func CheckContextScopeKubeflexExtensionSet(kconf clientcmdapi.Config, ctxName string) string {
