@@ -17,10 +17,17 @@ limitations under the License.
 package kubeconfig
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/go-logr/logr"
+	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/tools/clientcmd"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"time"
 
+	util "github.com/kubestellar/kubeflex/pkg/util"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -39,6 +46,7 @@ const (
 	DiagnosisStatusWarning             = "warning"
 	DiagnosisStatusOK                  = "ok"
 	DiagnosisStatusMissing             = "no kubeflex extension found"
+	LabelSelectorControlPlane          = "app.kubernetes.io/component=control-plane"
 )
 
 // Internal structure of Kubeflex global extension in a Kubeconfig file
@@ -234,20 +242,70 @@ func CheckHostingClusterContextName(kconf clientcmdapi.Config) string {
 	}
 }
 
+func GetControlPlaneByContextName(kconf clientcmdapi.Config, ctxName string) string {
+	ctx, ok := kconf.Contexts[ctxName]
+	if !ok {
+		return DiagnosisStatusMissing
+	}
+	ext, ok := ctx.Extensions[ExtensionKubeflexKey]
+	if !ok {
+		return DiagnosisStatusMissing
+	}
+	ctxExtension := &RuntimeKubeflexExtension{}
+	if err := ConvertRuntimeObjectToRuntimeExtension(ext, ctxExtension); err != nil {
+		return DiagnosisStatusCritical
+	}
+	return ctxExtension.Data[ExtensionControlPlaneName]
+}
+
 func VerifyControlPlaneOnHostingCluster(kconf clientcmdapi.Config, ctxName string) string {
-	// TODO: implement actual control plane verification logic
-	return DiagnosisStatusOK
+	cpName := GetControlPlaneByContextName(kconf, ctxName)
+	if cpName == "" {
+		return DiagnosisStatusMissing
+	}
+
+	clientConfig := clientcmd.NewDefaultClientConfig(kconf, &clientcmd.ConfigOverrides{
+		CurrentContext: kconf.CurrentContext,
+	})
+
+	restClient, err := clientConfig.ClientConfig()
+	if err != nil {
+		return DiagnosisStatusCritical
+	}
+
+	runtimeClient, err := client.New(restClient, client.Options{})
+	if err != nil {
+		return DiagnosisStatusCritical
+	}
+
+	controlPlane := &tenancyv1alpha1.ControlPlane{}
+	if err := runtimeClient.Get(context.TODO(), client.ObjectKey{Name: cpName}, controlPlane); err != nil {
+		if apierrors.IsNotFound(err) {
+			return DiagnosisStatusMissing
+		}
+		return DiagnosisStatusCritical
+	}
+
+	ready, err := util.IsAPIServerDeploymentReady(logr.Discard(), runtimeClient, *controlPlane)
+	if err != nil {
+		return DiagnosisStatusCritical
+	}
+
+	if ready {
+		return DiagnosisStatusOK
+	}
+	return DiagnosisStatusCritical
 }
 
 func CheckContextScopeKubeflexExtensionSet(kconf clientcmdapi.Config, ctxName string) string {
 	ctx, ok := kconf.Contexts[ctxName]
 	if !ok {
-		return DiagnosisStatusMissing // Context not found
+		return DiagnosisStatusMissing
 	}
 
 	ext, ok := ctx.Extensions[ExtensionKubeflexKey]
 	if !ok {
-		return DiagnosisStatusMissing // No kubeflex extension found
+		return DiagnosisStatusMissing
 	}
 
 	ctxExtension := &RuntimeKubeflexExtension{}

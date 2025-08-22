@@ -206,6 +206,8 @@ func TestCheckHostingClusterContextNameSingle(t *testing.T) {
 	}
 }
 
+
+
 func TestCheckContextScopeKubeflexExtensionSetNoKubeflexExtensions(t *testing.T) {
 	kconf := api.NewConfig()
 	kconf.Clusters["cluster1"] = &api.Cluster{Server: "https://example.com:6443"}
