@@ -20,12 +20,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/go-logr/logr"
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/tools/clientcmd"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"time"
 
+	util "github.com/kubestellar/kubeflex/pkg/util"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -261,27 +263,36 @@ func VerifyControlPlaneOnHostingCluster(kconf clientcmdapi.Config, ctxName strin
 	if cpName == "" {
 		return DiagnosisStatusMissing
 	}
-	currentContext := kconf.CurrentContext
+
 	clientConfig := clientcmd.NewDefaultClientConfig(kconf, &clientcmd.ConfigOverrides{
-		CurrentContext: currentContext,
+		CurrentContext: kconf.CurrentContext,
 	})
-	restConfig, _ := clientConfig.ClientConfig()
-	dynamicClient, _ := dynamic.NewForConfig(restConfig)
-	gvr := schema.GroupVersionResource{
-		Group:    "tenancy.kflex.kubestellar.org",
-		Version:  "v1alpha1",
-		Resource: "controlplanes",
-	}
-	controlPlane, _ := dynamicClient.Resource(gvr).Get(context.Background(), cpName, metav1.GetOptions{})
-	cp := &tenancyv1alpha1.ControlPlane{}
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(controlPlane.Object, cp); err != nil {
+
+	restClient, err := clientConfig.ClientConfig()
+	if err != nil {
 		return DiagnosisStatusCritical
 	}
-	conditions := cp.Status.Conditions
-	for _, condition := range conditions {
-		if condition.Type == "Ready" {
-			return DiagnosisStatusOK
+
+	runtimeClient, err := client.New(restClient, client.Options{})
+	if err != nil {
+		return DiagnosisStatusCritical
+	}
+
+	controlPlane := &tenancyv1alpha1.ControlPlane{}
+	if err := runtimeClient.Get(context.TODO(), client.ObjectKey{Name: cpName}, controlPlane); err != nil {
+		if apierrors.IsNotFound(err) {
+			return DiagnosisStatusMissing
 		}
+		return DiagnosisStatusCritical
+	}
+
+	ready, err := util.IsAPIServerDeploymentReady(logr.Discard(), runtimeClient, *controlPlane)
+	if err != nil {
+		return DiagnosisStatusCritical
+	}
+
+	if ready {
+		return DiagnosisStatusOK
 	}
 	return DiagnosisStatusCritical
 }
