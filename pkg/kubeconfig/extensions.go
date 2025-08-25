@@ -334,3 +334,22 @@ func CheckContextScopeKubeflexExtensionSet(kconf clientcmdapi.Config, ctxName st
 
 	return DiagnosisStatusOK
 }
+
+func CheckExtensionInitialContextNameSet(kconf clientcmdapi.Config) string {
+	runtimeObj, exists := kconf.Extensions[ExtensionKubeflexKey]
+	if !exists {
+		return DiagnosisStatusWarning
+	}
+
+	runtimeExtension := &RuntimeKubeflexExtension{}
+	if err := ConvertRuntimeObjectToRuntimeExtension(runtimeObj, runtimeExtension); err != nil {
+		return DiagnosisStatusWarning
+	}
+
+	val, ok := runtimeExtension.Data[ExtensionInitialContextName]
+	if !ok || val == "" {
+		return DiagnosisStatusWarning
+	}
+
+	return DiagnosisStatusOK
+}
