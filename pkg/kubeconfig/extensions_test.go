@@ -265,3 +265,54 @@ func TestCheckContextScopeKubeflexExtensionSetPartialData(t *testing.T) {
 		t.Errorf("Expected %s, got %s", DiagnosisStatusWarning, result)
 	}
 }
+
+func TestCountKubeflexControlPlaneContextsZero(t *testing.T) {
+	kconf := api.NewConfig()
+	kconf.Clusters["cluster1"] = &api.Cluster{Server: "https://example.com:6443"}
+	kconf.AuthInfos["user1"] = &api.AuthInfo{Token: "token"}
+
+	ext := NewRuntimeKubeflexExtension()
+	ext.Data[ExtensionContextsIsHostingCluster] = "true"
+
+	kconf.Contexts["ctx1"] = &api.Context{
+		Cluster:    "cluster1",
+		AuthInfo:   "user1",
+		Extensions: map[string]runtime.Object{ExtensionKubeflexKey: ext},
+	}
+
+	expected := 0
+	got := CountKubeflexControlPlaneContexts(*kconf)
+	if got != expected {
+		t.Errorf("Expected %d control plane context(s), got %d", expected, got)
+	}
+}
+
+func TestCountKubeflexControlPlaneContextsOne(t *testing.T) {
+	kconf := api.NewConfig()
+	kconf.Clusters["cluster1"] = &api.Cluster{Server: "https://example.com:6443"}
+	kconf.Clusters["cluster2"] = &api.Cluster{Server: "https://example2.com:6443"}
+	kconf.AuthInfos["user1"] = &api.AuthInfo{Token: "token"}
+
+	hostExt := NewRuntimeKubeflexExtension()
+	hostExt.Data[ExtensionContextsIsHostingCluster] = "true"
+	kconf.Contexts["ctx1"] = &api.Context{
+		Cluster:    "cluster1",
+		AuthInfo:   "user1",
+		Extensions: map[string]runtime.Object{ExtensionKubeflexKey: hostExt},
+	}
+
+	// Control plane
+	cpExt := NewRuntimeKubeflexExtension()
+	cpExt.Data[ExtensionControlPlaneName] = "control-plane-1"
+	kconf.Contexts["ctx2"] = &api.Context{
+		Cluster:    "cluster2",
+		AuthInfo:   "user1",
+		Extensions: map[string]runtime.Object{ExtensionKubeflexKey: cpExt},
+	}
+
+	expected := 1
+	got := CountKubeflexControlPlaneContexts(*kconf)
+	if got != expected {
+		t.Errorf("Expected %d control plane context(s), got %d", expected, got)
+	}
+}
