@@ -70,8 +70,8 @@ func (r *VClusterReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1
 
 	if err := r.BaseReconciler.ReconcileNamespace(ctx, hcp); err != nil {
 		if util.IsTransientError(err) {
-            return ctrl.Result{}, err
-        }
+			return ctrl.Result{}, err
+		}
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
@@ -142,28 +142,16 @@ func (r *VClusterReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1
 		return r.UpdateStatusForSyncingError(hcp, err)
 	}
 
+	// try to update kubeconfig secret to add the incluster config unconditionally
+	if err := r.ReconcileKubeconfigSecret(ctx, hcp); err != nil {
+		if util.IsTransientError(err) {
+			return ctrl.Result{}, err
+		}
+		return r.UpdateStatusForSyncingError(hcp, err)
+	}
+
 	r.UpdateStatusWithSecretRef(hcp, util.VClusterKubeConfigSecret,
 		util.KubeconfigSecretKeyVCluster, util.KubeconfigSecretKeyVClusterInCluster)
-
-	if hcp.Spec.PostCreateHook != nil &&
-		tenancyv1alpha1.HasConditionAvailable(hcp.Status.Conditions) {
-		if err := r.ReconcileUpdatePostCreateHook(ctx, hcp); err != nil {
-			if util.IsTransientError(err) {
-				return ctrl.Result{}, err
-			}
-			return r.UpdateStatusForSyncingError(hcp, err)
-		}
-	}
-
-	// update kubeconfig secret to add the incluster config
-	if tenancyv1alpha1.HasConditionAvailable(hcp.Status.Conditions) {
-		if err := r.ReconcileKubeconfigSecret(ctx, hcp); err != nil {
-			if util.IsTransientError(err) {
-				return ctrl.Result{}, err
-			}
-			return r.UpdateStatusForSyncingError(hcp, err)
-		}
-	}
 
 	return r.UpdateStatusForSyncingSuccess(ctx, hcp)
 }
