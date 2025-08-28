@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,7 +13,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
 package util
 
 import (
@@ -138,7 +137,7 @@ func IsAPIServerDeploymentReady(log logr.Logger, c client.Client, hcp tenancyv1a
 	case tenancyv1alpha1.ControlPlaneTypeHost, tenancyv1alpha1.ControlPlaneTypeExternal:
 		// host or external is always available
 		return true, nil
-	case tenancyv1alpha1.ControlPlaneTypeVCluster:
+	case tenancyv1alpha1.ControlPlaneTypeVCluster, tenancyv1alpha1.ControlPlaneTypeK3s:
 		s := &v1.StatefulSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      GetAPIServerDeploymentNameByControlPlaneType(string(hcp.Spec.Type)),
@@ -151,11 +150,9 @@ func IsAPIServerDeploymentReady(log logr.Logger, c client.Client, hcp tenancyv1a
 		}
 
 		// we need to ensure that there is al least one replica in the spec
-		if s.Status.ReadyReplicas == s.Status.Replicas &&
+		return s.Status.ReadyReplicas == s.Status.Replicas &&
 			s.Status.Replicas == *s.Spec.Replicas &&
-			*s.Spec.Replicas > 0 {
-			return true, nil
-		}
+			*s.Spec.Replicas > 0, nil
 	case tenancyv1alpha1.ControlPlaneTypeK8S, tenancyv1alpha1.ControlPlaneTypeOCM:
 		d := &v1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
@@ -169,24 +166,18 @@ func IsAPIServerDeploymentReady(log logr.Logger, c client.Client, hcp tenancyv1a
 			return false, err
 		}
 
-		log.Info("Deployment status check", "name", d.Name, "namespace", d.Namespace, 
-			"readyReplicas", d.Status.ReadyReplicas, "replicas", d.Status.Replicas, 
+		log.Info("Deployment status check", "name", d.Name, "namespace", d.Namespace,
+			"readyReplicas", d.Status.ReadyReplicas, "replicas", d.Status.Replicas,
 			"specReplicas", *d.Spec.Replicas)
 
 		// we need to ensure that there is al least one replica in the spec
-		if d.Status.ReadyReplicas == d.Status.Replicas &&
+		return d.Status.ReadyReplicas == d.Status.Replicas &&
 			d.Status.Replicas == *d.Spec.Replicas &&
-			*d.Spec.Replicas > 0 {
-			log.Info("Deployment is ready", "name", d.Name)
-			return true, nil
-		}
-		log.Info("Deployment is not ready", "name", d.Name)
+			*d.Spec.Replicas > 0, nil
 	default:
-		log.Error(fmt.Errorf("control plane type not supported"), "type", hcp.Spec.Type)
+		log.Error(fmt.Errorf("control plane type not supported"), "isAPIServerDeploymentReady failed", "type", hcp.Spec.Type)
 		return false, nil
 	}
-
-	return false, nil
 }
 
 func IsAPIServerDeploymentExists(c client.Client, hcp tenancyv1alpha1.ControlPlane) (bool, error) {

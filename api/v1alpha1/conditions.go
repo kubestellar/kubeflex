@@ -51,7 +51,7 @@ func AreConditionsEqual(c1, c2 ControlPlaneCondition) bool {
 // setCondition sets the supplied ControlPlaneCondition in
 // the given slice of conditions, replacing any existing conditions of
 // the same type. Returns the updated slice of conditions.
-func SetCondition(conditions []ControlPlaneCondition, newCondition ControlPlaneCondition) []ControlPlaneCondition {
+func setCondition(conditions []ControlPlaneCondition, newCondition ControlPlaneCondition) []ControlPlaneCondition {
 	for i, condition := range conditions {
 		if condition.Type == newCondition.Type {
 			conditions[i] = newCondition
@@ -117,7 +117,7 @@ func EnsureCondition(cp *ControlPlane, newCondition ControlPlaneCondition) {
 	if cp.Status.Conditions == nil {
 		cp.Status.Conditions = []ControlPlaneCondition{}
 	}
-	cp.Status.Conditions = SetCondition(cp.Status.Conditions, newCondition)
+	cp.Status.Conditions = setCondition(cp.Status.Conditions, newCondition)
 }
 
 // Creating returns a condition that indicates the cp is currently

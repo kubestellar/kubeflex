@@ -59,18 +59,18 @@ func (r *BaseReconciler) ReconcileUpdateClusterInfoJob(ctx context.Context, hcp 
 				return fmt.Errorf("failed to SetControllerReference: %w", err)
 			}
 			if err = r.Client.Create(ctx, job, &client.CreateOptions{}); err != nil {
-                if util.IsTransientError(err) {
-                    return err // Retry transient errors
-                }
-                return fmt.Errorf("failed to create job: %w", err)
-            }
-        } else if util.IsTransientError(err) {
-            return err // Retry transient errors
-        } else {
-            return fmt.Errorf("failed to get job: %w", err)
-        }
-    }
-    return nil
+				if util.IsTransientError(err) {
+					return err // Retry transient errors
+				}
+				return fmt.Errorf("failed to create job: %w", err)
+			}
+		} else if util.IsTransientError(err) {
+			return err // Retry transient errors
+		} else {
+			return fmt.Errorf("failed to get job: %w", err)
+		}
+	}
+	return nil
 }
 
 func generateClusterInfoJob(name, namespace, kubeconfigSecret, kubeconfigSecretKey, version string, cfg *SharedConfig) *batchv1.Job {
