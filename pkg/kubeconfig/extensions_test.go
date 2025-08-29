@@ -281,6 +281,10 @@ func TestCheckExtensionInitialContextNameSetFalse(t *testing.T) {
 func TestCheckExtensionInitialContextNameSetTrue(t *testing.T) {
 	kconf := api.NewConfig()
 
+	// create a valid context and cluster so validation succeeds
+	kconf.Contexts["kind-kubeflex"] = &api.Context{Cluster: "cluster1", AuthInfo: "user1"}
+	kconf.Clusters["cluster1"] = &api.Cluster{Server: "https://example.com:6443"}
+
 	ext := NewRuntimeKubeflexExtension()
 	ext.Data[ExtensionInitialContextName] = "kind-kubeflex"
 
@@ -291,5 +295,43 @@ func TestCheckExtensionInitialContextNameSetTrue(t *testing.T) {
 	status := CheckExtensionInitialContextNameSet(*kconf)
 	if status != DiagnosisStatusOK {
 		t.Errorf("Expected %s when ExtensionInitialContextName is set, got %s", DiagnosisStatusOK, status)
+	}
+}
+
+// When the extension points to a non-existent context it should be treated as not set
+func TestCheckExtensionInitialContextNameSetNonExistentContext(t *testing.T) {
+	kconf := api.NewConfig()
+
+	ext := NewRuntimeKubeflexExtension()
+	ext.Data[ExtensionInitialContextName] = "does-not-exist"
+
+	kconf.Extensions = map[string]runtime.Object{
+		ExtensionKubeflexKey: ext,
+	}
+
+	status := CheckExtensionInitialContextNameSet(*kconf)
+	if status != DiagnosisStatusWarning {
+		t.Errorf("Expected %s when ExtensionInitialContextName points to non-existent context, got %s", DiagnosisStatusWarning, status)
+	}
+}
+
+// When the extension points to a context whose cluster has no server, treat as not set
+func TestCheckExtensionInitialContextNameSetMissingClusterServer(t *testing.T) {
+	kconf := api.NewConfig()
+
+	// create context that references a cluster without server
+	kconf.Contexts["ctx-no-server"] = &api.Context{Cluster: "cluster-no-server", AuthInfo: "user1"}
+	kconf.Clusters["cluster-no-server"] = &api.Cluster{Server: ""}
+
+	ext := NewRuntimeKubeflexExtension()
+	ext.Data[ExtensionInitialContextName] = "ctx-no-server"
+
+	kconf.Extensions = map[string]runtime.Object{
+		ExtensionKubeflexKey: ext,
+	}
+
+	status := CheckExtensionInitialContextNameSet(*kconf)
+	if status != DiagnosisStatusWarning {
+		t.Errorf("Expected %s when ExtensionInitialContextName points to context with missing cluster server, got %s", DiagnosisStatusWarning, status)
 	}
 }
