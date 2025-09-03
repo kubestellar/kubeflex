@@ -85,6 +85,7 @@ spec:
     metadata:
       name: validation-{{.ControlPlaneName}}
     spec:
+      backoffLimit: 0
       template:
         spec:
           containers:

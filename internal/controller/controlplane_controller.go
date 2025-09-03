@@ -183,6 +183,7 @@ func (r *ControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	apiServerReady, err := util.IsAPIServerDeploymentReady(log, r.Client, *hcp)
 	if err != nil {
 		log.Error(err, "Error checking API server readiness", "controlPlane", hcp.Name)
+		return ctrl.Result{}, err
 	}
 	log.Info("API server readiness check", "controlPlane", hcp.Name, "apiServerReady", apiServerReady)
 

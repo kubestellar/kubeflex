@@ -79,15 +79,15 @@ kubectl --context cp1 wait --for=jsonpath='{.status.phase}'=Active ns/e2e --time
 
 :
 : -------------------------------------------------------------------------
-: Test PostCreateHook kubeconfig access
-:
-${SRC_DIR}/test-kubeconfig-access.sh -t k8s
-
-:
-: -------------------------------------------------------------------------
 : Delete ControlPlane cp1
 :
 ./bin/kflex delete cp1 --chatty-status=false
+
+:
+: -------------------------------------------------------------------------
+: Test PostCreateHook kubeconfig access
+:
+${SRC_DIR}/test-kubeconfig-access.sh -t k8s
 
 :
 : -------------------------------------------------------------------------
