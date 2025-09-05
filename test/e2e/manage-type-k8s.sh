@@ -85,5 +85,11 @@ kubectl --context cp1 wait --for=jsonpath='{.status.phase}'=Active ns/e2e --time
 
 :
 : -------------------------------------------------------------------------
+: Test PostCreateHook kubeconfig access
+:
+${SRC_DIR}/test-kubeconfig-access.sh -t k8s
+
+:
+: -------------------------------------------------------------------------
 : SUCCESS: manage a ControlPlane of type k8s
 :

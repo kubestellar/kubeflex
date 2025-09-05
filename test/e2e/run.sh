@@ -16,6 +16,19 @@
 set -x # echo so that users can understand what is happening
 set -e # exit on error
 
+# Change to repository root directory to ensure scripts work from any location
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+
+# Verify we found the repository root
+if [[ ! -f "${REPO_ROOT}/go.mod" ]]; then
+    echo "Error: Could not find repository root (go.mod not found in ${REPO_ROOT})"
+    exit 1
+fi
+
+cd "${REPO_ROOT}"
+echo "Running E2E tests from: ${PWD}"
+
 SRC_DIR="$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)"
 
 ${SRC_DIR}/cleanup.sh
@@ -25,3 +38,9 @@ ${SRC_DIR}/manage-type-vcluster.sh
 ${SRC_DIR}/manage-type-external.sh
 ${SRC_DIR}/manage-ctx.sh
 ${SRC_DIR}/test-custom-cluster-name.sh
+${SRC_DIR}/test-postcreate-completion.sh -t k8s
+${SRC_DIR}/test-postcreate-completion.sh -t vcluster
+${SRC_DIR}/test-postcreatehook-retry.sh -t k8s
+${SRC_DIR}/test-postcreatehook-retry.sh -t vcluster
+
+echo "SUCCESS: ALL TESTS PASSED..."

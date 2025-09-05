@@ -60,12 +60,5 @@ func (r *ExternalReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1
 
 	r.UpdateStatusWithSecretRef(hcp, util.AdminConfSecret, util.KubeconfigSecretKeyDefault, util.KubeconfigSecretKeyInCluster)
 
-	if hcp.Spec.PostCreateHook != nil &&
-		tenancyv1alpha1.HasConditionAvailable(hcp.Status.Conditions) {
-		if err := r.ReconcileUpdatePostCreateHook(ctx, hcp); err != nil {
-			return r.UpdateStatusForSyncingError(hcp, err)
-		}
-	}
-
 	return r.UpdateStatusForSyncingSuccess(ctx, hcp)
 }

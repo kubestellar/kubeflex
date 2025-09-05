@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/fatih/color"
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -76,6 +77,11 @@ func Command() *cobra.Command {
 // TODO: each CLI command should be independant to each other
 // replace the use of cx.ExecuteCtx by another mean
 func ExecuteCreate(cp common.CP, controlPlaneType string, backendType string, hook string, hookVars []string, chattyStatus bool) error {
+	// Check for OCM deprecation warning
+	if controlPlaneType == string(tenancyv1alpha1.ControlPlaneTypeOCM) {
+		color.Yellow("WARNING: OCM-type control plane is deprecated and will be removed in a future version. Consider using k8s or vcluster type instead.")
+	}
+
 	done := make(chan bool)
 	var wg sync.WaitGroup
 	cx := cont.CPCtx{}                               // this is always undefined control plane, hence
