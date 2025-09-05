@@ -16,6 +16,19 @@
 set -x # echo so that users can understand what is happening
 set -e # exit on error
 
+# Change to repository root directory to ensure scripts work from any location
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+
+# Verify we found the repository root
+if [[ ! -f "${REPO_ROOT}/go.mod" ]]; then
+    echo "Error: Could not find repository root (go.mod not found in ${REPO_ROOT})"
+    exit 1
+fi
+
+cd "${REPO_ROOT}"
+echo "Running E2E tests from: ${PWD}"
+
 SRC_DIR="$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)"
 
 ${SRC_DIR}/cleanup.sh
