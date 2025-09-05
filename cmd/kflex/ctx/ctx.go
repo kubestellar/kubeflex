@@ -103,10 +103,12 @@ func (cpCtx *CPCtx) ExecuteCtx(chattyStatus, failIfNone, overwriteExistingCtx, s
 		if kubeconfig.IsHostingClusterContextSet(kconf) {
 			util.PrintStatus("Switching to hosting cluster context...", done, &wg, chattyStatus)
 			if err = kubeconfig.SwitchToHostingClusterContext(kconf); err != nil {
-				return fmt.Errorf("error switching kubeconfig to hosting cluster context: %v", err)
-
+				// The stored hosting context is invalid (missing/removed cluster or server).
+				// Warn the user and proceed as if no hosting context was set.
+				fmt.Fprintf(os.Stderr, "warning: saved hosting cluster context is invalid, ignoring it: %v\n", err)
+			} else {
+				done <- true
 			}
-			done <- true
 		} else if failIfNone {
 			pclientset, err := kfclient.GetClientSet(cpCtx.Kubeconfig)
 			if err != nil {
