@@ -177,8 +177,21 @@ func GetHostingClusterContext(kconf *clientcmdapi.Config) (string, error) {
 		return "", fmt.Errorf("hosting cluster context data not set")
 	}
 	// make sure that context set in extension is a valid context
-	if _, ok := kconf.Contexts[kflexConfig.Extensions.HostingClusterContextName]; !ok {
+	ctxName := kflexConfig.Extensions.HostingClusterContextName
+	ctx, ok := kconf.Contexts[ctxName]
+	if !ok {
 		return "", fmt.Errorf("hosting cluster context data is set to a non-existing context")
+	}
+	// validate referenced cluster exists and has server info
+	if ctx.Cluster == "" {
+		return "", fmt.Errorf("hosting cluster context '%s' does not reference a cluster", ctxName)
+	}
+	cluster, ok := kconf.Clusters[ctx.Cluster]
+	if !ok {
+		return "", fmt.Errorf("cluster '%s' referenced by context '%s' does not exist", ctx.Cluster, ctxName)
+	}
+	if cluster.Server == "" {
+		return "", fmt.Errorf("cluster '%s' referenced by context '%s' has no server defined", ctx.Cluster, ctxName)
 	}
 	return kflexConfig.Extensions.HostingClusterContextName, nil
 }

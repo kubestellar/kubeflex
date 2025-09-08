@@ -20,12 +20,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"github.com/go-logr/logr"
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 
 	util "github.com/kubestellar/kubeflex/pkg/util"
 	corev1 "k8s.io/api/core/v1"
@@ -145,6 +146,17 @@ func NewKubeflexConfig(kconf clientcmdapi.Config) (*KubeflexConfig, error) {
 		runtimeExtension := &RuntimeKubeflexExtension{}
 		if err := ConvertRuntimeObjectToRuntimeExtension(runtimeObj, runtimeExtension); err != nil {
 			return nil, err
+		}
+		// Backwards compatibility: some older kubeconfigs used the key
+		// "kflex-initial-ctx-name". If present, map it to the
+		// current "hosting-cluster-ctx-name" key so the unmarshalling
+		// into KubeflexExtensions picks it up.
+		if runtimeExtension.Data != nil {
+			if legacy, ok := runtimeExtension.Data["kflex-initial-ctx-name"]; ok && legacy != "" {
+				if _, exists := runtimeExtension.Data[ExtensionHostingClusterContextName]; !exists || runtimeExtension.Data[ExtensionHostingClusterContextName] == "" {
+					runtimeExtension.Data[ExtensionHostingClusterContextName] = legacy
+				}
+			}
 		}
 		if err := kflexConfig.ConvertRuntimeExtensionToExtensions(runtimeExtension); err != nil {
 			return nil, err
@@ -348,6 +360,19 @@ func CheckExtensionInitialContextNameSet(kconf clientcmdapi.Config) string {
 
 	val, ok := runtimeExtension.Data[ExtensionInitialContextName]
 	if !ok || val == "" {
+		return DiagnosisStatusWarning
+	}
+
+	// Validate that the referenced context exists and references a cluster with server info.
+	ctx, exists := kconf.Contexts[val]
+	if !exists {
+		// treat as not set if pointing to non-existing context
+		return DiagnosisStatusWarning
+	}
+	if ctx.Cluster == "" {
+		return DiagnosisStatusWarning
+	}
+	if cluster, ok := kconf.Clusters[ctx.Cluster]; !ok || cluster.Server == "" {
 		return DiagnosisStatusWarning
 	}
 
