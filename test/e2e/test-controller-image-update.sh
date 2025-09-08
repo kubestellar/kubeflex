@@ -46,8 +46,8 @@ echo "Current image: $CURRENT_IMAGE"
 
 # Get current pod names to verify they change
 echo "3. Getting current pod names..."
-CURRENT_PODS=$(kubectl get pods -n kubeflex-system -l control-plane=controller-manager -o jsonpath='{.items[*].metadata.name}')
-echo "Current pods: $CURRENT_PODS"
+CURRENT_PODS=$(kubectl get pods -n kubeflex-system -l control-plane=controller-manager -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\n' | sort | tr '\n' ' ')
+echo "Current pods (sorted): $CURRENT_PODS"
 
 # Set a unique image tag to force a change
 echo "4. Setting unique image tag for testing..."
@@ -80,8 +80,8 @@ echo "New image: $NEW_IMAGE"
 
 # Get new pod names
 echo "8. Getting new pod names..."
-NEW_PODS=$(kubectl get pods -n kubeflex-system -l control-plane=controller-manager -o jsonpath='{.items[*].metadata.name}')
-echo "New pods: $NEW_PODS"
+NEW_PODS=$(kubectl get pods -n kubeflex-system -l control-plane=controller-manager -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\n' | sort | tr '\n' ' ')
+echo "New pods (sorted): $NEW_PODS"
 
 # Wait for deployment rollout to complete and all pods to be ready
 echo "9. Waiting for deployment rollout to complete..."
@@ -114,11 +114,11 @@ if [ "$CURRENT_IMAGE" = "$NEW_IMAGE" ]; then
     exit 1
 fi
 
-# Check if pods changed (new pods created)
+# Check if pods changed (new pods created) 
 if [ "$CURRENT_PODS" = "$NEW_PODS" ]; then
     echo " FAILURE: Pods did not change (no new pods created)"
-    echo "   Current pods: $CURRENT_PODS"
-    echo "   New pods: $NEW_PODS"
+    echo " Current pods (sorted): $CURRENT_PODS"
+    echo " New pods (sorted): $NEW_PODS"
     exit 1
 fi
 
