@@ -2,6 +2,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: "{{ .Release.Name }}"
+  namespace: kubeflex-system
 spec:
   template:
     metadata:
@@ -18,14 +19,14 @@ spec:
         volumeMounts:
         - name: hooks
           mountPath: "/etc/kube"
-          readOnly: true    
+          readOnly: true
       restartPolicy: OnFailure
       volumes:
       - name: hooks
         secret:
           secretName: postcreate-hooks
       restartPolicy: Never
-  backoffLimit: 4 
+  backoffLimit: 4
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -43,7 +44,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: default
-  namespace: '{{.Release.Namespace}}'
+  namespace: kubeflex-system
 roleRef:
   kind: ClusterRole
   name: postcreatehooks
