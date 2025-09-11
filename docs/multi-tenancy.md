@@ -29,7 +29,6 @@ As organizations scale their Kubernetes adoption, they face a fundamental questi
 **What KubeFlex Integrates With:**
 - **KubeVirt**: For VM-based worker nodes providing complete tenant isolation
 - **vCluster**: As a control plane type for lightweight virtual clusters
-- **Open Cluster Management**: For multi-cluster scenarios and edge deployments
 - **Standard Kubernetes Storage**: CSI drivers, persistent volumes, and storage classes
 
 **Integration Boundaries:**
@@ -38,24 +37,24 @@ KubeFlex focuses on control plane management and provides integration points rat
 ## Use Cases and Benefits
 
 ### 1. Multi-Tenant SaaS Platforms
-- **Challenge**: Provide isolated environments for hundreds of customers
-- **Solution**: Create lightweight control planes per customer using the `k8s` type
-- **Benefit**: Strong isolation without the cost of dedicated clusters
+- **Challenge**: Provide isolated environments for hundreds of customers  
+- **Solution**: Create lightweight control planes per customer using the `k8s` type  
+- **Benefit**: Strong isolation without the cost of dedicated clusters  
 
 ### 2. Enterprise Development Teams
-- **Challenge**: Multiple teams need Kubernetes access without cluster sprawl
-- **Solution**: Dedicated control planes with shared infrastructure
-- **Benefit**: Teams get cluster-admin privileges in their own control plane
+- **Challenge**: Multiple teams need Kubernetes access without cluster sprawl  
+- **Solution**: Dedicated control planes with shared infrastructure  
+- **Benefit**: Teams get cluster-admin privileges in their own control plane  
 
 ### 3. CI/CD and Testing
-- **Challenge**: Isolated environments for parallel testing
-- **Solution**: Ephemeral control planes created and destroyed per test run
-- **Benefit**: True isolation between test runs with quick provisioning
+- **Challenge**: Isolated environments for parallel testing  
+- **Solution**: Ephemeral control planes created and destroyed per test run  
+- **Benefit**: True isolation between test runs with quick provisioning  
 
 ### 4. Edge and Multi-Cluster Management
-- **Challenge**: Manage multiple edge locations with varying connectivity
-- **Solution**: Use `ocm` type control planes for edge cluster federation
-- **Benefit**: Centralized management with distributed execution
+- **Challenge**: Manage multiple edge locations with varying connectivity  
+- **Solution**: Use lightweight control planes for edge cluster federation  
+- **Benefit**: Centralized management with distributed execution  
 
 ## Advanced Configuration
 
@@ -121,6 +120,6 @@ This creates a control plane where workloads run in dedicated KubeVirt VMs, prov
 
 ## Next Steps
 
-- Start with the [Quick Start Guide](quickstart.md) to get hands-on experience
-- Read the [User's Guide](users.md) for detailed usage instructions
-- Explore [Architecture](architecture.md) to understand the technical implementation
+- Start with the [Quick Start Guide](quickstart.md) to get hands-on experience  
+- Read the [User's Guide](users.md) for detailed usage instructions  
+- Explore [Architecture](architecture.md) to understand the technical implementation  
