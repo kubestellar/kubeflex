@@ -194,7 +194,7 @@ chart: manifests kustomize
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default > chart/templates/operator.yaml
 	@cat config/samples/postcreate-hooks/openshift-crds.yaml > /tmp/hooks.yaml
-	@kubectl create secret generic postcreate-hooks --from-file=/tmp/hooks.yaml --dry-run=client --output=yaml > chart/templates/builtin-hooks.yaml
+	@kubectl create secret generic postcreate-hooks -n kubeflex-system --from-file=/tmp/hooks.yaml --dry-run=client --output=yaml > chart/templates/builtin-hooks.yaml
 	@mkdir -p chart/crds
 	$(KUSTOMIZE) build config/crd > chart/crds/crds.yaml
 
@@ -209,7 +209,7 @@ kind-load-image: ko-local-build
 
 .PHONY: install-local-chart
 install-local-chart: chart kind-load-image
-	helm upgrade --install --create-namespace -n kubeflex-system kubeflex-operator ./chart
+	helm upgrade --install kubeflex-operator ./chart
 
 ##@ Build Dependencies
 
