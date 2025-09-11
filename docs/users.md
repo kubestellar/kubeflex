@@ -98,16 +98,15 @@ you can use helm instead of the KubeFlex CLI. First, create the `kubeflex-system
 and install KubeFlex with the following commands:
 
 ```shell
-kubectl create ns kubeflex-system
 helm upgrade --install kubeflex-operator oci://ghcr.io/kubestellar/kubeflex/chart/kubeflex-operator \
 --version <latest-release-version-tag> \
---namespace kubeflex-system \
 --set domain=localtest.me \
 --set externalPort=9443
 ```
 
-The `kubeflex-system` namespace is required for installing and running KubeFlex. Do not use
-any other namespace for this purpose.
+The `kubeflex-system` namespace is required for installing and running KubeFlex.
+If it does not already exists, the Helm chart will create one.
+Do not use any other namespace for this purpose.
 
 ### Installing KubeFlex with helm on OpenShift
 
@@ -119,10 +118,8 @@ To install KubeFlex on OpenShift using helm, create the `kubeflex-system` namesp
 and install KubeFlex with the following commands:
 
 ```shell
-kubectl create ns kubeflex-system
 helm upgrade --install kubeflex-operator oci://ghcr.io/kubestellar/kubeflex/chart/kubeflex-operator \
 --version <latest-release-version-tag> \
---namespace kubeflex-system \
 --set isOpenShift=true
 ```
 
@@ -187,9 +184,9 @@ kflex ctx
 
 That command requires your kubeconfig file to hold an extension that `kflex init` created to hold the name of the hosting cluster context. See [below](#hosting-context) for more information.
 
-To update or refresh outdated or corrupted context information for a control plane stored in 
-the kubeconfig file, you can forcefully reload and overwrite the existing context data from 
-the KubeFlex hosting cluster. This can be accomplished by using the `--overwrite-existing-context` 
+To update or refresh outdated or corrupted context information for a control plane stored in
+the kubeconfig file, you can forcefully reload and overwrite the existing context data from
+the KubeFlex hosting cluster. This can be accomplished by using the `--overwrite-existing-context`
 flag. Here is an example:
 
 ```shell
@@ -315,22 +312,22 @@ To create a control plane of type `host` run the command:
 kflex create cp4 --type host
 ```
 
-To create a control plane of type `external` with the required options, run the command: 
+To create a control plane of type `external` with the required options, run the command:
 
 ```shell
 kflex adopt --adopted-context <kubeconfig-context-of-external-cluster> cp5
 ```
 
-*Important*: This command generates a secret containing a long-lived token for accessing 
-the external cluster within the namespace associated with the control plane. The secret is automatically 
+*Important*: This command generates a secret containing a long-lived token for accessing
+the external cluster within the namespace associated with the control plane. The secret is automatically
 removed when the associated control plane is deleted.
 
 ### Creating a control plane of type `external` with the API
 
-To create a control plane of type `external` with the API, you need to provide 
+To create a control plane of type `external` with the API, you need to provide
 first a **bootstrap secret** containing a bootstrap Kubeconfig for accessing the external cluster.
 The bootstrap Kubeconfig is used by the KubeFlex controllers to generate a long-lived
-token for accessing the external cluster.  The bootstrap kubeconfig is required to have only one context, 
+token for accessing the external cluster.  The bootstrap kubeconfig is required to have only one context,
 so given a Kubeconfig for the external cluster `$EXTERNAL_KUBECONFIG` with context for the external
 cluster `$EXTERNAL_CONTEXT` you can generate the `$BOOTSTRAP_KUBECONFIG` with the command:
 
@@ -340,7 +337,7 @@ kubectl --kubeconfig=$EXTERNAL_KUBECONFIG config view --minify --flatten \
 ```
 
 If the Kubeconfig for your external cluster uses a loopback address for the server URL, you
-need to follow these [steps](#determining-the-endpoint-for-an-external-cluster-using-loopback-address) 
+need to follow these [steps](#determining-the-endpoint-for-an-external-cluster-using-loopback-address)
 to determine the address to use for `cluster.server` in the Kubeconfig and set that value in
 the file referenced by`$BOOTSTRAP_KUBECONFIG` created in the previous step. If the address is the value of `$INTERNAL_ADDRESS` then you can update the bootstrap Kubeconfig as follows:
 
@@ -602,17 +599,17 @@ The nginx pod is the one with the name `nginx-x-default-x-vcluster`.
 ## Working with an external control plane
 
 In this section, we will show an example of creating an external control plane to adopt
-a kind cluster named `ext1`. This example supposes that the external cluster `ext1` 
+a kind cluster named `ext1`. This example supposes that the external cluster `ext1`
 and the KubeFlex hosting cluster are on the same docker network.
 
 ### Determining the endpoint for an external cluster using loopback address
 
-This is a common scenario when adopting kind or k3d. For clusters using the 
-default `kind` docker network, execute the following command to 
+This is a common scenario when adopting kind or k3d. For clusters using the
+default `kind` docker network, execute the following command to
 check the DNS name of the external cluster `ext1` on the docker network:
 
 ```shell
-docker inspect ext1-control-plane | jq '.[].NetworkSettings.Networks.kind.DNSNames' 
+docker inspect ext1-control-plane | jq '.[].NetworkSettings.Networks.kind.DNSNames'
 ```
 
 The output will show something similar to the following:
@@ -627,8 +624,8 @@ The output will show something similar to the following:
 The endpoint for the adopted cluster should then be set to `https://ext1-control-plane:6443`. Note that
 the port `6443` is a default value used by kind.
 
-If you're not utilizing the default `kind` network, you'll need to make sure that the external cluster `ext1` 
-and the KubeFlex hosting cluster are on the same docker network. 
+If you're not utilizing the default `kind` network, you'll need to make sure that the external cluster `ext1`
+and the KubeFlex hosting cluster are on the same docker network.
 
 ```shelll
 docker inspect ext1-control-plane | jq '.[].NetworkSettings.Networks | keys[]'
@@ -651,8 +648,8 @@ Explanation of command parameters:
 - `--url-override https://ext1-control-plane:6443`:
     This parameter sets the endpoint URL for the external control plane. It's crucial to use this option when the server URL in the existing kubeconfig uses a local loopback address, which is common for kind or k3d servers running on your local machine. Here, replace https://ext1-control-plane:6443 with the actual endpoint you have determined for your external control plane in the previous step.
 
-- `ext1`: 
-   This is the name of the new control plane.    
+- `ext1`:
+   This is the name of the new control plane.
 
 ### External clusters with reachable network address
 
@@ -760,8 +757,8 @@ With kflex CLI (you can use --postcreate-hook or -p):
 kflex create cp1 --postcreate-hook <my-hook-name> # e.g. kflex create cp1 -p hello
 ```
 
-While `kflex create` waits for the control plane to be available, it does not guarantee 
-the hook's completion. Use `kubectl` commands to verify the status of resources created 
+While `kflex create` waits for the control plane to be available, it does not guarantee
+the hook's completion. Use `kubectl` commands to verify the status of resources created
 by the hook.
 
 If you are using directly a ControlPlane CRD with kubectl, you can create a control plane
@@ -800,7 +797,7 @@ Currently avilable built-in objects are:
 ### User-Provided objects
 
 In addition to the built-in objects, you can specify your own objects
-to inject arbitrary values in the template. These objects are specified using 
+to inject arbitrary values in the template. These objects are specified using
 helm-like syntax as well:
 
 ```yaml
@@ -863,7 +860,7 @@ You can do this in either of the two following ways.
 
 If the relevant extension is missing then you can restore it by using
 `kubectl config use-context` to set the current context to the hosting
-cluster context and then using `kflex ctx --set-current-for-hosting` 
+cluster context and then using `kflex ctx --set-current-for-hosting`
 to restore the needed kubeconfig extension.
 
 ### Restore Hosting Context Preference by editing kubeconfig file
