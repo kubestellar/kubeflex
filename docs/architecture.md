@@ -12,29 +12,24 @@ KubeFlex implements a sophisticated multi-tenant architecture that separates con
 4. **Unified CLI (kflex)**: Single binary for initializing, managing, and switching between control planes
 5. **Storage Abstraction**: Configurable backends from shared Postgres to dedicated etcd
 
+because the controllers associated with these objects are not activated. 
+based on the  [vCluster Project](https://www.vcluster.com). This type of control 
+of the hosting cluster to create or delete control planes.
+
 ## Supported Control Plane Types
 
-KubeFlex is a flexible framework that supports various kinds of control planes, such as:
+KubeFlex is a flexible framework that supports four main kinds of control planes:
 
-- *k8s*: a basic Kubernetes API Server with a subset of kube controllers. 
-The control plane in this context does not execute workloads, such as pods, 
-because the controllers associated with these objects are not activated. 
-This environment is referred to as 'denatured' because it lacks the typical 
-characteristics and functionalities of a standard Kubernetes cluster
-It uses about 350 MB of memory per instance with a shared Postgres Database Backend.
+- *k8s*: a basic Kubernetes API Server with a subset of kube controllers. The control plane in this context does not execute workloads, such as pods, because the controllers associated with these objects are not activated. This environment is referred to as 'denatured' because it lacks the typical characteristics and functionalities of a standard Kubernetes cluster. It uses about 350 MB of memory per instance with a shared Postgres Database Backend.
 
-- *vcluster*: a virtual cluster that runs on the hosting cluster, 
-based on the  [vCluster Project](https://www.vcluster.com). This type of control 
-plane can run pods using worker nodes of the hosting cluster.
+- *vcluster*: a virtual cluster that runs on the hosting cluster, based on the [vCluster Project](https://www.vcluster.com). This type of control plane can run pods using worker nodes of the hosting cluster. 
+  - *Note*: OCM (Open Cluster Management) functionality is available through vcluster integration; there is no separate OCM control plane type.
 
 - *host*: the KubeFlex hosting cluster, which is exposed as a control plane.
 
-- *external*: an external cluster that is imported as a control plane (this
-is in the roadmap but not yet implemented)
+- *external*: an external cluster that is imported as a control plane (this is in the roadmap but not yet implemented)
 
-When using KubeFlex, users interact with the API server 
-of the hosting cluster to create or delete control planes.
-KubeFlex defines a ControlPlane CRD that represents a Control Plane.
+When using KubeFlex, users interact with the API server of the hosting cluster to create or delete control planes. KubeFlex defines a ControlPlane CRD that represents a Control Plane.
 
 ![image info](./images/kubeflex-architecture.png)
 
