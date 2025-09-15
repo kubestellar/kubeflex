@@ -28,24 +28,26 @@ import (
 )
 
 const (
-	APIServerDeploymentName              = "kube-apiserver"
-	OCMServerDeploymentName              = "multicluster-controlplane"
-	VClusterServerDeploymentName         = "vcluster"
+	APIServerDeploymentName              = "kube-apiserver"            // TODO: move to its reconciler component (k8s)
+	OCMServerDeploymentName              = "multicluster-controlplane" // TODO: move to its reconciler component (ocm)
+	VClusterServerDeploymentName         = "vcluster"                  // TODO: move to its reconciler component (vcluster)
 	CMDeploymentName                     = "kube-controller-manager"
 	ProjectName                          = "kubeflex"
 	DBReleaseName                        = "postgres"
 	SystemNamespace                      = "kubeflex-system"
 	SystemConfigMap                      = "kubeflex-config"
-	AdminConfSecret                      = "admin-kubeconfig"
-	OCMKubeConfigSecret                  = "multicluster-controlplane-kubeconfig"
-	VClusterKubeConfigSecret             = "vc-vcluster"
-	VClusterNodePortServiceName          = "vcluster-nodeport"
-	VClusterServiceName                  = "vcluster"
+	AdminConfSecret                      = "admin-kubeconfig"                     // TODO to replace as it is defined in reconciler component (k3s)
+	OCMKubeConfigSecret                  = "multicluster-controlplane-kubeconfig" // TODO to replace as it is defined in reconciler component (k3s)
+	VClusterKubeConfigSecret             = "vc-vcluster"                          // TODO to replace as it is defined in reconciler component (k3s)
+	VClusterNodePortServiceName          = "vcluster-nodeport"                    // TODO to replace as it is defined in reconciler component (k3s)
+	VClusterServiceName                  = "vcluster"                             // TODO to replace as it is defined in reconciler component (k3s)
+	K3sKubeConfigSecret                  = "k3s-config"                           // TODO to replace as it is defined in reconciler component (k3s)
+	K3sServerDeploymentName              = "k3s-server"                           // TODO to replace as it is defined in reconciler component (k3s)
 	KubeconfigSecretKeyDefault           = "kubeconfig"
 	KubeconfigSecretKeyInCluster         = "kubeconfig-incluster"
-	KubeconfigSecretKeyVCluster          = "config"
-	KubeconfigSecretKeyVClusterInCluster = "config-incluster"
-	NamespaceSuffix                      = "-system"
+	KubeconfigSecretKeyVCluster          = "config"           // NOTE reuse by k3s
+	KubeconfigSecretKeyVClusterInCluster = "config-incluster" // NOTE reuse by k3s
+	NamespaceSuffix                      = "-system"          // TODO: change to SystemNamespaceSuffix
 )
 
 func GenerateNamespaceFromControlPlaneName(name string) string {
@@ -111,6 +113,8 @@ func GetKubeconfSecretNameByControlPlaneType(controlPlaneType string) string {
 		return OCMKubeConfigSecret
 	case string(tenancyv1alpha1.ControlPlaneTypeVCluster):
 		return VClusterKubeConfigSecret
+	case string(tenancyv1alpha1.ControlPlaneTypeK3s):
+		return K3sKubeConfigSecret
 	default:
 		// TODO - should we instead throw an error?
 		return AdminConfSecret
@@ -121,7 +125,7 @@ func GetKubeconfSecretKeyNameByControlPlaneType(controlPlaneType string) string 
 	switch controlPlaneType {
 	case string(tenancyv1alpha1.ControlPlaneTypeK8S), string(tenancyv1alpha1.ControlPlaneTypeOCM):
 		return KubeconfigSecretKeyDefault
-	case string(tenancyv1alpha1.ControlPlaneTypeVCluster):
+	case string(tenancyv1alpha1.ControlPlaneTypeVCluster), string(tenancyv1alpha1.ControlPlaneTypeK3s):
 		return KubeconfigSecretKeyVCluster
 	default:
 		// TODO - should we instead throw an error?
@@ -137,6 +141,8 @@ func GetAPIServerDeploymentNameByControlPlaneType(controlPlaneType string) strin
 		return OCMServerDeploymentName
 	case string(tenancyv1alpha1.ControlPlaneTypeVCluster):
 		return VClusterServerDeploymentName
+	case string(tenancyv1alpha1.ControlPlaneTypeK3s):
+		return K3sServerDeploymentName
 	default:
 		// TODO - should we instead throw an error?
 		return APIServerDeploymentName

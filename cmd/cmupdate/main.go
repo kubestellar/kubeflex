@@ -36,6 +36,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/ocm"
+	"github.com/kubestellar/kubeflex/pkg/reconcilers/shared"
 	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
@@ -166,7 +167,7 @@ func retrieveServiceNodePort(clientset *kubernetes.Clientset, name, ns string, c
 		return -1, err
 	}
 	for _, port := range svc.Spec.Ports {
-		if port.Name == "https" {
+		if port.Name == shared.DefaultPortName {
 			return port.NodePort, nil
 		}
 	}

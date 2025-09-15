@@ -41,6 +41,7 @@ import (
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/external"
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/host"
+	"github.com/kubestellar/kubeflex/pkg/reconcilers/k3s"
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/k8s"
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/ocm"
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/shared"
@@ -162,6 +163,8 @@ func (r *ControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		reconciler = host.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
 	case tenancyv1alpha1.ControlPlaneTypeExternal:
 		reconciler = external.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
+	case tenancyv1alpha1.ControlPlaneTypeK3s:
+		reconciler = k3s.New(r.Client, r.Scheme, r.Version, r.ClientSet, r.DynamicClient, r.EventRecorder)
 	default:
 		return ctrl.Result{}, fmt.Errorf("unsupported control plane type: %s", hcp.Spec.Type)
 	}
@@ -201,17 +204,24 @@ func (r *ControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// PHASE 3: PostCreateHook processing
 	if hcp.Spec.PostCreateHook != nil || len(hcp.Spec.PostCreateHooks) > 0 {
 		log.Info("Processing PostCreateHooks with complete kubeconfig")
+		switch pchReconciler := reconciler.(type) {
+			case shared.PostCreateHookReconciler:
+			// Reconciler that supports PostCreateHook
+				if err := pchReconciler.ReconcileUpdatePostCreateHook(ctx, hcp); err != nil {
+					log.Error(err, "Failed to process PostCreateHooks")
+					return ctrl.Result{}, err
+				}
 
-		if err := reconciler.ReconcileUpdatePostCreateHook(ctx, hcp); err != nil {
-			log.Error(err, "Failed to process PostCreateHooks")
-			return ctrl.Result{}, err
+				// Refresh hcp object after PCH processing
+				if err := r.Get(ctx, client.ObjectKey{Name: hcp.Name}, hcp); err != nil {
+					log.Error(err, "Failed to refresh ControlPlane after hook processing")
+					return ctrl.Result{}, err
+				}
+			default:
+				// Simple reconciler
+				break
 		}
-
-		// Refresh hcp object after PCH processing
-		if err := r.Get(ctx, client.ObjectKey{Name: hcp.Name}, hcp); err != nil {
-			log.Error(err, "Failed to refresh ControlPlane after hook processing")
-			return ctrl.Result{}, err
-		}
+		
 	}
 
 	// Determine overall controlplane readiness based on both API server and PCHs
