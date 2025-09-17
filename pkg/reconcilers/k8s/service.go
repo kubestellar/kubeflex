@@ -74,9 +74,9 @@ func generateAPIServerService(name, namespace string) *corev1.Service {
 			Type: corev1.ServiceTypeNodePort,
 			Ports: []corev1.ServicePort{
 				{
-					Port:       shared.DefaulPort,
+					Port:       shared.DefaultPort,
 					TargetPort: intstr.FromInt(shared.SecurePort),
-					Name:       "https",
+					Name:       shared.DefaultPortName,
 					Protocol:   "TCP",
 				},
 			},

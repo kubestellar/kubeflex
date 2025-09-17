@@ -1,8 +1,8 @@
 package kubeconfig
 
 import (
-	"testing"
 	"k8s.io/client-go/tools/clientcmd/api"
+	"testing"
 )
 
 // Setup and teardown helpers
@@ -59,4 +59,4 @@ func TestAssignControlPlaneToContext_Negative_ContextDoesNotExist(t *testing.T) 
 	if err == nil {
 		t.Fatalf("expected error for nonexistent context, got nil")
 	}
-} 
+}

@@ -56,6 +56,8 @@ spec:
             description: ControlPlaneSpec defines the desired state of ControlPlane
             properties:
               backend:
+                description: backend refers to the database type used by the control
+                  plane
                 enum:
                 - shared
                 - dedicated
@@ -121,12 +123,14 @@ spec:
                 format: int64
                 type: integer
               type:
+                description: type refers to the control plane type
                 enum:
                 - k8s
                 - ocm
                 - vcluster
                 - host
                 - external
+                - k3s
                 type: string
               waitForPostCreateHooks:
                 default: false

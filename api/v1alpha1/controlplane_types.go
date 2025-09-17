@@ -22,8 +22,12 @@ import (
 
 // ControlPlaneSpec defines the desired state of ControlPlane
 type ControlPlaneSpec struct {
-	Type    ControlPlaneType `json:"type,omitempty"`
-	Backend BackendDBType    `json:"backend,omitempty"`
+	// type refers to the control plane type
+	// +required
+	Type ControlPlaneType `json:"type,omitempty"`
+	// backend refers to the database type used by the control plane
+	// +required
+	Backend BackendDBType `json:"backend,omitempty"`
 	// bootstrapSecretRef contains a reference to the kubeconfig used to bootstrap adoption of
 	// an external cluster
 	// +optional
@@ -101,7 +105,7 @@ const (
 	BackendDBTypeDedicated BackendDBType = "dedicated"
 )
 
-// +kubebuilder:validation:Enum=k8s;ocm;vcluster;host;external
+// +kubebuilder:validation:Enum=k8s;ocm;vcluster;host;external;k3s
 type ControlPlaneType string
 
 const (
@@ -110,6 +114,7 @@ const (
 	ControlPlaneTypeVCluster ControlPlaneType = "vcluster"
 	ControlPlaneTypeHost     ControlPlaneType = "host"
 	ControlPlaneTypeExternal ControlPlaneType = "external"
+	ControlPlaneTypeK3s      ControlPlaneType = "k3s"
 )
 
 // SecretReference is a reference to a secret that holds the kubeconfigs for

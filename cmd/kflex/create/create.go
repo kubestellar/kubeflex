@@ -31,6 +31,7 @@ import (
 	"github.com/kubestellar/kubeflex/pkg/certs"
 	kfclient "github.com/kubestellar/kubeflex/pkg/client"
 	"github.com/kubestellar/kubeflex/pkg/kubeconfig"
+	"github.com/kubestellar/kubeflex/pkg/reconcilers/k3s"
 	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
@@ -65,7 +66,7 @@ func Command() *cobra.Command {
 	}
 
 	flagset := command.Flags()
-	flagset.StringP(ControlPlaneTypeFlag, "t", CTypeDefault, "type of control plane: k8s|ocm|vcluster")
+	flagset.StringP(ControlPlaneTypeFlag, "t", CTypeDefault, "type of control plane: k8s|k3s|ocm|vcluster")
 	flagset.StringP(BackendTypeFlag, "b", BKTypeDefault, "backend DB sharing: shared|dedicated")
 	flagset.StringP(common.PostCreateHookFlag, "p", "", "name of post create hook to run")
 	flagset.BoolP(common.ChattyStatusFlag, "s", true, "chatty status indicator")
@@ -110,24 +111,30 @@ func ExecuteCreate(cp common.CP, controlPlaneType string, backendType string, ho
 	clientset := *clientsetp
 
 	util.PrintStatus("Waiting for API server to become ready...", done, &wg, chattyStatus)
-	kubeconfig.WatchForSecretCreation(clientset, cp.Name, util.GetKubeconfSecretNameByControlPlaneType(controlPlaneType))
-
 	switch controlPlaneType {
 	case string(tenancyv1alpha1.ControlPlaneTypeHost):
 		// hosting cluster is always ready
 	case string(tenancyv1alpha1.ControlPlaneTypeVCluster):
+
+		kubeconfig.WatchForSecretCreation(clientset, cp.Name, util.GetKubeconfSecretNameByControlPlaneType(controlPlaneType))
 		if err := util.WaitForStatefulSetReady(clientset,
 			util.GetAPIServerDeploymentNameByControlPlaneType(controlPlaneType),
+			// TODO replace util.GenerateNamespaceFromControlPlaneName like in k3s
 			util.GenerateNamespaceFromControlPlaneName(controlPlane.Name)); err != nil {
-
 			return fmt.Errorf("error waiting for stateful set to become ready: %v", err)
 		}
 	case string(tenancyv1alpha1.ControlPlaneTypeK8S), string(tenancyv1alpha1.ControlPlaneTypeOCM):
+		kubeconfig.WatchForSecretCreation(clientset, cp.Name, util.GetKubeconfSecretNameByControlPlaneType(controlPlaneType))
 		if err := util.WaitForDeploymentReady(clientset,
 			util.GetAPIServerDeploymentNameByControlPlaneType(controlPlaneType),
+			// TODO replace util.GenerateNamespaceFromControlPlaneName like in k3s
 			util.GenerateNamespaceFromControlPlaneName(controlPlane.Name)); err != nil {
-
 			return fmt.Errorf("error waiting for deployment to become ready: %v", err)
+		}
+	case string(tenancyv1alpha1.ControlPlaneTypeK3s):
+		kubeconfig.WatchForSecretCreation(clientset, cp.Name, k3s.KubeconfigSecretName)
+		if err := util.WaitForStatefulSetReady(clientset, k3s.ServerName, util.GenerateNamespaceFromControlPlaneName(controlPlane.Name)); err != nil {
+			return fmt.Errorf("error waiting for stateful set to become ready: %v", err)
 		}
 	default:
 		return fmt.Errorf("unknown control plane type: %s", controlPlaneType)
@@ -141,7 +148,6 @@ func ExecuteCreate(cp common.CP, controlPlaneType string, backendType string, ho
 	if err = kubeconfig.AssignControlPlaneToContext(kconf, cp.Name, certs.GenerateContextName(cp.Name)); err != nil {
 		return fmt.Errorf("error assigning control plane to context as kubeconfig extension: %v", err)
 	}
-	
 	kubeconfig.WriteKubeconfig(cp.Kubeconfig, kconf)
 	wg.Wait()
 	return nil

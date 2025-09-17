@@ -26,37 +26,38 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	clog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 )
 
 func (r *BaseReconciler) ReconcileNamespace(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
+	log := clog.FromContext(ctx)
 	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
-
 	// create namespace object
 	ns := &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: namespace,
 		},
 	}
-
+	log.Info("ReconcileNamespace to create", "ns", ns)
 	err := r.Client.Get(ctx, client.ObjectKeyFromObject(ns), ns, &client.GetOptions{})
 	if err != nil {
-        if apierrors.IsNotFound(err) {
-            if err := controllerutil.SetControllerReference(hcp, ns, r.Scheme); err != nil {
-                return fmt.Errorf("failed to SetControllerReference: %w", err)
-            }
-            if err = r.Client.Create(ctx, ns, &client.CreateOptions{}); err != nil {
-                if util.IsTransientError(err) {
-                    return err
-                }
-                return fmt.Errorf("failed to create namespace: %w", err)
-            }
-        } else if util.IsTransientError(err) {
-            return err 
-        } else {
-            return fmt.Errorf("failed to get namespace: %w", err)
-        }
-    }
-    return nil
+		if apierrors.IsNotFound(err) {
+			if err := controllerutil.SetControllerReference(hcp, ns, r.Scheme); err != nil {
+				return fmt.Errorf("failed to SetControllerReference: %w", err)
+			}
+			if err = r.Client.Create(ctx, ns, &client.CreateOptions{}); err != nil {
+				if util.IsTransientError(err) {
+					return err
+				}
+				return fmt.Errorf("failed to create namespace: %w", err)
+			}
+		} else if util.IsTransientError(err) {
+			return err
+		} else {
+			return fmt.Errorf("failed to get namespace: %w", err)
+		}
+	}
+	return nil
 }

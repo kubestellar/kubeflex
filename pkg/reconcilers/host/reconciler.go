@@ -54,26 +54,33 @@ func (r *HostReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.Con
 	_ = clog.FromContext(ctx)
 
 	if err := r.BaseReconciler.ReconcileNamespace(ctx, hcp); err != nil {
-		return r.UpdateStatusForSyncingError(hcp, err)
+		return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 	}
 
 	if err := r.ReconcileServiceAccount(ctx, hcp); err != nil {
-		return r.UpdateStatusForSyncingError(hcp, err)
+		return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 	}
 
 	if err := r.ReconcileServiceAccountSecret(ctx, hcp); err != nil {
-		return r.UpdateStatusForSyncingError(hcp, err)
+		return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 	}
 
 	if err := r.ReconcileKubeconfigSecret(ctx, hcp); err != nil {
-		return r.UpdateStatusForSyncingError(hcp, err)
+		return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 	}
 
 	if err := r.ReconcileClusterRoleBinding(ctx, hcp); err != nil {
-		return r.UpdateStatusForSyncingError(hcp, err)
+		return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 	}
 
 	r.UpdateStatusWithSecretRef(hcp, util.AdminConfSecret, util.KubeconfigSecretKeyDefault, util.KubeconfigSecretKeyInCluster)
+
+	if hcp.Spec.PostCreateHook != nil &&
+		tenancyv1alpha1.HasConditionAvailable(hcp.Status.Conditions) {
+		if err := r.ReconcileUpdatePostCreateHook(ctx, hcp); err != nil {
+			return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
+		}
+	}
 
 	return r.UpdateStatusForSyncingSuccess(ctx, hcp)
 }

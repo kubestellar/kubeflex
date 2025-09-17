@@ -20,6 +20,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/kubestellar/kubeflex/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -28,7 +29,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	clog "sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/certs"
 	"github.com/kubestellar/kubeflex/pkg/reconcilers/shared"
 	"github.com/kubestellar/kubeflex/pkg/util"
@@ -51,43 +51,43 @@ func New(cl client.Client, scheme *runtime.Scheme, version string, clientSet *ku
 	}
 }
 func (r *K8sReconciler) Reconcile(ctx context.Context, hcp *v1alpha1.ControlPlane) (ctrl.Result, error) {
-	var routeURL string
 	log := clog.FromContext(ctx)
+	var routeURL string
 
 	cfg, err := r.BaseReconciler.GetConfig(ctx)
 	if err != nil {
-		return r.UpdateStatusForSyncingError(hcp, err)
+		return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 	}
 
 	if err := r.BaseReconciler.ReconcileNamespace(ctx, hcp); err != nil {
-		return r.UpdateStatusForSyncingError(hcp, err)
+		return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 	}
 
 	if err = r.ReconcileAPIServerService(ctx, hcp); err != nil {
-		return r.UpdateStatusForSyncingError(hcp, err)
+		return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 	}
 
 	if cfg.IsOpenShift {
 		if err = r.ReconcileAPIServerRoute(ctx, hcp, "", shared.SecurePort, cfg.Domain); err != nil {
-			return r.UpdateStatusForSyncingError(hcp, err)
+			return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 		}
 		routeURL, err = r.GetAPIServerRouteURL(ctx, hcp)
 		if err != nil {
-			return r.UpdateStatusForSyncingError(hcp, err)
+			return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 		}
 		// re-queue until valid route URL is retrieved
 		if routeURL == "" {
 			return ctrl.Result{RequeueAfter: 3 * time.Second}, nil
 		}
 	} else {
-		if err = r.ReconcileAPIServerIngress(ctx, hcp, "", shared.DefaulPort, cfg.Domain); err != nil {
-			return r.UpdateStatusForSyncingError(hcp, err)
+		if err = r.ReconcileAPIServerIngress(ctx, hcp, "", shared.DefaultPort, cfg.Domain); err != nil {
+			return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 		}
 	}
 
 	crts, err := r.ReconcileCertsSecret(ctx, hcp, cfg, routeURL)
 	if err != nil {
-		return r.UpdateStatusForSyncingError(hcp, err)
+		return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 	}
 
 	confGen := &certs.ConfigGen{
@@ -99,27 +99,32 @@ func (r *K8sReconciler) Reconcile(ctx context.Context, hcp *v1alpha1.ControlPlan
 	// reconcile kubeconfig for admin
 	confGen.Target = certs.Admin
 	if err = r.ReconcileKubeconfigSecret(ctx, crts, confGen, hcp); err != nil {
-		return r.UpdateStatusForSyncingError(hcp, err)
+		return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 	}
 
 	// reconcile kubeconfig for cm
 	confGen.Target = certs.ControllerManager
 	confGen.CpHost = hcp.Name
 	if err = r.ReconcileKubeconfigSecret(ctx, crts, confGen, hcp); err != nil {
-		return r.UpdateStatusForSyncingError(hcp, err)
+		return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 	}
 
 	if err = r.ReconcileAPIServerDeployment(ctx, hcp, cfg.IsOpenShift); err != nil {
-		return r.UpdateStatusForSyncingError(hcp, err)
+		return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 	}
 
 	if err = r.ReconcileCMDeployment(ctx, hcp); err != nil {
-		return r.UpdateStatusForSyncingError(hcp, err)
+		return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
 	}
 
 	r.UpdateStatusWithSecretRef(hcp, util.AdminConfSecret, util.KubeconfigSecretKeyDefault, util.KubeconfigSecretKeyInCluster)
 
-	log.Info("K8s reconciler completed - hook processing delegated to main controller", "controlPlane", hcp.Name)
-
+	if hcp.Spec.PostCreateHook != nil &&
+		v1alpha1.HasConditionAvailable(hcp.Status.Conditions) {
+		if err := r.ReconcileUpdatePostCreateHook(ctx, hcp); err != nil {
+			return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
+		}
+	}
+	log.Info("Reconcile is done")
 	return r.UpdateStatusForSyncingSuccess(ctx, hcp)
 }
