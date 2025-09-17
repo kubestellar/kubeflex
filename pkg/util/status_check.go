@@ -167,8 +167,8 @@ func IsAPIServerDeploymentReady(log logr.Logger, c client.Client, hcp tenancyv1a
 			return false, err
 		}
 
-		log.Info("Deployment status check", "name", d.Name, "namespace", d.Namespace, 
-			"readyReplicas", d.Status.ReadyReplicas, "replicas", d.Status.Replicas, 
+		log.Info("Deployment status check", "name", d.Name, "namespace", d.Namespace,
+			"readyReplicas", d.Status.ReadyReplicas, "replicas", d.Status.Replicas,
 			"specReplicas", *d.Spec.Replicas)
 
 		// we need to ensure that there is al least one replica in the spec
