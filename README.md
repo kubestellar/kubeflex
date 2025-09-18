@@ -31,7 +31,14 @@ KubeFlex implements a sophisticated multi-tenant architecture that separates con
 - **k8s**: Lightweight Kubernetes API server (~350MB) with essential controllers, using shared Postgres via Kine
 - **vcluster**: Full virtual clusters based on the vCluster project, sharing host cluster worker nodes
 - **host**: The hosting cluster itself exposed as a control plane for management scenarios
-- **ocm**: Open Cluster Management control plane for multi-cluster federation scenarios
+- **external**: Import existing external clusters under KubeFlex management (roadmap)
+
+KubeFlex focuses on four main control plane types:
+
+- **k8s**: Lightweight Kubernetes API server (~350MB) with essential controllers, using shared Postgres via Kine
+- **vcluster**: Full virtual clusters based on the vCluster project, sharing host cluster worker nodes. 
+	- *Note*: OCM (Open Cluster Management) functionality is available through vcluster integration; there is no separate OCM control plane type.
+- **host**: The hosting cluster itself exposed as a control plane for management scenarios
 - **external**: Import existing external clusters under KubeFlex management (roadmap)
 
 For detailed architecture information, see the [Architecture Guide](docs/architecture.md).
