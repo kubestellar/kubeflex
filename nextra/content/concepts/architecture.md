@@ -8,127 +8,113 @@ KubeFlex implements a sophisticated multi-tenant architecture that separates con
 
 ## Core Components
 
-- KubeFlex Controller (operator):
-  - Reconciles `ControlPlane` CRs
-  - Creates/manages namespaces, API servers, controller managers, Services, Ingress/Routes, and kubeconfig secrets
-  - Orchestrates PostCreateHooks and status reporting
-- Tenant Control Planes:
-  - One per tenant, isolated API server
-  - Controller manager with essential controllers (namespace, gc, service accounts, etc.)
-- Flexible Data Plane:
-  - Shared hosting cluster nodes, vCluster virtual nodes, or dedicated KubeVirt VMs (integration point)
-- CLI (`kflex`):
-  - Initializes hosting cluster (optionally creates kind cluster and installs operator)
-  - Creates, lists, deletes control planes; manages kubeconfig contexts (`ctx`)
-- Storage Abstraction:
-  - Shared PostgreSQL via Kine (for `k8s`)
-  - Embedded sqlite/etcd + PV (for `vcluster`)
-  - Note: OCM runs inside `vcluster` (standalone OCM type deprecated)
+### KubeFlex Controller (Operator)
+
+The KubeFlex controller is the central operator that manages the lifecycle of control planes in the hosting cluster. It continuously reconciles `ControlPlane` custom resources to ensure the desired state matches the actual state. The controller is responsible for creating and managing namespaces, API servers, controller managers, Services, Ingress or Routes, and kubeconfig secrets for each tenant control plane. Additionally, it orchestrates PostCreateHooks and maintains status reporting to provide visibility into the health and state of each control plane.
+
+### Tenant Control Planes
+
+Each tenant receives a dedicated, isolated API server that provides strong multi-tenant isolation. Every tenant control plane includes a controller manager that runs essential Kubernetes controllers such as namespace, garbage collection, and service account controllers. This architecture ensures that each tenant has their own control plane without the overhead of running a complete, separate Kubernetes cluster.
+
+### Flexible Data Plane
+
+KubeFlex supports multiple data plane configurations to meet different requirements. Workloads can run on shared hosting cluster nodes, leverage vCluster virtual nodes for additional isolation, or use dedicated KubeVirt virtual machines as an integration point for stronger compute isolation.
+
+### CLI (kflex)
+
+The `kflex` command-line interface provides a unified tool for managing KubeFlex installations and control planes. It can initialize the hosting cluster, optionally creating a kind cluster and installing the operator. The CLI handles creating, listing, and deleting control planes, and manages kubeconfig contexts through the `ctx` command to enable seamless switching between different control planes.
+
+### Storage Abstraction
+
+KubeFlex provides flexible storage backends depending on the control plane type. For `k8s` control planes, a shared PostgreSQL instance accessed via Kine provides efficient, multi-tenant storage. For `vcluster` control planes, each instance uses embedded sqlite or etcd with a persistent volume for data durability. Note that OCM functionality is now provided by running OCM inside `vcluster` control planes, as the standalone OCM control plane type has been deprecated.
 
 ## Supported Control Plane Types
 
-- `k8s`: Upstream API server + subset of controllers; no pod workloads in this control plane; ~350MB memory; shared PostgreSQL backend via Kine
-- `k3s`: K3s-based lightweight API server optimized for edge deployments; similar architecture to k8s but with K3s optimizations for reduced resource footprint
-- `vcluster`: Full virtual cluster capable of running pods on hosting cluster workers; API server + embedded etcd in one process; mounts a PV for persistence. OCM is run inside vcluster rather than as a standalone control plane type.
-- `host`: Exposes the hosting cluster as a control plane abstraction; only in-cluster kubeconfig applies
-- `external`: Represents an existing cluster not created by KubeFlex; adopted via bootstrap kubeconfig to mint a long‑lived token; only in-cluster kubeconfig is used by controllers
+KubeFlex supports multiple control plane types to accommodate different use cases and resource requirements.
+
+### k8s
+
+The `k8s` control plane type provides an upstream Kubernetes API server with a subset of core controllers. This type does not support running pod workloads directly in the control plane and typically uses around 350MB of memory per instance. It uses a shared PostgreSQL backend via Kine for efficient multi-tenant storage.
+
+### k3s
+
+The `k3s` control plane type leverages the [K3s distribution](https://k3s.io), which packages Kubernetes as a single binary with embedded etcd and components. In KubeFlex, k3s runs as a StatefulSet with dedicated persistent volumes for data storage. It is optimized for edge deployments and resource-constrained environments, offering a lightweight yet complete Kubernetes cluster while maintaining full Kubernetes compatibility.
+
+### vcluster
+
+The `vcluster` control plane type provides a virtual Kubernetes control plane that runs inside a namespace of the KubeFlex hosting cluster. Based on the [vCluster project](https://www.vcluster.com), it includes a virtual API server and embedded etcd that run together in a single process, with a persistent volume mounted for data persistence. Vcluster uses a syncer component to mirror workload resources (pods, services, configmaps, etc.) from the virtual control plane to the hosting cluster, where they are actually scheduled and executed on the host's worker nodes. This virtualization approach enables strong control plane isolation while sharing the underlying data plane infrastructure. OCM functionality is supported by running OCM inside vcluster control planes rather than as a standalone control plane type.
+
+### host
+
+The `host` control plane type exposes the hosting cluster itself as a control plane abstraction. This type only provides in-cluster kubeconfig access since it represents the cluster where KubeFlex is running.
+
+### external
+
+The `external` control plane type represents an existing Kubernetes cluster not created by KubeFlex. It is adopted into KubeFlex management via a bootstrap kubeconfig, which is used to mint a long-lived token for ongoing access. Only the in-cluster kubeconfig is used by controllers for this type.
 
 API types are defined under `api/v1alpha1` and CRDs in `config/crd/bases`.
 
-## Control Plane Lifecycle (Reconcile Flow)
-
-When a `ControlPlane` is created (via `kflex create my-app` or `kubectl apply`):
-
-1. The operator creates a namespace `my-app-system`
-2. Deploys the tenant API server pod
-   - `k8s`: configured for shared PostgreSQL (in `kubeflex-system`) using Kine
-   - `k3s`: similar to k8s but uses K3s optimizations; configured for shared PostgreSQL using Kine
-   - `vcluster`: API server + embedded etcd as a single process; mounts a PV
-   - OCM: not created as a standalone type; run OCM inside `vcluster` when needed
-   - `host`/`external`: no hosted API server is created
-3. Deploys a controller manager pod with essential controllers, targeting the tenant API server
-4. Creates a Service and an Ingress/Route to expose the tenant API server externally
-   - Not created for `host` and `external` types
-5. Creates Secrets with kubeconfigs:
-   - `admin-kubeconfig` (off-cluster access)
-   - `cm-kubeconfig` (in-cluster access)
-6. Applies PostCreateHooks (if any) and optionally waits for completion
-7. Updates `.status` fields including `synced`, `ready`, and post-create hook statuses
-
-`kflex` then fetches the off-cluster kubeconfig, merges it locally, and can switch context (`kflex ctx my-app`). For `host` control planes, it switches to the hosting cluster context.
-
 ## Storage Architecture
 
-### Shared PostgreSQL via Kine (for `k8s`)
+### Shared PostgreSQL via Kine (for k8s)
 
-- A single PostgreSQL instance (in `kubeflex-system`) is shared by multiple control planes
-- The API server uses Kine to speak etcd API backed by PostgreSQL
-- PostgreSQL is installed/configured via PostCreateHook Jobs rather than a Helm subchart to:
-  - Avoid Helm conditional subchart issues on older Helm versions
-  - Enable OpenShift‑specific templating (values.yaml cannot be templated in subcharts)
-  - Support runtime variable substitution and per‑control‑plane dynamic configuration
+For `k8s` control plane types, KubeFlex uses a single PostgreSQL instance deployed in the `kubeflex-system` namespace that is shared across multiple control planes. This approach significantly reduces resource overhead compared to running dedicated etcd instances for each control plane. The API server communicates with PostgreSQL through Kine, a translation layer that implements the etcd API while using PostgreSQL as the backing store.
 
-See [PostgreSQL Architecture Decision](../../../docs/postgresql-architecture-decision.md) for details.
+PostgreSQL installation and configuration is handled via PostCreateHook Jobs rather than as a Helm subchart. This design decision provides several benefits: it avoids Helm conditional subchart issues that can occur with older Helm versions, enables OpenShift-specific templating (since values.yaml files cannot be templated in Helm subcharts), and supports runtime variable substitution and per-control-plane dynamic configuration.
+
+For more detailed information about this architectural choice, see the [PostgreSQL Architecture Decision](../../../docs/postgresql-architecture-decision.md) document.
+
+### Dedicated Embedded Storage (for vcluster and k3s)
+
+For `vcluster` control plane types, the API server and embedded etcd run together in a single process, with a persistent volume mounted to ensure data durability. This embedded approach provides strong isolation for each virtual cluster while maintaining the performance benefits of co-located storage.
+
+For `k3s` control plane types, the K3s distribution runs as a StatefulSet with its own embedded etcd and dedicated persistent volumes for data storage. The K3s server manages both the control plane components and storage in an integrated manner, providing a complete, lightweight Kubernetes cluster with strong isolation.
 
 ### Notes on OCM
 
-- The OCM-type control plane is deprecated. For KubeStellar, OCM is preferred to run inside a `vcluster` so the project can track upstream OCM releases.
-
-### Embedded etcd/sqlite (for `vcluster`)
-
-- API server and etcd run in one process; PV mounted for persistence
+The OCM-type control plane has been deprecated. For KubeStellar deployments, OCM is now preferred to run inside a `vcluster` control plane, which allows the project to track upstream OCM releases more easily and provides better isolation.
 
 ## Networking & Access
 
-- External access for hosted control planes is provided via Ingress (nginx SSL passthrough) or OpenShift Route
-- DNS defaults to `*.localtest.me` for local development (resolves to 127.0.0.1)
-- In-cluster access uses the internal service `https://my-app.my-app-system:9443` and the `cm-kubeconfig`
-- For cross-kind networking, use the docker internal DNS name of the control-plane node (see [User's Guide](../../../docs/users.md) Debugging/Access sections)
+KubeFlex provides multiple mechanisms for accessing tenant control planes depending on the deployment environment and access requirements.
+
+For external access to hosted control planes, KubeFlex creates either an Ingress resource (using nginx with SSL passthrough) or an OpenShift Route, depending on the underlying platform. These resources expose the tenant API server externally, allowing users and tools to interact with the control plane from outside the hosting cluster.
+
+For local development environments, KubeFlex defaults to using the `*.localtest.me` DNS wildcard, which conveniently resolves to 127.0.0.1 without requiring additional DNS configuration. This enables developers to quickly test multi-tenant scenarios on their local machines.
+
+In-cluster access, used primarily by controllers and operators running within the hosting cluster, leverages the internal Kubernetes service DNS. For example, a control plane named `my-app` can be accessed at `https://my-app.my-app-system:9443` using the `cm-kubeconfig` secret. This internal access path provides better performance and doesn't traverse external ingress layers.
+
+For cross-kind cluster networking scenarios, where multiple kind clusters need to communicate, the docker internal DNS name of the control-plane node should be used. Additional details about debugging and access patterns can be found in the [User's Guide](../../../docs/users.md) Debugging/Access sections.
 
 ## PostCreateHooks
 
-- Define a `PostCreateHook` CR with one or more templates to apply after control plane creation
-- Multiple hooks per control plane are supported via `spec.postCreateHooks`
-- Variable precedence when rendering templates:
-  1) System vars: `Namespace`, `ControlPlaneName`, `HookName`
-  2) Per-hook vars: `postCreateHooks[].vars`
-  3) Global vars: `globalVars`
-  4) Default vars: `PostCreateHook.spec.defaultVars`
-- `waitForPostCreateHooks: true` makes readiness depend on hook completion
+PostCreateHooks provide a powerful mechanism for automating configuration and setup tasks after a control plane is created. Users can define a `PostCreateHook` custom resource that contains one or more Kubernetes resource templates to be applied automatically.
 
-Examples: [`config/samples/postcreate-hooks`](../../../config/samples/postcreate-hooks) (hello, openshift‑crds, postgres)
+The control plane specification supports multiple hooks through the `spec.postCreateHooks` field, allowing administrators to compose complex initialization sequences. When rendering hook templates, KubeFlex applies a well-defined variable precedence order: system variables (such as `Namespace`, `ControlPlaneName`, and `HookName`) take the highest priority, followed by per-hook variables defined in `postCreateHooks[].vars`, then global variables from `globalVars`, and finally default variables from `PostCreateHook.spec.defaultVars`. This precedence system enables flexible configuration while maintaining sensible defaults.
 
-## CLI Overview (Context Management)
+Control plane creators can optionally set `waitForPostCreateHooks: true` to make the control plane's readiness status depend on the successful completion of all hooks. This ensures that the control plane is not marked as ready until all initialization tasks have finished.
 
-- `kflex init`: install operator, optionally create kind cluster and configure ingress
-- `kflex create my-app`: create control plane, wait, merge kubeconfig
-- `kflex ctx [my-app]`: switch contexts; flags include `--overwrite-existing-context` and `--set-current-for-hosting`
-- `kflex delete my-app`: delete control plane and clean local kubeconfig context
-- `kflex list`: list control planes
-
-Context metadata is stored in kubeconfig extensions. The hosting context name is required for switching back (`kflex ctx`). See [Hosting Context](../../../docs/users.md#hosting-context).
-
-## Performance & Scalability
-
-- **Resource Usage**: `k8s` type uses ~350MB memory per control plane; `k3s` optimized for lower resource usage
-- **Database Scalability**: Shared PostgreSQL backend can support hundreds of lightweight control planes
-- **Horizontal Scaling**: Multiple KubeFlex operators can run across different hosting clusters
-- **Storage Performance**: Dedicated etcd for `vcluster` provides better performance isolation
-- **Network Optimization**: In-cluster access bypasses external ingress for better latency
+Example PostCreateHook definitions can be found in [`config/samples/postcreate-hooks`](../../../config/samples/postcreate-hooks), including samples for hello-world scenarios, OpenShift CRDs, and PostgreSQL installation.
 
 ## Security Considerations
 
-- **Tenant Isolation**: Each control plane runs in its own namespace with dedicated API server and RBAC
-- **Network Security**: External access secured via TLS with certificate-based authentication
-- **Secret Management**: Kubeconfig secrets are automatically rotated and scoped per control plane
-- **Token Lifecycle**: Long-lived tokens for external clusters are managed with configurable expiration
-- **RBAC**: Fine-grained permissions can be configured via PostCreateHooks
+Security is a fundamental aspect of KubeFlex's multi-tenant architecture, with isolation mechanisms built in at multiple layers.
+
+Tenant isolation is achieved by providing each control plane with its own namespace, dedicated API server, and independent RBAC configuration. This ensures that tenants cannot access or interfere with each other's resources.
+
+Network security for external access is enforced through TLS encryption with certificate-based authentication, ensuring that only authorized users can communicate with tenant control planes. Kubeconfig secrets are automatically managed, scoped per control plane, and can be rotated to maintain security hygiene.
+
+For external clusters managed through the `external` control plane type, long-lived tokens are generated and managed with configurable expiration policies, reducing the risk of compromised credentials. Fine-grained RBAC permissions can be configured through PostCreateHooks, allowing administrators to implement principle of least privilege tailored to each tenant's requirements.
 
 ## Common Operational Notes
 
-- Do not change kubeconfig current context between `kflex init` and `kflex create` by other means; the CLI records the hosting context when switching
-- On OpenShift, use Route instead of Ingress; PostgreSQL and security contexts require conditional templating (handled by hooks)
-- For external clusters, generate a bootstrap kubeconfig with a single context; the controller mints a long‑lived token and removes the bootstrap secret
+When working with KubeFlex, there are several operational best practices to keep in mind.
+
+The `kflex` CLI records the hosting context name when switching between control planes, so it's important not to change the kubeconfig current context through other means (such as `kubectl config use-context`) between running `kflex init` and `kflex create`. Doing so may cause the CLI to lose track of the hosting context.
+
+For OpenShift deployments, Route resources should be used instead of Ingress for exposing control planes. Additionally, PostgreSQL and security context configurations require conditional templating to accommodate OpenShift's stricter security policies. These platform-specific requirements are handled automatically through PostCreateHooks.
+
+When adopting external clusters into KubeFlex management, administrators should generate a bootstrap kubeconfig with a single context. The KubeFlex controller uses this bootstrap kubeconfig to mint a long-lived token for ongoing access and then removes the bootstrap secret for security purposes.
 
 ## Next Steps
 
