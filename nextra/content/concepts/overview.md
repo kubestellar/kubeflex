@@ -34,15 +34,15 @@ For detailed information about each type, see the [User's Guide](../../../docs/u
 
 ## How It Works
 
-Getting started with KubeFlex follows a straightforward workflow that takes users from installation to managing multiple control planes.
+KubeFlex achieves multi-tenancy through a combination of Kubernetes-native concepts and architectural patterns that provide strong isolation while maintaining operational efficiency.
 
-First, install the KubeFlex operator on a hosting cluster using `kflex init`. This command sets up the necessary components to begin hosting tenant control planes.
+At its core, KubeFlex leverages the Kubernetes operator pattern through a custom controller that watches and reconciles `ControlPlane` custom resources. When a control plane is requested, the controller orchestrates the creation of isolated Kubernetes API servers, each running in a dedicated namespace within the hosting cluster. This namespace-based isolation provides the first layer of separation between tenants.
 
-To create a control plane, use `kflex create <name>` or apply a `ControlPlane` custom resource with `kubectl`. The KubeFlex controller responds by creating a dedicated namespace following the `<name>-system` pattern and deploying the required components: a tenant API server, a controller manager with essential Kubernetes controllers, a Service and Ingress or Route for external access, and secrets containing both off-cluster and in-cluster kubeconfigs.
+Each tenant control plane consists of its own API server instance and controller manager, which together form an independent Kubernetes control plane. The API server maintains its own etcd or database backend (depending on the control plane type), ensuring complete data isolation between tenants. The controller manager runs only essential Kubernetes controllers, providing the core control plane functionality without the overhead of a full cluster.
 
-Once the control plane is ready, users can retrieve and switch to its context using `kflex ctx <name>`, enabling immediate interaction with the new tenant control plane using standard Kubernetes tools like `kubectl`.
+KubeFlex exposes each tenant's API server through Kubernetes Service and Ingress or Route resources, enabling external access via TLS-secured endpoints. Authentication and authorization are handled independently per tenant through dedicated kubeconfig secrets, with separate credentials for external access and in-cluster communication.
 
-Most control plane types share common elements including a dedicated namespace (`<cp>-system`), a Service and Ingress or Route for API server access (except for `host` and `external` types), and two kubeconfig secrets: `admin-kubeconfig` for off-cluster access and `cm-kubeconfig` for in-cluster access.
+The architecture separates concerns between the control plane (managed by KubeFlex) and the data plane (where workloads execute). Depending on the control plane type, workloads can run on shared host cluster nodes (vcluster), dedicated node pools, or as completely isolated environments (k3s), providing flexibility in the isolation-versus-efficiency trade-off.
 
 ## Storage and Backends
 
@@ -62,17 +62,17 @@ PostCreateHooks enable powerful automation by executing templated Kubernetes res
 
 Multiple hooks can be specified in the `ControlPlane.spec.postCreateHooks` field, allowing complex initialization sequences to be composed. For scenarios where the control plane should not be considered ready until initialization is complete, setting `waitForPostCreateHooks: true` makes the control plane's readiness status depend on successful hook completion.
 
-## Who Uses KubeFlex
+## Use Cases
 
-KubeFlex serves a diverse range of users and use cases across the Kubernetes ecosystem.
+KubeFlex addresses several common challenges in Kubernetes multi-tenancy and platform engineering.
 
-Platform Engineers use KubeFlex to build multi-tenant platforms that serve many internal teams, providing each team with dedicated control planes while maintaining centralized management and cost efficiency.
+Platform engineers can build internal development platforms where multiple teams share infrastructure while maintaining isolation. Each team receives a dedicated control plane, enabling self-service Kubernetes environments without the cost and complexity of managing separate physical clusters.
 
-Developers leverage KubeFlex to create isolated development and test environments that mirror production configurations without the overhead of spinning up complete Kubernetes clusters for each environment.
+Development and testing workflows benefit from KubeFlex's ability to provide isolated environments that mirror production configurations. Teams can spin up temporary control planes for feature development, integration testing, or CI/CD pipelines, then tear them down when no longer needed, optimizing resource utilization.
 
-Operations teams rely on KubeFlex to reduce cluster sprawl while maintaining strong isolation boundaries between different applications, business units, or customers.
+Organizations seeking to reduce cluster sprawl can consolidate workloads from multiple small clusters onto shared infrastructure while preserving strong isolation boundaries. This approach maintains separation between applications, business units, or customers without the operational overhead of managing numerous physical clusters.
 
-SaaS Providers implement KubeFlex to deliver per-customer control planes that provide excellent isolation and customization capabilities while keeping infrastructure costs manageable through shared hosting resources.
+SaaS providers can leverage KubeFlex to deliver per-customer Kubernetes environments, offering tenants the full Kubernetes API experience with strong isolation guarantees. This enables customization and flexibility while keeping infrastructure costs manageable through shared underlying resources.
 
 ## Quick Start
 
