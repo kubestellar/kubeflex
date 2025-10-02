@@ -1,6 +1,6 @@
 # KubeFlex Overview
 
-KubeFlex is a CNCF sandbox project under the KubeStellar umbrella that enables "control-plane-as-a-service" multi-tenancy for Kubernetes. It provides a new approach to multi-tenancy by offering each tenant their own dedicated Kubernetes control plane and data-plane nodes in a cost-effective manner.
+KubeFlex is part of KubeStellar, which is part of the CNCF Sandbox Program. It enables "control-plane-as-a-service" multi-tenancy for Kubernetes, providing a new approach to multi-tenancy by offering each tenant their own dedicated Kubernetes control plane and data-plane nodes in a cost-effective manner.
 
 ## Why KubeFlex
 
