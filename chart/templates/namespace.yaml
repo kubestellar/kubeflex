@@ -1,0 +1,6 @@
+{{- if and (ne .Release.Namespace "kubeflex-system") (not (lookup "v1" "Namespace" "" "kubeflex-system")) }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kubeflex-system
+{{- end }}
