@@ -345,8 +345,7 @@ the URL for the server as `https://kubeflex-control-plane:<nodeport>`
 At this time KubFlex supports the following control plane types:
 
 - k8s: this is the stock Kube API server with a subset of controllers running in the controller manager.
-- ocm: this is the [Open Cluster Management Multicluster Control Plane](https://github.com/open-cluster-management-io/multicluster-controlplane), which provides a basic set of capabilities such as
-clusters registration and support for the [`ManifestWork` API](https://open-cluster-management.io/concepts/manifestwork/).
+(https://open-cluster-management.io/concepts/manifestwork/).
 - vcluster: this is based on the [vcluster project](https://www.vcluster.com) and provides the ability to create pods in the hosting namespace of the hosting cluster.
 - host: this control plane type exposes the underlying hosting cluster with the same control plane abstraction
 used by the other control plane types.
@@ -359,7 +358,6 @@ each type the ability to choose if etcd or sql. At this time only the following
 combinations are supported based on control plane type:
 
 - k8s: shared postgresql
-- ocm: dedicated etcd
 - vcluster: dedicated sqlite
 
 ## Creating with a selected control plane type
@@ -371,12 +369,6 @@ To create a control plane of type `vcluster` run the command:
 
 ```shell
 kflex create cp2 --type vcluster
-```
-
-To create a control plane of type `ocm` run the command:
-
-```shell
-kflex create cp3 --type ocm
 ```
 
 To create a control plane of type `host` run the command:

@@ -62,7 +62,7 @@ func serverLabels() map[string]string {
 }
 
 // build container image with tag of k3s apiserver
-// see https://hub.docker.com/r/rancher/k3s/tags
+// see https://github.com/k3s-io/k3s/releases for available versions
 func containerImage() string {
 	imageTag := "v1.30.13-k3s1" // To update
 	return fmt.Sprintf("%s:%s", ServerDockerImage, imageTag)

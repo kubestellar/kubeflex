@@ -205,23 +205,23 @@ func (r *ControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	if hcp.Spec.PostCreateHook != nil || len(hcp.Spec.PostCreateHooks) > 0 {
 		log.Info("Processing PostCreateHooks with complete kubeconfig")
 		switch pchReconciler := reconciler.(type) {
-			case shared.PostCreateHookReconciler:
+		case shared.PostCreateHookReconciler:
 			// Reconciler that supports PostCreateHook
-				if err := pchReconciler.ReconcileUpdatePostCreateHook(ctx, hcp); err != nil {
-					log.Error(err, "Failed to process PostCreateHooks")
-					return ctrl.Result{}, err
-				}
+			if err := pchReconciler.ReconcileUpdatePostCreateHook(ctx, hcp); err != nil {
+				log.Error(err, "Failed to process PostCreateHooks")
+				return ctrl.Result{}, err
+			}
 
-				// Refresh hcp object after PCH processing
-				if err := r.Get(ctx, client.ObjectKey{Name: hcp.Name}, hcp); err != nil {
-					log.Error(err, "Failed to refresh ControlPlane after hook processing")
-					return ctrl.Result{}, err
-				}
-			default:
-				// Simple reconciler
-				break
+			// Refresh hcp object after PCH processing
+			if err := r.Get(ctx, client.ObjectKey{Name: hcp.Name}, hcp); err != nil {
+				log.Error(err, "Failed to refresh ControlPlane after hook processing")
+				return ctrl.Result{}, err
+			}
+		default:
+			// Simple reconciler
+			break
 		}
-		
+
 	}
 
 	// Determine overall controlplane readiness based on both API server and PCHs

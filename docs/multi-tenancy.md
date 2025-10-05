@@ -26,14 +26,14 @@ As organizations scale their Kubernetes adoption, they face a fundamental questi
 - CLI tooling for tenant management
 - Integration hooks for post-creation workflows
 
+
 **What KubeFlex Integrates With:**
 - **KubeVirt**: For VM-based worker nodes providing complete tenant isolation
-- **vCluster**: As a control plane type for lightweight virtual clusters
-- **Open Cluster Management**: For multi-cluster scenarios and edge deployments
+- **vCluster**: As a control plane type for lightweight virtual clusters (also enables OCM-like multi-cluster scenarios)
 - **Standard Kubernetes Storage**: CSI drivers, persistent volumes, and storage classes
 
 **Integration Boundaries:**
-KubeFlex focuses on control plane management and provides integration points rather than reimplementing existing solutions. For example, when using KubeVirt for data plane isolation, KubeFlex creates the control plane while KubeVirt handles VM provisioning and management.
+KubeFlex focuses on control plane management and provides integration points rather than reimplementing existing solutions. For example, when using KubeVirt for data plane isolation, KubeFlex creates the control plane while KubeVirt handles VM provisioning and management. For multi-cluster and OCM-like scenarios, use the vcluster control plane type.
 
 ## Use Cases and Benefits
 
@@ -54,12 +54,12 @@ KubeFlex focuses on control plane management and provides integration points rat
 
 ### 4. Edge and Multi-Cluster Management
 - **Challenge**: Manage multiple edge locations with varying connectivity
-- **Solution**: Use `ocm` type control planes for edge cluster federation
+- **Solution**: Use lightweight type control planes for edge cluster federation
 - **Benefit**: Centralized management with distributed execution
 
 ## Advanced Configuration
 
-### Custom Control Plane Components
+### Custom Control Plane Components (Supported Types: k8s, vcluster, host, external)
 
 ```yaml
 apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
