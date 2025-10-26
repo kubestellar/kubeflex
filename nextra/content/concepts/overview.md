@@ -43,3 +43,45 @@ Each tenant control plane consists of its own API server instance and controller
 KubeFlex exposes each tenant's API server through Kubernetes Service and Ingress or Route resources, enabling external access via TLS-secured endpoints. Authentication and authorization are handled independently per tenant through dedicated kubeconfig secrets, with separate credentials for external access and in-cluster communication.
 
 The architecture separates concerns between the control plane (managed by KubeFlex) and the data plane (where workloads execute). Depending on the control plane type, workloads can run on shared host cluster nodes (vcluster), dedicated node pools, or as completely isolated environments (k3s), providing flexibility in the isolation-versus-efficiency trade-off.
+
+## Storage and Backends
+
+KubeFlex provides flexible storage backends tailored to different control plane types and operational requirements.
+
+The `k8s` control plane type uses a shared PostgreSQL instance accessed through Kine, which translates the etcd API to PostgreSQL. This shared approach dramatically reduces resource overhead while supporting hundreds of lightweight control planes.
+
+Both `k3s` and `vcluster` control plane types use dedicated embedded storage with persistent volumes. K3s runs as a complete Kubernetes distribution with its own embedded etcd, while vcluster combines the API server and embedded etcd in a single process. These dedicated storage approaches provide stronger isolation for each control plane. Vcluster can additionally host OCM workloads.
+
+PostgreSQL installation for the `k8s` type is implemented through PostCreateHook Jobs rather than as a Helm subchart. This design choice ensures compatibility with older Helm versions, enables OpenShift-specific templating (which isn't possible with Helm subchart values.yaml files), and provides runtime flexibility for per-control-plane variables and dynamic naming.
+
+For a detailed explanation of this architectural decision, see the [PostgreSQL Architecture Decision](../../../docs/postgresql-architecture-decision.md) document. Additional storage configuration details can be found in the [User's Guide](../../../docs/users.md).
+
+## PostCreateHooks
+
+PostCreateHooks enable powerful automation by executing templated Kubernetes resources and jobs immediately after a control plane is created. Using the `PostCreateHook` custom resource definition, administrators can define resource templates that are automatically applied to either the hosting cluster (the default) or the hosted control plane (by mounting the in-cluster kubeconfig and setting the `KUBECONFIG` environment variable).
+
+Multiple hooks can be specified in the `ControlPlane.spec.postCreateHooks` field, allowing complex initialization sequences to be composed. For scenarios where the control plane should not be considered ready until initialization is complete, setting `waitForPostCreateHooks: true` makes the control plane's readiness status depend on successful hook completion.
+
+## Use Cases
+
+KubeFlex addresses several common challenges in Kubernetes multi-tenancy and platform engineering.
+
+Platform engineers can build internal development platforms where multiple teams share infrastructure while maintaining isolation. Each team receives a dedicated control plane, enabling self-service Kubernetes environments without the cost and complexity of managing separate physical clusters.
+
+Development and testing workflows benefit from KubeFlex's ability to provide isolated environments that mirror production configurations. Teams can spin up temporary control planes for feature development, integration testing, or CI/CD pipelines, then tear them down when no longer needed, optimizing resource utilization.
+
+Organizations seeking to reduce cluster sprawl can consolidate workloads from multiple small clusters onto shared infrastructure while preserving strong isolation boundaries. This approach maintains separation between applications, business units, or customers without the operational overhead of managing numerous physical clusters.
+
+SaaS providers can leverage KubeFlex to deliver per-customer Kubernetes environments, offering tenants the full Kubernetes API experience with strong isolation guarantees. This enables customization and flexibility while keeping infrastructure costs manageable through shared underlying resources.
+
+## Quick Start
+
+Start here: [Getting Started → Quick Start](../../../docs/quickstart.md)
+
+## Next Steps
+
+- 📚 [Architecture](./architecture.md) – Technical details and components
+- 📖 [User's Guide](../../../docs/users.md) – Installation, CLI usage, creating control planes
+- 🏗️ [Multi-Tenancy Guide](../../../docs/multi-tenancy.md) – Challenges, solutions, and use cases
+
+*More guides and tutorials coming soon as part of the new documentation structure.*
