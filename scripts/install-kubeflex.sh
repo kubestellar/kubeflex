@@ -54,7 +54,7 @@ get_arch_type() {
 }
 
 get_latest_version() {
-    curl -s https://api.github.com/repos/kubestellar/kubeflex/releases/latest | jq -r '.tag_name'
+    curl -s https://api.github.com/repos/kubestellar/kubeflex/releases/latest | grep '"tag_name"' | cut -d '"' -f 4
 }
 
 get_full_path() {
