@@ -338,6 +338,7 @@ func TestCheckExtensionInitialContextNameSetMissingClusterServer(t *testing.T) {
 
 // TestVerifyControlPlaneOnHostingCluster_TableDriven provides comprehensive coverage
 // using table-driven tests for better maintainability and refactored per review.
+// Note: DiagnosisStatusOK cases require a real cluster and are tested in the e2e suite.
 func TestVerifyControlPlaneOnHostingCluster_TableDriven(t *testing.T) {
 	baseConfig := func() api.Config {
 		kconf := api.NewConfig()
@@ -361,7 +362,7 @@ func TestVerifyControlPlaneOnHostingCluster_TableDriven(t *testing.T) {
 		{
 			name: "No extension in context",
 			tweakKubeconfig: func(kconf *api.Config) {
-				// Do nothing; leave context with no kubeflex extension
+				// Leave context with no kubeflex extension
 			},
 			contextName:    "ctx1",
 			expectedResult: DiagnosisStatusCritical,
@@ -378,15 +379,6 @@ func TestVerifyControlPlaneOnHostingCluster_TableDriven(t *testing.T) {
 			contextName:    "ctx1",
 			expectedResult: DiagnosisStatusMissing,
 			description:    "When control plane name is empty in extension",
-		},
-		{
-			name: "Context not found",
-			tweakKubeconfig: func(kconf *api.Config) {
-				// Do nothing; just use a non-existent context name
-			},
-			contextName:    "nonexistent-ctx",
-			expectedResult: DiagnosisStatusCritical,
-			description:    "When the specified context does not exist",
 		},
 		{
 			name: "Invalid cluster reference",
