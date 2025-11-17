@@ -57,8 +57,8 @@ echo "SUCCESS: Kubeconfig extensions verified for control plane cp1"
 : Wait for the running components of ControlPlane cp1 to be ready, with
 : default timeout which is 30 seconds
 :
-kubectl --context kind-kubeflex -n cp1-system wait --for=condition=Available deployment/kube-apiserver
-kubectl --context kind-kubeflex -n cp1-system wait --for=condition=Available deployment/kube-controller-manager
+kubectl --context kind-kubeflex -n cp1-system wait --for=condition=Available deployment/kube-apiserver --timeout=300s
+kubectl --context kind-kubeflex -n cp1-system wait --for=condition=Available deployment/kube-controller-manager --timeout=300s
 
 :
 : -------------------------------------------------------------------------
@@ -67,7 +67,7 @@ kubectl --context kind-kubeflex -n cp1-system wait --for=condition=Available dep
 :
 kubectl --context kind-kubeflex patch cp/cp1 --type=merge --patch '{"spec":{"postCreateHook":"synthetic-crd"}}'
 wait-for-cmd 'kubectl --context kind-kubeflex get crd cr1s.synthetic-crd.com'
-kubectl --context kind-kubeflex wait --for=condition=Established crd cr1s.synthetic-crd.com
+kubectl --context kind-kubeflex wait --for=condition=Established crd cr1s.synthetic-crd.com --timeout=120s
 
 :
 : -------------------------------------------------------------------------

@@ -51,7 +51,7 @@ wait-for-secret kind-kubeflex ${EXT_CLUSTER_NAME}-system admin-kubeconfig
 : Wait for test controller pod installed by pch to be running
 :
 
-kubectl --context kind-kubeflex -n ${EXT_CLUSTER_NAME}-system wait --for=condition=Ready pod list-controller
+kubectl --context kind-kubeflex -n ${EXT_CLUSTER_NAME}-system wait --for=condition=Ready pod list-controller --timeout=120s
 
 :
 : -------------------------------------------------------------------------
