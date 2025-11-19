@@ -20,8 +20,8 @@ package fake
 
 import (
 	clientset "github.com/kubestellar/kubeflex/pkg/generated/clientset/versioned"
-	tenancyinternalversion "github.com/kubestellar/kubeflex/pkg/generated/clientset/versioned/typed/v1alpha1/internalversion"
-	faketenancyinternalversion "github.com/kubestellar/kubeflex/pkg/generated/clientset/versioned/typed/v1alpha1/internalversion/fake"
+	tenancyv1alpha1 "github.com/kubestellar/kubeflex/pkg/generated/clientset/versioned/typed/v1alpha1"
+	faketenancyv1alpha1 "github.com/kubestellar/kubeflex/pkg/generated/clientset/versioned/typed/v1alpha1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -80,6 +80,6 @@ var (
 )
 
 // Tenancy retrieves the TenancyClient
-func (c *Clientset) Tenancy() tenancyinternalversion.TenancyInterface {
-	return &faketenancyinternalversion.FakeTenancy{Fake: &c.Fake}
+func (c *Clientset) Tenancy() tenancyv1alpha1.TenancyInterface {
+	return &faketenancyv1alpha1.FakeTenancy{Fake: &c.Fake}
 }
