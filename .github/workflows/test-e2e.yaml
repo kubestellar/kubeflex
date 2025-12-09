@@ -12,7 +12,7 @@ on:
       - main
       - "lxf/**"
     tags:
-      - 'v*'
+      - "v*"
 
 jobs:
   test-controlplane-lifecycle-management:
@@ -25,10 +25,10 @@ jobs:
 
       - uses: actions/setup-go@v6
         with:
-          go-version: v1.23
+          go-version: v1.24.5
           cache: true
 
-      - uses: ko-build/setup-ko@v0.9    
+      - uses: ko-build/setup-ko@v0.9
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v4
