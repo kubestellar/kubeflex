@@ -25,7 +25,7 @@ func TestMain(m *testing.M) {
 	kubeconfig = os.Getenv("KUBECONFIG")
 	user, err := user.Current()
 	if err != nil {
-		log.Fatalf(err.Error())
+		log.Fatalf("Failed to get current user: %v", err)
 	}
 	homeDirectory := user.HomeDir
 	if kubeconfig == "" {
