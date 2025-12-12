@@ -26,7 +26,10 @@ type ControlPlaneSpec struct {
 	// +required
 	Type ControlPlaneType `json:"type,omitempty"`
 	// backend refers to the database type used by the control plane
-	// +required
+	// For external control planes this field is optional; controller
+	// logic can ignore it for `external` type instances. Removed
+	// the `+required` marker so the CRD validation doesn't force a
+	// value for adopt flows that don't set a backend.
 	Backend BackendDBType `json:"backend,omitempty"`
 	// bootstrapSecretRef contains a reference to the kubeconfig used to bootstrap adoption of
 	// an external cluster

@@ -56,8 +56,12 @@ spec:
             description: ControlPlaneSpec defines the desired state of ControlPlane
             properties:
               backend:
-                description: backend refers to the database type used by the control
-                  plane
+                description: |-
+                  backend refers to the database type used by the control plane
+                  For external control planes this field is optional; controller
+                  logic can ignore it for `external` type instances. Removed
+                  the `+required` marker so the CRD validation doesn't force a
+                  value for adopt flows that don't set a backend.
                 enum:
                 - shared
                 - dedicated
