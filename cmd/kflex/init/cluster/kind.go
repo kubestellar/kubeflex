@@ -29,10 +29,6 @@ import (
 	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
-const (
-	clusterName = "kubeflex"
-)
-
 // KindConfig is a struct that represents the kind cluster configuration
 type KindConfig struct {
 	Name string
@@ -57,7 +53,7 @@ func installKind() error {
 	return nil
 }
 
-func checkKindInstanceExists() (bool, error) {
+func checkKindInstanceExists(clusterName string) (bool, error) {
 	cmd := exec.Command("kind", "get", "clusters")
 	out, err := cmd.Output()
 	if err != nil {
@@ -191,7 +187,7 @@ func installAndPatchNginxIngress() error {
 	return nil
 }
 
-func CreateKindCluster(chattyStatus bool) {
+func CreateKindCluster(chattyStatus bool, clusterName string) {
 	done := make(chan bool)
 	var wg sync.WaitGroup
 
@@ -212,7 +208,7 @@ func CreateKindCluster(chattyStatus bool) {
 	}
 
 	util.PrintStatus("Checking if a kubeflex kind instance already exists...", done, &wg, chattyStatus)
-	ok, err = checkKindInstanceExists()
+	ok, err = checkKindInstanceExists(clusterName)
 	if err != nil {
 		log.Fatalf("Error checking if kind instance already exists: %v\n", err)
 	}

@@ -41,14 +41,15 @@ const (
 	DomainFlag            = "domain"
 	HostContainerNameFlag = "host-container-name" // REFACTOR? replace with host-container-name?
 	ExternalPortFlag      = "external-port"       // REFACTOR? replace with external-port?
+	DefaultKindClusterName = "kind-kubeflex"       // Default cluster name for kind clusters
 )
 
 func Command() *cobra.Command {
 	command := &cobra.Command{
-		Use:   "init",
+		Use:   "init [cluster-name]",
 		Short: "Initialize kubeflex",
 		Long:  `Installs the default shared storage backend and the kubeflex operator`,
-		Args:  cobra.ExactArgs(0),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			flagset := cmd.Flags()
 			kubeconfig, _ := flagset.GetString(common.KubeconfigFlag)
@@ -57,6 +58,12 @@ func Command() *cobra.Command {
 			domain, _ := flagset.GetString(DomainFlag)
 			externalPort, _ := flagset.GetInt(ExternalPortFlag)
 			hostContainer, _ := flagset.GetString(HostContainerNameFlag)
+			
+			// Handle positional cluster name parameter
+			clusterName := DefaultKindClusterName // default
+			if len(args) > 0 {
+				clusterName = args[0]
+			}
 			done := make(chan bool)
 			var wg sync.WaitGroup
 			var isOCP bool
@@ -76,7 +83,7 @@ func Command() *cobra.Command {
 				if isOCP {
 					return fmt.Errorf("openShift cluster detected on existing context\nSwitch to a non-OpenShift context with `kubectl config use-context <context-name>` and retry")
 				}
-				cluster.CreateKindCluster(chattyStatus)
+				cluster.CreateKindCluster(chattyStatus, clusterName)
 			}
 
 			cp := common.NewCP(kubeconfig)

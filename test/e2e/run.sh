@@ -41,5 +41,6 @@ ${SRC_DIR}/test-postcreate-completion.sh -t k8s
 ${SRC_DIR}/test-postcreate-completion.sh -t vcluster
 ${SRC_DIR}/test-postcreatehook-retry.sh -t k8s
 ${SRC_DIR}/test-postcreatehook-retry.sh -t vcluster
+${SRC_DIR}/test-custom-cluster-name.sh
 
 echo "SUCCESS: ALL TESTS PASSED..."
