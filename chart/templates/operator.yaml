@@ -619,7 +619,7 @@ spec:
           value: /tmp
         - name: HELM_CACHE_HOME
           value: /tmp
-        image: <placeholder>
+        image: ghcr.io/kubestellar/kubeflex/manager:{{ trimPrefix "v" .Chart.Version }}
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
