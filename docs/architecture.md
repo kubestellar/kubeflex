@@ -32,11 +32,8 @@ plane can run pods using worker nodes of the hosting cluster.
 - *external*: an external cluster that is imported as a control plane (this
 is in the roadmap but not yet implemented)
 
-- *ocm*: a control plane that uses the 
-[multicluster-controlplane project](https://github.com/open-cluster-management-io/multicluster-controlplane) 
-for managing multiple clusters.
+- (Deprecated in docs) Traditional OCM-specific control plane references have been removed from the primary supported list. OCM-style multi-cluster/federation workflows are supported via integrations running on `vcluster` instances when needed. See the `vcluster` type below for details.
 
-When using KubeFlex, users interact with the API server 
 of the hosting cluster to create or delete control planes.
 KubeFlex defines a ControlPlane CRD that represents a Control Plane.
 

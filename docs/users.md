@@ -341,26 +341,28 @@ the URL for the server as `https://kubeflex-control-plane:<nodeport>`
 
 
 ## Control Plane Types
+At this time KubeFlex focuses documentation on the following supported control plane types:
 
-At this time KubFlex supports the following control plane types:
-
-- k8s: this is the stock Kube API server with a subset of controllers running in the controller manager.
-- ocm: this is the [Open Cluster Management Multicluster Control Plane](https://github.com/open-cluster-management-io/multicluster-controlplane), which provides a basic set of capabilities such as
-clusters registration and support for the [`ManifestWork` API](https://open-cluster-management.io/concepts/manifestwork/).
-- vcluster: this is based on the [vcluster project](https://www.vcluster.com) and provides the ability to create pods in the hosting namespace of the hosting cluster.
-- host: this control plane type exposes the underlying hosting cluster with the same control plane abstraction
-used by the other control plane types.
-- external: this control plane type represents an existing cluster that was not created by KubeFlex and is not the KubeFlex hosting cluster.
+- k8s: the stock Kubernetes API server with a subset of controllers active in the controller manager.
+- vcluster: virtual clusters based on the vCluster project that run on the hosting cluster; they can run pods and host integrations. Note: OCM-style multi-cluster/federation workflows (for example ManifestWork-like functionality) are supported by deploying integrations to `vcluster` instances when required.
+- host: exposes the underlying hosting cluster as a control plane using the same abstraction as other types.
+- external: represents an existing cluster that was not created by KubeFlex and is managed by adoption workflows.
+ - k8s: this is the stock Kube API server with a subset of controllers running in the controller manager.
+ - vcluster: this is based on the [vcluster project](https://www.vcluster.com) and provides the ability to create pods in the hosting namespace of the hosting cluster. Note: OCM-style multi-cluster federation and ManifestWork-like workflows are supported via integrations deployed to `vcluster` instances when needed.
+ - host: this control plane type exposes the underlying hosting cluster with the same control plane abstraction
+ used by the other control plane types.
+ - external: this control plane type represents an existing cluster that was not created by KubeFlex and is not the KubeFlex hosting cluster.
 
 ## Control Plane Backends
 
 KubeFlex roadmap aims to provide different types of backends: shared, dedicated, and for
-each type the ability to choose if etcd or sql. At this time only the following
-combinations are supported based on control plane type:
+each type the ability to choose etcd or SQL backends. At this time the following
+combinations are supported:
 
-- k8s: shared postgresql
-- ocm: dedicated etcd
+- k8s: shared PostgreSQL
 - vcluster: dedicated sqlite
+
+Note: OCM-specific backends are no longer emphasized in the primary docs; OCM-style federation scenarios should be implemented via integrations running on `vcluster` instances.
 
 ## Creating with a selected control plane type
 
@@ -372,13 +374,6 @@ To create a control plane of type `vcluster` run the command:
 ```shell
 kflex create cp2 --type vcluster
 ```
-
-To create a control plane of type `ocm` run the command:
-
-```shell
-kflex create cp3 --type ocm
-```
-
 To create a control plane of type `host` run the command:
 
 ```shell
