@@ -335,3 +335,87 @@ func TestCheckExtensionInitialContextNameSetMissingClusterServer(t *testing.T) {
 		t.Errorf("Expected %s when ExtensionInitialContextName points to context with missing cluster server, got %s", DiagnosisStatusWarning, status)
 	}
 }
+
+// TestVerifyControlPlaneOnHostingCluster_TableDriven provides comprehensive coverage
+// using table-driven tests for better maintainability and refactored per review.
+// Note: DiagnosisStatusOK cases require a real cluster and are tested in the e2e suite.
+func TestVerifyControlPlaneOnHostingCluster_TableDriven(t *testing.T) {
+	baseConfig := func() api.Config {
+		kconf := api.NewConfig()
+		kconf.Clusters["cluster1"] = &api.Cluster{Server: "https://example.com:6443"}
+		kconf.AuthInfos["user1"] = &api.AuthInfo{Token: "token"}
+		kconf.Contexts["ctx1"] = &api.Context{
+			Cluster:  "cluster1",
+			AuthInfo: "user1",
+		}
+		kconf.CurrentContext = "ctx1"
+		return *kconf
+	}
+
+	tests := []struct {
+		name            string
+		tweakKubeconfig func(*api.Config)
+		contextName     string
+		expectedResult  string
+		description     string
+	}{
+		{
+			name: "No extension in context",
+			tweakKubeconfig: func(kconf *api.Config) {
+				// Leave context with no kubeflex extension
+			},
+			contextName:    "ctx1",
+			expectedResult: DiagnosisStatusCritical,
+			description:    "When context has no kubeflex extension",
+		},
+		{
+			name: "Empty control plane name",
+			tweakKubeconfig: func(kconf *api.Config) {
+				ext := NewRuntimeKubeflexExtension()
+				ext.Data[ExtensionContextsIsHostingCluster] = "true"
+				// Deliberately not setting ExtensionControlPlaneName
+				kconf.Contexts["ctx1"].Extensions = map[string]runtime.Object{ExtensionKubeflexKey: ext}
+			},
+			contextName:    "ctx1",
+			expectedResult: DiagnosisStatusMissing,
+			description:    "When control plane name is empty in extension",
+		},
+		{
+			name: "Invalid cluster reference",
+			tweakKubeconfig: func(kconf *api.Config) {
+				ext := NewRuntimeKubeflexExtension()
+				ext.Data[ExtensionContextsIsHostingCluster] = "true"
+				ext.Data[ExtensionControlPlaneName] = "test-cp"
+				kconf.Contexts["ctx1"].Cluster = "missing-cluster"
+				kconf.Contexts["ctx1"].Extensions = map[string]runtime.Object{ExtensionKubeflexKey: ext}
+			},
+			contextName:    "ctx1",
+			expectedResult: DiagnosisStatusCritical,
+			description:    "When context references a cluster that doesn't exist",
+		},
+		{
+			name: "Corrupted extension data",
+			tweakKubeconfig: func(kconf *api.Config) {
+				badExt := &runtime.Unknown{
+					Raw: []byte(`invalid-json`),
+				}
+				kconf.Contexts["ctx1"].Extensions = map[string]runtime.Object{ExtensionKubeflexKey: badExt}
+			},
+			contextName:    "ctx1",
+			expectedResult: DiagnosisStatusCritical,
+			description:    "When extension data is corrupted",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			kconf := baseConfig()
+			tt.tweakKubeconfig(&kconf)
+			result := VerifyControlPlaneOnHostingCluster(kconf, tt.contextName)
+			if result != tt.expectedResult {
+				t.Errorf("Test '%s': expected %s, got %s. %s",
+					tt.name, tt.expectedResult, result, tt.description)
+			}
+		})
+	}
+}
