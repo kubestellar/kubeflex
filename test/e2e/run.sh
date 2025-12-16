@@ -34,6 +34,7 @@ SRC_DIR="$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)"
 ${SRC_DIR}/cleanup.sh
 ${SRC_DIR}/setup-kubeflex.sh
 ${SRC_DIR}/manage-type-k8s.sh
+${SRC_DIR}/test-controller-image-update.sh
 ${SRC_DIR}/manage-type-vcluster.sh
 ${SRC_DIR}/manage-type-external.sh
 ${SRC_DIR}/manage-ctx.sh
