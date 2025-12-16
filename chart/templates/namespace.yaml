@@ -6,9 +6,11 @@ metadata:
 {{ end -}}
 {{ if ne .Release.Namespace "kubeflex-system" -}}
   {{ with $kfns := (lookup "v1" "Namespace" "" "kubeflex-system") -}}
-    {{ if eq $.Release.Name
-             (index $kfns.ObjectMeta.Annotations "meta.helm.sh/release-name") -}}
-      {{ template "NS" -}}
+    {{ if $kfns.metadata.annotations -}}
+      {{ if eq $.Release.Name
+               (index $kfns.metadata.annotations "meta.helm.sh/release-name") -}}
+        {{ template "NS" -}}
+      {{ end -}}
     {{ end -}}
   {{ else -}}
     {{ template "NS" -}}
