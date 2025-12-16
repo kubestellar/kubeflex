@@ -21,3 +21,24 @@ jobs:
         run: go build -v ./...
       - name: Test
         run: go test -v ./...
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+      - name: Generate and validate Helm chart
+        run: |
+          make chart
+          helm template test ./chart > /tmp/rendered.yaml
+          echo "Rendered images:"
+          grep "image:" /tmp/rendered.yaml
+      - name: Guard against invalid image tags
+        run: |
+         grep -E "image: .*kubeflex/manager:v[0-9]" /tmp/rendered.yaml && {
+            echo "ERROR: kubeflex manager image uses v-prefixed tag";
+            exit 1;
+          } || true
+          fi
+
+            
+  
+
+
+
