@@ -29,6 +29,8 @@ kubectl -n ingress-nginx patch deployment/ingress-nginx-controller --patch-file=
 
 :
 : -------------------------------------------------------------------------
+if [[ -z "${KUBEFLEX_RELEASE:-}" ]]; then
+echo "Installing kubeflex from local source"
 : Compile binaries
 :
 make build
@@ -46,7 +48,19 @@ make ko-local-build
 :
 :
 make install-local-chart
+:
+:
+else
+  echo "Installing kubeflex release: ${KUBEFLEX_RELEASE}"
 
+  helm repo add kubeflex https://kubestellar.github.io/kubeflex
+  helm repo update
+
+  helm install kubeflex kubeflex/kubeflex \
+    --namespace kubeflex-system \
+    --create-namespace \
+    --version "${KUBEFLEX_RELEASE}"
+fi
 :
 : -------------------------------------------------------------------------
 : Create a PostCreateHook

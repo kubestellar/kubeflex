@@ -15,6 +15,22 @@
 
 set -x # echo so that users can understand what is happening
 set -e # exit on error
+KUBEFLEX_RELEASE=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --release)
+      KUBEFLEX_RELEASE="$2"
+      shift 2
+      ;;
+    *)
+      echo "Unknown argument: $1"
+      exit 1
+      ;;
+  esac
+done
+
+export KUBEFLEX_RELEASE
 
 # Change to repository root directory to ensure scripts work from any location
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
