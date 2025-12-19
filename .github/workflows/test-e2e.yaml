@@ -3,6 +3,10 @@ name: E2E test
 on:
   workflow_call:
   workflow_dispatch:
+   inputs:
+    release:
+      description: 'Kubeflex release to test (e.g. latest or v0.5.1)'
+      required: false
   pull_request:
     branches:
       - main
@@ -35,9 +39,12 @@ jobs:
         id: install
 
       - name: Run test
-        run: |
-          test/e2e/run.sh
-
+        run : |
+          if [ n "${{ inputs.release }}" ]; then
+           test/e2e/run.sh --release ${{ inputs.release }}
+           else
+            test/e2e/run.sh
+            fi    
       - name: Examine GitHub rate limit
         run: curl https://api.github.com/rate_limit
 

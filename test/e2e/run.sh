@@ -15,12 +15,12 @@
 
 set -x # echo so that users can understand what is happening
 set -e # exit on error
-KUBEFLEX_RELEASE=""
+release=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --release)
-      KUBEFLEX_RELEASE="$2"
+      release="$2"
       shift 2
       ;;
     *)
@@ -28,10 +28,7 @@ while [[ $# -gt 0 ]]; do
       exit 1
       ;;
   esac
-done
-
-export KUBEFLEX_RELEASE
-
+done 
 # Change to repository root directory to ensure scripts work from any location
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
@@ -48,7 +45,7 @@ echo "Running E2E tests from: ${PWD}"
 SRC_DIR="$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)"
 
 ${SRC_DIR}/cleanup.sh
-${SRC_DIR}/setup-kubeflex.sh
+${SRC_DIR}/setup-kubeflex.sh --release "${release}"
 ${SRC_DIR}/manage-type-k8s.sh
 ${SRC_DIR}/manage-type-vcluster.sh
 ${SRC_DIR}/manage-type-external.sh

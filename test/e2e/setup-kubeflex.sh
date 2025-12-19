@@ -15,7 +15,19 @@
 
 set -x # echo so that users can understand what is happening
 set -e # exit on error
-
+release=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --release)
+      release="$2"
+      shift 2
+      ;;
+    *)
+      echo "Unknown argument: $1"
+      exit 1
+      ;;
+  esac
+done
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
 
 :
@@ -29,7 +41,7 @@ kubectl -n ingress-nginx patch deployment/ingress-nginx-controller --patch-file=
 
 :
 : -------------------------------------------------------------------------
-if [[ -z "${KUBEFLEX_RELEASE:-}" ]]; then
+if [[ -z "${release}" ]]; then
 echo "Installing kubeflex from local source"
 : Compile binaries
 :
@@ -51,15 +63,11 @@ make install-local-chart
 :
 :
 else
-  echo "Installing kubeflex release: ${KUBEFLEX_RELEASE}"
-
-  helm repo add kubeflex https://kubestellar.github.io/kubeflex
-  helm repo update
-
-  helm install kubeflex kubeflex/kubeflex \
-    --namespace kubeflex-system \
-    --create-namespace \
-    --version "${KUBEFLEX_RELEASE}"
+  echo "Installing kubeflex release: ${release}"
+  kubectl create namespace kubeflex-system --dry-run=client -o yaml | kubectl apply -f -
+  helm install kubeflex \
+   oci://ghcr.io/kubestellar/kubeflex/chart/kubeflex-operator \
+    --version "${release}"
 fi
 :
 : -------------------------------------------------------------------------
