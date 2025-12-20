@@ -46,8 +46,12 @@ SRC_DIR="$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)"
 
 ${SRC_DIR}/cleanup.sh
 ${SRC_DIR}/setup-kubeflex.sh --release "${release}"
-kubectl config current-context
-go run ./cmd/kflex ctx --set-current-for-hosting
+cfgfile="${KUBECONFIG:-$HOME/.kube/config}"
+if [[ "$(yq -o=json .extensions "$cfgfile" )" =~ ^[[] ]]; then
+    yq '.extensions |= [ .[] | select(.name != "kubeflex") ]' "$cfgfile" > $$
+    mv -f -- "$cfgfile" "${cfgfile}.bak"
+    mv -- $$ "$cfgfile"
+fi
 ${SRC_DIR}/manage-type-k8s.sh
 ${SRC_DIR}/manage-type-vcluster.sh
 ${SRC_DIR}/manage-type-external.sh
