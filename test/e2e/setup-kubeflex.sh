@@ -65,9 +65,17 @@ make install-local-chart
 else
   echo "Installing kubeflex release: ${release}"
   kubectl create namespace kubeflex-system --dry-run=client -o yaml | kubectl apply -f -
+ if [[ "${release}" == "latest" ]]; then
+  echo "Installing latest kubeflex release"
   helm install kubeflex \
-   oci://ghcr.io/kubestellar/kubeflex/chart/kubeflex-operator \
+    oci://ghcr.io/kubestellar/kubeflex/chart/kubeflex-operator
+else
+  echo "Installing kubeflex release ${release}"
+  helm install kubeflex \
+    oci://ghcr.io/kubestellar/kubeflex/chart/kubeflex-operator \
     --version "${release}"
+fi
+
 fi
 :
 : -------------------------------------------------------------------------
