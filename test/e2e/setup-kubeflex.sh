@@ -15,7 +15,19 @@
 
 set -x # echo so that users can understand what is happening
 set -e # exit on error
-
+release=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --release)
+      release="$2"
+      shift 2
+      ;;
+    *)
+      echo "Unknown argument: $1"
+      exit 1
+      ;;
+  esac
+done
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
 
 :
@@ -29,6 +41,8 @@ kubectl -n ingress-nginx patch deployment/ingress-nginx-controller --patch-file=
 
 :
 : -------------------------------------------------------------------------
+if [[ -z "${release}" ]]; then
+echo "Installing kubeflex from local source"
 : Compile binaries
 :
 make build
@@ -46,7 +60,23 @@ make ko-local-build
 :
 :
 make install-local-chart
+:
+:
+else
+  echo "Installing kubeflex release: ${release}"
+  kubectl create namespace kubeflex-system --dry-run=client -o yaml | kubectl apply -f -
+ if [[ "${release}" == "latest" ]]; then
+  echo "Installing latest kubeflex release"
+  helm install kubeflex \
+    oci://ghcr.io/kubestellar/kubeflex/chart/kubeflex-operator
+else
+  echo "Installing kubeflex release ${release}"
+  helm install kubeflex \
+    oci://ghcr.io/kubestellar/kubeflex/chart/kubeflex-operator \
+    --version "${release}"
+fi
 
+fi
 :
 : -------------------------------------------------------------------------
 : Create a PostCreateHook
