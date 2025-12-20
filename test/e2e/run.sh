@@ -47,7 +47,7 @@ SRC_DIR="$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)"
 ${SRC_DIR}/cleanup.sh
 ${SRC_DIR}/setup-kubeflex.sh --release "${release}"
 kubectl config current-context
-kflex ctx --set-current-for-hosting
+go run ./cmd/kflex ctx --set-current-for-hosting
 ${SRC_DIR}/manage-type-k8s.sh
 ${SRC_DIR}/manage-type-vcluster.sh
 ${SRC_DIR}/manage-type-external.sh
