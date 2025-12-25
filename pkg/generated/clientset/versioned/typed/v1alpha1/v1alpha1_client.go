@@ -28,6 +28,7 @@ import (
 type TenancyInterface interface {
 	RESTClient() rest.Interface
 	ControlPlanesGetter
+	PostCreateHooksGetter
 }
 
 // TenancyClient is used to interact with features provided by the tenancy.kflex.kubestellar.org group.
@@ -37,6 +38,10 @@ type TenancyClient struct {
 
 func (c *TenancyClient) ControlPlanes(namespace string) ControlPlaneInterface {
 	return newControlPlanes(c, namespace)
+}
+
+func (c *TenancyClient) PostCreateHooks(namespace string) PostCreateHookInterface {
+	return newPostCreateHooks(c, namespace)
 }
 
 // NewForConfig creates a new TenancyClient for the given config.

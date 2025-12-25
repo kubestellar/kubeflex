@@ -32,6 +32,10 @@ func (c *FakeTenancy) ControlPlanes(namespace string) v1alpha1.ControlPlaneInter
 	return &FakeControlPlanes{c, namespace}
 }
 
+func (c *FakeTenancy) PostCreateHooks(namespace string) v1alpha1.PostCreateHookInterface {
+	return &FakePostCreateHooks{c, namespace}
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeTenancy) RESTClient() rest.Interface {
