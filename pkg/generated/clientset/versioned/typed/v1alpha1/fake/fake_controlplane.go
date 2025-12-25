@@ -35,9 +35,9 @@ type FakeControlPlanes struct {
 	ns   string
 }
 
-var controlplanesResource = v1alpha1.GroupVersion.WithResource("controlplanes")
+var controlplanesResource = v1alpha1.SchemeGroupVersion.WithResource("controlplanes")
 
-var controlplanesKind = v1alpha1.GroupVersion.WithKind("ControlPlane")
+var controlplanesKind = v1alpha1.SchemeGroupVersion.WithKind("ControlPlane")
 
 // Get takes name of the controlPlane, and returns the corresponding controlPlane object, and an error if there is any.
 func (c *FakeControlPlanes) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.ControlPlane, err error) {
