@@ -39,7 +39,7 @@ type K3sReconciler struct {
 	*KubeconfigSecret      // k3s secret
 	*ScriptsConfigMap      // k3s scripts configmap
 	*RBAC                  // k3s rbac
-	*Ingress               // k3s ingress
+	*Gateway               // k3s gateway
 	*BootstrapSecretJob    // k3s job
 	*shared.BaseReconciler // shared base controller
 }
@@ -64,7 +64,7 @@ func New(cl client.Client, scheme *runtime.Scheme, version string, clientSet *ku
 		Server:             NewServer(&br),
 		KubeconfigSecret:   NewKubeconfigSecret(&br),
 		ScriptsConfigMap:   NewScriptsConfigMap(&br),
-		Ingress:            NewIngress(&br),
+		Gateway:            NewGateway(&br),
 		RBAC:               NewRBAC(&br),
 	}
 }
@@ -107,8 +107,8 @@ func (r *K3sReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.Cont
 		}
 		return r.BaseReconciler.UpdateStatusForSyncingError(ctx, hcp, result, err)
 	}
-	// Reconcile k3s Ingress
-	if result, err := r.Ingress.Reconcile(ctx, hcp); err != nil {
+	// Reconcile k3s Gateway
+	if result, err := r.Gateway.Reconcile(ctx, hcp); err != nil {
 		if util.IsTransientError(err) {
 			return ctrl.Result{RequeueAfter: RetryAfterDuration}, err
 		}
