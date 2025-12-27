@@ -92,7 +92,7 @@ func (r *VClusterReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1
 		}
 		cfg.ExternalURL = routeURL
 	} else {
-		if err := r.ReconcileAPIServerIngress(ctx, hcp, ServiceName, ServicePort, cfg.Domain); err != nil {
+		if err := r.ReconcileAPIServerGateway(ctx, hcp, ServiceName, ServicePort, cfg.Domain); err != nil {
 			if util.IsTransientError(err) {
 				return ctrl.Result{}, err
 			}

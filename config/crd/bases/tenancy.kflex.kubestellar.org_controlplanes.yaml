@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.15.0
+    controller-gen.kubebuilder.io/version: v0.17.3
   name: controlplanes.tenancy.kflex.kubestellar.org
 spec:
   group: tenancy.kflex.kubestellar.org
@@ -142,6 +142,8 @@ spec:
                   WaitForPostCreateHooks determines if the control plane should wait for all
                   post create hook resources to be ready before marking the control plane as ready
                 type: boolean
+            required:
+            - type
             type: object
           status:
             description: ControlPlaneStatus defines the observed state of ControlPlane

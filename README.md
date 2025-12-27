@@ -49,8 +49,8 @@ For a comprehensive analysis of multi-tenancy approaches and KubeFlex's solution
 
 [kind](https://kind.sigs.k8s.io) and [kubectl](https://kubernetes.io/docs/tasks/tools/) are
 required. A kind hosting cluster is created automatically by the kubeflex CLI. You may
-also install KubeFlex on other Kube distros, as long as they support an nginx ingress
-with SSL passthru, or on OpenShift. See the [User's Guide](docs/users.md) for more details.
+also install KubeFlex on other Kube distros, as long as they support NGINX Gateway Fabric
+with the Gateway API, or on OpenShift. See the [User's Guide](docs/users.md) for more details.
 
 Download the latest kubeflex CLI binary release for your OS/Architecture from the
 [release page](https://github.com/kubestellar/kubeflex/releases) and copy it
