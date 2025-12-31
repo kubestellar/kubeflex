@@ -19,6 +19,10 @@ release=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --release)
+    if [[ $# -lt 2 ]]; then
+    echo "Error: --release requires a value (e.g. v0.9.2 or latest)"
+    exit 1
+    fi
       release="$2"
       shift 2
       ;;
@@ -69,8 +73,7 @@ else
     if [[ "${release}" == "latest" ]]; then
         echo "Resolving latest kubeflex release from GitHub"
         release="$(curl -fsSL https://api.github.com/repos/kubestellar/kubeflex/releases/latest \
-          | grep '"tag_name"' \
-          | cut -d '"' -f 4)"
+          | jq -r '.tag_name')"
 
         if [[ -z "${release}" ]]; then
             echo "Failed to resolve latest kubeflex release"
@@ -83,9 +86,7 @@ else
     echo "Installing kubeflex release ${release}"
     helm install kubeflex \
       oci://ghcr.io/kubestellar/kubeflex/chart/kubeflex-operator \
-      --version "${release}"\
-      --namespace kubeflex-system \
-      --create-namespace
+      --version "${release}"
 fi
 :
 : -------------------------------------------------------------------------

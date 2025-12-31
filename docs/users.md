@@ -985,4 +985,3 @@ PostCreateHooks support template variables with the following precedence:
 
 3. **Default Variables**
   Defined in `PostCreateHook.spec.defaultVars`
-
