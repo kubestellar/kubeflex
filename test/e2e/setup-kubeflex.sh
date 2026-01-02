@@ -23,13 +23,13 @@ while [[ $# -gt 0 ]]; do
     echo "Error: --release requires a value (e.g. v0.9.2 or latest)"
     exit 1
     fi
-      release="$2"
-      shift 2
-      ;;
-    *)
-      echo "Unknown argument: $1"
-      exit 1
-      ;;
+    release="$2"
+    shift 2
+    ;;
+   *)
+    echo "Unknown argument: $1"
+    exit 1
+    ;;
   esac
 done
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
@@ -84,6 +84,10 @@ else
     fi
 
     echo "Installing kubeflex release ${release}"
+       # Ensure release tag has leading 'v'
+     if [[ "${release}" != v* ]]; then
+       release="v${release}"
+     fi
     helm install kubeflex \
       oci://ghcr.io/kubestellar/kubeflex/chart/kubeflex-operator \
       --version "${release}"

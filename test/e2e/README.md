@@ -3,15 +3,19 @@ KubeFlex provides an end-to-end (E2E) test suite that validates full system beha
 End-to-end tests that can be used manually by a contributor or be triggered by CI.
 
 ## Prerequisites
-`kind` and `kubectl` are required to run the test.
+`kind`,`jq` and  `kubectl` are required to run the test.
 
-**The E2E tests can run against either:** 
+## Run E2E tests manually
+
   - local source builds 
   - a released KubeFlex version, specified with the `--release` option
    
-When a release is specified, the tests install KubeFlex from the published Helm chart. The special value latest installs the most recent released version, while a literal version installs that specific release.
+When a release is specified, the tests install KubeFlex from a published Helm chart.
+The special value `latest` installs the most recent released version, while a literal
+version installs that specific release.
 
 From the root directory of this git repository, you can run:
+
 ```shell
 test/e2e/run.sh   # Run E2E tests against local source
 test/e2e/run.sh --release latest   # Run E2E tests against the latest released version
