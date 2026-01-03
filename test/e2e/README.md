@@ -6,7 +6,7 @@ End-to-end tests that can be used manually by a contributor or be triggered by C
 `kind`,`jq` and  `kubectl` are required to run the test.
 
 ## Run E2E tests manually
-
+ #### The E2E test suite can be run in the following modes:
   - local source builds 
   - a released KubeFlex version, specified with the `--release` option
    

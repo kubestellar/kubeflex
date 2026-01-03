@@ -84,10 +84,6 @@ else
     fi
 
     echo "Installing kubeflex release ${release}"
-       # Ensure release tag has leading 'v'
-     if [[ "${release}" != v* ]]; then
-       release="v${release}"
-     fi
     helm install kubeflex \
       oci://ghcr.io/kubestellar/kubeflex/chart/kubeflex-operator \
       --version "${release}"
