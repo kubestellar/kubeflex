@@ -83,15 +83,15 @@ else
 
     bash <(curl -s https://raw.githubusercontent.com/kubestellar/kubeflex/refs/tags/${release}/scripts/install-kubeflex.sh) --version $release --ensure-folder bin --strip-bin -X
 
-    if [[ "${release}" < v0.9.2 ]]; then
+    if [ "$( { echo v0.9.2; echo "$release"; } | sort -V | head -1)" == v0.9.2 ]; then
+      helm install kubeflex-operator \
+        oci://ghcr.io/kubestellar/kubeflex/chart/kubeflex-operator \
+        --version "${release}"
+    else
       kubectl create namespace kubeflex-system --dry-run=client -o yaml | kubectl apply -f -
       helm install kubeflex-operator \
         oci://ghcr.io/kubestellar/kubeflex/chart/kubeflex-operator \
         --namespace kubeflex-system \
-        --version "${release}"
-    else
-      helm install kubeflex-operator \
-        oci://ghcr.io/kubestellar/kubeflex/chart/kubeflex-operator \
         --version "${release}"
     fi
 
