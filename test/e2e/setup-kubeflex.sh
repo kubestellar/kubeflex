@@ -81,6 +81,8 @@ else
     fi
     echo "Installing kubeflex release ${release}"
 
+    bash <(curl -s https://raw.githubusercontent.com/kubestellar/kubeflex/refs/tags/${release}/scripts/install-kubeflex.sh) --version $release --ensure-folder bin --strip-bin -X
+
     if [[ "${release}" < v0.9.2 ]]; then
       kubectl create namespace kubeflex-system --dry-run=client -o yaml | kubectl apply -f -
       helm install kubeflex \
