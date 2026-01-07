@@ -69,8 +69,15 @@ if ! kubectl rollout status deployment/kubeflex-controller-manager -n kubeflex-s
     exit 1
 fi
 
+# Wait for all the old pods to go away
+echo "7. Wait for old Pods to go away"
+while ! kubectl get pods -n kubeflex-system -l control-plane=controller-manager | wc -l | grep -qw 2; do
+    echo Waiting for just one kubeflex-controller-manager Pod
+    sleep 10
+done
+
 # Get the new image
-echo "7. Getting new controller manager image..."
+echo "8. Getting new controller manager image..."
 NEW_IMAGE=$(kubectl get deployment kubeflex-controller-manager -n kubeflex-system -o jsonpath='{.spec.template.spec.containers[?(@.name=="manager")].image}')
 if [ -z "$NEW_IMAGE" ]; then
     echo "ERROR: Could not get new image from deployment"
@@ -79,27 +86,21 @@ fi
 echo "New image: $NEW_IMAGE"
 
 # Get new pod names
-echo "8. Getting new pod names..."
+echo "9. Getting new pod names..."
 NEW_PODS=$(kubectl get pods -n kubeflex-system -l control-plane=controller-manager -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\n' | sort | tr '\n' ' ')
 echo "New pods (sorted): $NEW_PODS"
-
-# Wait for deployment rollout to complete and all pods to be ready
-echo "9. Waiting for deployment rollout to complete..."
-if ! kubectl rollout status deployment/kubeflex-controller-manager -n kubeflex-system --timeout=300s; then
-    echo "ERROR: Deployment rollout failed or timed out"
-    echo "Deployment status:"
-    kubectl describe deployment kubeflex-controller-manager -n kubeflex-system
-    exit 1
-fi
 
 # Wait for all pods to be ready
 echo "10. Waiting for all pods to be ready..."
 if ! kubectl wait --for=condition=Ready pods -l control-plane=controller-manager -n kubeflex-system --timeout=120s; then
     echo "ERROR: Not all pods are ready within timeout"
-    echo "Pod status:"
-    kubectl get pods -n kubeflex-system -l control-plane=controller-manager
-    echo "Pod events:"
-    kubectl describe pods -n kubeflex-system -l control-plane=controller-manager
+    echo "Pods:"
+    kubectl get pods -n kubeflex-system -l control-plane=controller-manager --no-headers=true | while read ns name rest; do
+	echo
+	kubectl get pod -n $ns $name -o yaml
+	echo
+	kubectl events --namespace $ns --for pod/$name
+    done
     exit 1
 fi
 
