@@ -164,11 +164,10 @@ the command:
 kflex init
 ```
 
-## Installing KubeFlex with helm
+## Installing KubeFlex with Helm
 
 To install KubeFlex on a cluster that already has nginx ingress with SSL passthru enabled,
-you can use helm instead of the KubeFlex CLI. First, create the `kubeflex-system` namespace
-and install KubeFlex with the following commands:
+you can use Helm instead of the KubeFlex CLI. Install KubeFlex with the following commands:
 
 ```shell
 helm upgrade --install kubeflex-operator oci://ghcr.io/kubestellar/kubeflex/chart/kubeflex-operator \
@@ -181,14 +180,13 @@ The `kubeflex-system` namespace is required for installing and running KubeFlex.
 If it does not already exists, the Helm chart will create one.
 Do not use any other namespace for this purpose.
 
-### Installing KubeFlex with helm on OpenShift
+### Installing KubeFlex with Helm on OpenShift
 
 If you are installing on OpenShift with the `kflex` CLI, the CLI auto-detects OpenShift and autoimatically
-configure the installation of the shared DB and the operator, but if you are using directly helm to install
+configure the installation of the shared DB and the operator, but if you are using directly Helm to install
 you will need to add additional parameters:
 
-To install KubeFlex on OpenShift using helm, create the `kubeflex-system` namespace
-and install KubeFlex with the following commands:
+To install KubeFlex on OpenShift using Helm use the following commands:
 
 ```shell
 helm upgrade --install kubeflex-operator oci://ghcr.io/kubestellar/kubeflex/chart/kubeflex-operator \
@@ -200,7 +198,7 @@ helm upgrade --install kubeflex-operator oci://ghcr.io/kubestellar/kubeflex/char
 
 The KubeFlex CLI can be upgraded with `brew upgrade kflex` (for brew installs). For linux
 systems, manually download and update the binary. To upgrade the KubeFlex controller, just
-upgrade the helm chart according to the instructions for [kubernetes](#installing-kubeflex-with-helm)
+upgrade the Helm chart according to the instructions for [kubernetes](#installing-kubeflex-with-helm)
 or for [OpenShift](#installing-kubeflex-with-helm-on-openshift).
 
 Note that for a kind test/dev installation, the simplest approach to get a fresh install
@@ -812,7 +810,7 @@ While `kflex create` waits for the control plane to be available, when `waitForP
 ### Built-in objects
 
 You can specify built-in objects in the templates that will be replaced at run-time.
-Variables are specified using helm-like syntax:
+Variables are specified using Helm-like syntax:
 
 ```yaml
 "{{.<Object Name>}}"
@@ -830,7 +828,7 @@ Currently avilable built-in objects are:
 
 In addition to the built-in objects, you can specify your own objects
 to inject arbitrary values in the template. These objects are specified using
-helm-like syntax as well:
+Helm-like syntax as well:
 
 ```yaml
 "{{.<Your Object Name>}}"
