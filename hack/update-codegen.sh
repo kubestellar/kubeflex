@@ -60,8 +60,8 @@ rm -rf "${SCRIPT_ROOT}/${OUTPUT_PKG}"
 echo "Generating clientset..."
 "${TOOLS_BIN_DIR}/client-gen" \
     --clientset-name "versioned" \
-    --input-base "${MODULE}/${API_PKG}" \
-    --input "v1alpha1" \
+    --input-base "" \
+    --input "${MODULE}/${API_PKG}/v1alpha1" \
     --output-dir "${SCRIPT_ROOT}/${OUTPUT_PKG}/clientset" \
     --output-pkg "${MODULE}/${OUTPUT_PKG}/clientset" \
     --go-header-file "${BOILERPLATE}"
