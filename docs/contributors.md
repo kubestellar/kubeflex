@@ -41,7 +41,7 @@ To prepare a hosting cluster for testing, execute the following script.
 This script accomplishes several key tasks:
 
 - Creates a new kind cluster specifically designed for the KubeFlex hosting environment.
-- Configures nginx ingress with SSL passthrough capabilities to ensure secure communication.
+- Configures NGINX Gateway Fabric with Gateway API for secure communication.
 - Builds and loads the KubeFlex Controller Manager image into the kind cluster.
 - Installs a PostgreSQL database, providing the default backend for hosted API servers.
 - Starts the KubeFlex controller manager.

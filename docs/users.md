@@ -122,20 +122,25 @@ kflex init --create-kind
 
 ## Install KubeFlex on an existing cluster
 
-You can install KubeFlex on an existing cluster with nginx ingress configured for SSL passthru,
+You can install KubeFlex on an existing cluster with NGINX Gateway Fabric,
 or on a OpenShift cluster. At this time, we have only tested this option with Kind, k3d and OpenShift.
 
 ### Installing on kind
 
-To create a kind cluster with nginx ingress, follow the instructions [here](https://kind.sigs.k8s.io/docs/user/ingress/).
-Once you have your ingress running, you will need to configure nginx ingress for SSL passthru. Run the command:
+To create a kind cluster with NGINX Gateway Fabric, first ensure you have Helm installed, then install the Gateway API CRDs and NGINX Gateway Fabric:
 
 ```shell
-kubectl edit deployment ingress-nginx-controller -n ingress-nginx
+# Install Gateway API CRDs
+kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.4.1/standard-install.yaml
+
+# Install NGINX Gateway Fabric
+helm install ngf oci://ghcr.io/nginx/charts/nginx-gateway-fabric \
+  --create-namespace -n nginx-gateway \
+  --set nginx.service.type=NodePort \
+  --set-json 'nginx.service.nodePorts=[{"port":31437,"listenerPort":80},{"port":31438,"listenerPort":443}]'
 ```
 
-and add `--enable-ssl-passthrough` to the list of args for the container named `controller`. Then you can
-run the command to install KubeFlex:
+Then you can run the command to install KubeFlex:
 
 ```shell
 kflex init
@@ -143,13 +148,19 @@ kflex init
 
 ### Installing on k3d
 
-These steps have only been tested with k3d v5.6.0. Create a k3d cluster with `traefik` disabled and nginx ingress as follows:
+These steps have only been tested with k3d v5.6.0. Create a k3d cluster with `traefik` disabled and install NGINX Gateway Fabric as follows:
 
 ```shell
-k3d cluster create -p "9443:443@loadbalancer" --k3s-arg "--disable=traefik@server:*" kubeflex
-helm install ingress-nginx ingress-nginx --set "controller.extraArgs.enable-ssl-passthrough=true" --repo https://kubernetes.github.io/ingress-nginx --version 4.6.1 --namespace ingress-nginx --create-namespace
-```
+k3d cluster create -p "9080:80@loadbalancer" -p "9443:443@loadbalancer" --k3s-arg "--disable=traefik@server:*" kubeflex
 
+# Install Gateway API CRDs
+kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.4.1/standard-install.yaml
+
+# Install NGINX Gateway Fabric
+helm install ngf oci://ghcr.io/nginx/charts/nginx-gateway-fabric \
+  --create-namespace -n nginx-gateway \
+  --set nginx.service.type=LoadBalancer
+```
 
 ```shell
 kflex init --host-container-name k3d-kubeflex-server-0
@@ -166,7 +177,7 @@ kflex init
 
 ## Installing KubeFlex with helm
 
-To install KubeFlex on a cluster that already has nginx ingress with SSL passthru enabled,
+To install KubeFlex on a cluster that already has NGINX Gateway Fabric enabled,
 you can use helm instead of the KubeFlex CLI. First, create the `kubeflex-system` namespace
 and install KubeFlex with the following commands:
 

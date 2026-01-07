@@ -128,65 +128,6 @@ nodes:
 	return nil
 }
 
-// installAndPatchNginxIngress installs and patches the nginx ingress controller on the kind cluster
-func installAndPatchNginxIngress() error {
-	// run the kubectl apply command to install the nginx ingress controller
-	cmd := exec.Command("kubectl", "apply", "-f", "https://raw.githubusercontent.com/kubernetes/ingress-nginx/refs/tags/controller-v1.12.1/deploy/static/provider/kind/deploy.yaml")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err := cmd.Run()
-	if err != nil {
-		return fmt.Errorf("failed to run kubectl apply command: %v", err)
-	}
-
-	// create a patch file for the nginx controller deployment
-	patchFile, err := os.CreateTemp("", "nginx-controller-patch-*.yaml")
-	if err != nil {
-		return fmt.Errorf("failed to create patch file: %v", err)
-	}
-	defer os.Remove(patchFile.Name())
-
-	// write the patch content to the patch file
-	patchContent := `spec:
-  template:
-    spec:
-      containers:
-        - name: controller
-          args:
-            - /nginx-ingress-controller
-            - --election-id=ingress-nginx-leader
-            - --controller-class=k8s.io/ingress-nginx
-            - --ingress-class=nginx
-            - --configmap=$(POD_NAMESPACE)/ingress-nginx-controller
-            - --validating-webhook=:8443
-            - --validating-webhook-certificate=/usr/local/certificates/cert
-            - --validating-webhook-key=/usr/local/certificates/key
-            - --watch-ingress-without-class=true
-            - --publish-status-address=localhost
-            - --enable-ssl-passthrough`
-	_, err = patchFile.WriteString(patchContent)
-	if err != nil {
-		return fmt.Errorf("failed to write patch file: %v", err)
-	}
-
-	err = patchFile.Close()
-	if err != nil {
-		return fmt.Errorf("failed to close patch file: %v", err)
-	}
-
-	// run the kubectl patch command to patch the nginx controller deployment with the patch file
-	cmd = exec.Command("kubectl", "-n", "ingress-nginx", "patch", "deployment/ingress-nginx-controller",
-		fmt.Sprintf("--patch-file=%s", patchFile.Name()))
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err = cmd.Run()
-	if err != nil {
-		return fmt.Errorf("failed to run kubectl patch deployment command: %v", err)
-	}
-
-	return nil
-}
-
 func CreateKindCluster(chattyStatus bool, clusterName string) {
 	done := make(chan bool)
 	var wg sync.WaitGroup
@@ -224,10 +165,10 @@ func CreateKindCluster(chattyStatus bool, clusterName string) {
 		}
 	}
 
-	util.PrintStatus("Installing and patching nginx ingress...", done, &wg, chattyStatus)
-	err = installAndPatchNginxIngress()
+	util.PrintStatus("Installing NGINX Gateway Fabric...", done, &wg, chattyStatus)
+	err = installNGINXGatewayFabric()
 	if err != nil {
-		log.Fatalf("Error installing and patching nginx ingress: %v\n", err)
+		log.Fatalf("Error installing NGINX Gateway Fabric: %v\n", err)
 	}
 	done <- true
 	wg.Wait()
