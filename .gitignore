@@ -24,3 +24,5 @@ dist/
 .vscode/
 
 /kubeflex/
+# Code generator tools (repo-local)
+hack/tools/bin/

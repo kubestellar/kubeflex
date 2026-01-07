@@ -24,31 +24,40 @@ set -o pipefail
 SCRIPT_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
 cd "${SCRIPT_ROOT}"
 
+# Fail if working tree is not clean
+if [[ -n "$(git status --porcelain)" ]]; then
+    echo "Error: working tree is not clean"
+    git status
+    exit 1
+fi
+
 # Module and package configuration
 MODULE="github.com/kubestellar/kubeflex"
 API_PKG="api"
 OUTPUT_PKG="pkg/generated"
-GROUP_VERSION="tenancy:v1alpha1"
 
 # Determine code-generator version from go.mod
-CODEGEN_VERSION=$(go list -m -f '{{.Version}}' k8s.io/code-generator 2>/dev/null || echo "v0.32.10")
+CODEGEN_VERSION=$(go list -m -f '{{.Version}}' k8s.io/code-generator)
 
-# Create a temporary directory for code-generator
-CODEGEN_PKG="${GOPATH:-$HOME/go}/pkg/mod/k8s.io/code-generator@${CODEGEN_VERSION}"
+# Tools directory (repo-local, not GOPATH)
+TOOLS_BIN_DIR="${SCRIPT_ROOT}/hack/tools/bin"
+mkdir -p "${TOOLS_BIN_DIR}"
 
-# If code-generator is not available, install it
-if [[ ! -d "${CODEGEN_PKG}" ]]; then
-    echo "Installing k8s.io/code-generator@${CODEGEN_VERSION}..."
-    go install "k8s.io/code-generator/cmd/client-gen@${CODEGEN_VERSION}"
-    go install "k8s.io/code-generator/cmd/lister-gen@${CODEGEN_VERSION}"
-    go install "k8s.io/code-generator/cmd/informer-gen@${CODEGEN_VERSION}"
-fi
+# Install code generators to repo-local directory
+echo "Installing code-generator tools to ${TOOLS_BIN_DIR}..."
+GOBIN="${TOOLS_BIN_DIR}" go install "k8s.io/code-generator/cmd/client-gen@${CODEGEN_VERSION}"
+GOBIN="${TOOLS_BIN_DIR}" go install "k8s.io/code-generator/cmd/lister-gen@${CODEGEN_VERSION}"
+GOBIN="${TOOLS_BIN_DIR}" go install "k8s.io/code-generator/cmd/informer-gen@${CODEGEN_VERSION}"
 
 # Header file for generated code
 BOILERPLATE="${SCRIPT_ROOT}/hack/boilerplate.go.txt"
 
+# Delete entire generated code tree for reproducibility
+echo "Clearing ${OUTPUT_PKG}..."
+rm -rf "${SCRIPT_ROOT}/${OUTPUT_PKG}"
+
 echo "Generating clientset..."
-go run k8s.io/code-generator/cmd/client-gen@${CODEGEN_VERSION} \
+"${TOOLS_BIN_DIR}/client-gen" \
     --clientset-name "versioned" \
     --input-base "${MODULE}/${API_PKG}" \
     --input "v1alpha1" \
@@ -57,14 +66,14 @@ go run k8s.io/code-generator/cmd/client-gen@${CODEGEN_VERSION} \
     --go-header-file "${BOILERPLATE}"
 
 echo "Generating listers..."
-go run k8s.io/code-generator/cmd/lister-gen@${CODEGEN_VERSION} \
+"${TOOLS_BIN_DIR}/lister-gen" \
     --output-dir "${SCRIPT_ROOT}/${OUTPUT_PKG}/listers" \
     --output-pkg "${MODULE}/${OUTPUT_PKG}/listers" \
     --go-header-file "${BOILERPLATE}" \
     "${MODULE}/${API_PKG}/v1alpha1"
 
 echo "Generating informers..."
-go run k8s.io/code-generator/cmd/informer-gen@${CODEGEN_VERSION} \
+"${TOOLS_BIN_DIR}/informer-gen" \
     --versioned-clientset-package "${MODULE}/${OUTPUT_PKG}/clientset/versioned" \
     --listers-package "${MODULE}/${OUTPUT_PKG}/listers" \
     --output-dir "${SCRIPT_ROOT}/${OUTPUT_PKG}/informers" \
