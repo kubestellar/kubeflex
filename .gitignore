@@ -24,3 +24,7 @@ dist/
 .vscode/
 
 /kubeflex/
+
+# Ignore generated CRDs for the chart
+chart/crds/controlplanes.yaml
+chart/crds/postcreatehooks.yaml

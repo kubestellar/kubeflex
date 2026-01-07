@@ -196,7 +196,9 @@ chart: manifests kustomize
 	@cat config/samples/postcreate-hooks/openshift-crds.yaml > /tmp/hooks.yaml
 	@kubectl create secret generic postcreate-hooks -n kubeflex-system --from-file=/tmp/hooks.yaml --dry-run=client --output=yaml > chart/templates/builtin-hooks.yaml
 	@mkdir -p chart/crds
-	$(KUSTOMIZE) build config/crd > chart/crds/crds.yaml
+	$(KUSTOMIZE) build config/crd | yq 'select(.metadata.name | contains("controlplanes"))'   > chart/crds/controlplanes.yaml
+	$(KUSTOMIZE) build config/crd | yq 'select(.metadata.name | contains("postcreatehooks"))' > chart/crds/postcreatehooks.yaml
+
 
 .PHONY: ko-local-build
 ko-local-build:
