@@ -41,7 +41,9 @@ type PostCreateHookStatus struct {
 	SecretRef *SecretReference `json:"secretRef,omitempty"`
 }
 
-// PostCreateHook is the Schema for the controlplanes API
+// PostCreateHook is the Schema for the postcreatehooks API
+// +genclient
+// +genclient:nonNamespaced
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="SYNCED",type="string",JSONPath=".status.conditions[?(@.type=='Synced')].status"
