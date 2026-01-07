@@ -29,19 +29,19 @@ jobs:
     name: Test ControlPlane lifecycle management
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c
         with:
           go-version: v1.24.5
           cache: true
 
-      - uses: ko-build/setup-ko@v0.9
+      - uses: ko-build/setup-ko@d006021bd0c28d1ce33a07e7943d48b079944c8d
 
       - name: Install kubectl
-        uses: azure/setup-kubectl@v4
+        uses: azure/setup-kubectl@776406bce94f63e41d621b960d78ee25c8b76ede
         id: install
 
       - name: Run test
