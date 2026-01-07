@@ -109,12 +109,8 @@ generate-clients: ## Generate typed clientset, informers, and listers using Kube
 	./hack/update-codegen.sh
 
 .PHONY: verify-codegen
-verify-codegen: generate-clients ## Verify that generated code is up-to-date.
-	@if [ -n "$$(git status --porcelain pkg/generated)" ]; then \
-		echo "Generated code is out of date. Run 'make generate-clients' and commit the changes."; \
-		git diff pkg/generated; \
-		exit 1; \
-	fi
+verify-codegen: ## Verify that generated code is up-to-date.
+	./hack/verify-codegen.sh
 
 .PHONY: fmt
 fmt: ## Run go fmt against code.
