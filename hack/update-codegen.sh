@@ -40,7 +40,9 @@ OUTPUT_PKG="pkg/generated"
 CODEGEN_VERSION=$(go list -m -f '{{.Version}}' k8s.io/code-generator)
 
 # Tools directory (repo-local, not GOPATH)
-TOOLS_BIN_DIR="$(cd "${SCRIPT_ROOT}/hack/tools/bin" 2>/dev/null || mkdir -p "${SCRIPT_ROOT}/hack/tools/bin" && cd "${SCRIPT_ROOT}/hack/tools/bin" && pwd)"
+TOOLS_BIN_DIR="${SCRIPT_ROOT}/hack/tools/bin"
+mkdir -p "${TOOLS_BIN_DIR}"
+TOOLS_BIN_DIR="$(cd "${TOOLS_BIN_DIR}" && pwd)"
 
 # Install code generators to repo-local directory
 echo "Installing code-generator tools to ${TOOLS_BIN_DIR}..."
