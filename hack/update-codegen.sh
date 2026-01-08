@@ -24,13 +24,6 @@ set -o pipefail
 SCRIPT_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
 cd "${SCRIPT_ROOT}"
 
-# Fail if working tree is not clean
-if [[ -n "$(git status --porcelain)" ]]; then
-    echo "Error: working tree is not clean"
-    git status
-    exit 1
-fi
-
 # Module and package configuration
 MODULE="github.com/kubestellar/kubeflex"
 API_PKG="api"

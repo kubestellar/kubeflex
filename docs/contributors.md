@@ -87,6 +87,12 @@ LATEST_TAG=<tag used for image> make ko-build-push-cmupdate
    ```
    Wait until goreleaser completes the release process.
 
+1. Invoke [the E2E test workflow](../.github/workflows/test-e2e.yaml) on
+   the release just made (e.g, using [the GitHub web
+   UI](https://github.com/kubestellar/kubeflex/actions/workflows/test-e2e.yaml)). See
+   if it succeeds. If not then there is a problem that needs to be
+   remedied and a newer release made.
+
 1. The goreleaser workflow will also create a branch named `brew` with some changes (to the homebrew instsall script) that need to get merged into `main`. Make a PR to merge `brew` into `main`, and get it approved and merged.
 
 1. To avoid leaving a time bomb, delete that `brew` branch after it was merged into `main` (the goreleaser will fail to create the new `brew` branch if one already exists).

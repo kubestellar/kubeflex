@@ -15,7 +15,23 @@
 
 set -x # echo so that users can understand what is happening
 set -e # exit on error
-
+release=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --release)
+      if [[ $# -lt 2 ]]; then
+        echo "Error: --release requires a value (e.g. v0.9.2 or latest)"
+        exit 1
+      fi
+      release="$2"
+      shift 2
+      ;;
+    *)
+      echo "Unknown argument: $1"
+      exit 1
+      ;;
+  esac
+done
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
 
 :
@@ -29,24 +45,57 @@ kubectl -n ingress-nginx patch deployment/ingress-nginx-controller --patch-file=
 
 :
 : -------------------------------------------------------------------------
-: Compile binaries
-:
-make build
+if [[ -z "${release}" ]]; then
+    echo "Installing kubeflex from local source"
+    : Compile binaries
+    :
+    make build
 
-:
-: -------------------------------------------------------------------------
-: Build the OCI image for the kubeflex controller manager and load it in the local docker registry
-:
-:
-make ko-local-build
+    :
+    : -------------------------------------------------------------------------
+    : Build the OCI image for the kubeflex controller manager and load it in the local docker registry
+    :
+    :
+    make ko-local-build
 
-:
-: -------------------------------------------------------------------------
-: Load the local image in kind, re-generate manifests and helm chart, and install the helm chart:
-:
-:
-make install-local-chart
+    :
+    : -------------------------------------------------------------------------
+    : Load the local image in kind, re-generate manifests and helm chart, and install the helm chart:
+    :
+    :
+    make install-local-chart
+    :
+    :
+else
+    if [[ "${release}" == "latest" ]]; then
+        echo "Resolving latest kubeflex release from GitHub"
+        release="$(curl -fsSL https://api.github.com/repos/kubestellar/kubeflex/releases/latest \
+          | jq -r '.tag_name')"
 
+        if [[ -z "${release}" ]]; then
+            echo "Failed to resolve latest kubeflex release"
+            exit 1
+        fi
+
+        echo "Resolved latest release to ${release}"
+    fi
+    echo "Installing kubeflex release ${release}"
+
+    bash <(curl -s https://raw.githubusercontent.com/kubestellar/kubeflex/refs/tags/${release}/scripts/install-kubeflex.sh) --version $release --ensure-folder bin --strip-bin -X
+
+    if [ "$( { echo v0.9.2; echo "$release"; } | sort -V | head -1)" == v0.9.2 ]; then
+      helm install kubeflex-operator \
+        oci://ghcr.io/kubestellar/kubeflex/chart/kubeflex-operator \
+        --version "${release}"
+    else
+      kubectl create namespace kubeflex-system --dry-run=client -o yaml | kubectl apply -f -
+      helm install kubeflex-operator \
+        oci://ghcr.io/kubestellar/kubeflex/chart/kubeflex-operator \
+        --namespace kubeflex-system \
+        --version "${release}"
+    fi
+
+fi
 :
 : -------------------------------------------------------------------------
 : Create a PostCreateHook

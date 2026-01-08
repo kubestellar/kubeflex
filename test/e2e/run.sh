@@ -15,7 +15,20 @@
 
 set -x # echo so that users can understand what is happening
 set -e # exit on error
+release=""
 
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --release)
+      release="$2"
+      shift 2
+      ;;
+    *)
+      echo "Unknown argument: $1"
+      exit 1
+      ;;
+  esac
+done 
 # Change to repository root directory to ensure scripts work from any location
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
@@ -32,8 +45,15 @@ echo "Running E2E tests from: ${PWD}"
 SRC_DIR="$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)"
 
 ${SRC_DIR}/cleanup.sh
-${SRC_DIR}/setup-kubeflex.sh
+${SRC_DIR}/setup-kubeflex.sh --release "${release}"
+cfgfile="${KUBECONFIG:-$HOME/.kube/config}"
+if [[ "$(yq -o=json .extensions "$cfgfile" )" =~ ^[[] ]]; then
+    yq '.extensions |= [ .[] | select(.name != "kubeflex") ]' "$cfgfile" > $$
+    mv -f -- "$cfgfile" "${cfgfile}.bak"
+    mv -- $$ "$cfgfile"
+fi
 ${SRC_DIR}/manage-type-k8s.sh
+${SRC_DIR}/test-controller-image-update.sh
 ${SRC_DIR}/manage-type-vcluster.sh
 ${SRC_DIR}/manage-type-external.sh
 ${SRC_DIR}/manage-ctx.sh

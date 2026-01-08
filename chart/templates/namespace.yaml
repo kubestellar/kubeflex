@@ -1,6 +1,18 @@
-{{- if and (ne .Release.Namespace "kubeflex-system") (not (lookup "v1" "Namespace" "" "kubeflex-system")) }}
+{{ define "NS" -}}
 apiVersion: v1
 kind: Namespace
 metadata:
   name: kubeflex-system
-{{- end }}
+{{ end -}}
+{{ if ne .Release.Namespace "kubeflex-system" -}}
+  {{ with $kfns := (lookup "v1" "Namespace" "" "kubeflex-system") -}}
+    {{ if $kfns.metadata.annotations -}}
+      {{ if eq $.Release.Name
+               (index $kfns.metadata.annotations "meta.helm.sh/release-name") -}}
+        {{ template "NS" -}}
+      {{ end -}}
+    {{ end -}}
+  {{ else -}}
+    {{ template "NS" -}}
+  {{ end -}}
+{{end -}}

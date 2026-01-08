@@ -24,5 +24,10 @@ dist/
 .vscode/
 
 /kubeflex/
+
 # Code generator tools (repo-local)
 hack/tools/bin/
+
+# Ignore generated CRDs for the chart
+chart/crds/controlplanes.yaml
+chart/crds/postcreatehooks.yaml
