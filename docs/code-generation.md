@@ -12,7 +12,7 @@ kubeflex uses the standard Kubernetes code-generator tools to generate:
 
 ## Prerequisites
 
-- Go 1.24+ installed
+- Go 1.24.5+ installed
 - Access to `k8s.io/code-generator` (automatically fetched during generation)
 
 ## Generating Code

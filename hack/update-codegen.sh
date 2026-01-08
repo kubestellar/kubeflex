@@ -64,7 +64,7 @@ echo "Generating listers..."
     --output-dir "${REPO_ROOT}/${OUTPUT_PKG}/listers" \
     --output-pkg "${MODULE}/${OUTPUT_PKG}/listers" \
     --go-header-file "${BOILERPLATE}" \
-    "${MODULE}/${API_PKG}/v1alpha1"
+    "${MODULE}/api/v1alpha1"
 
 echo "Generating informers..."
 "${TOOLS_BIN_DIR}/informer-gen" \
@@ -73,6 +73,6 @@ echo "Generating informers..."
     --output-dir "${REPO_ROOT}/${OUTPUT_PKG}/informers" \
     --output-pkg "${MODULE}/${OUTPUT_PKG}/informers" \
     --go-header-file "${BOILERPLATE}" \
-    "${MODULE}/${API_PKG}/v1alpha1"
+    "${MODULE}/api/v1alpha1"
 
 echo "Code generation complete."
