@@ -20,11 +20,11 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-SCRIPT_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
-cd "${SCRIPT_ROOT}"
+REPO_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
+cd "${REPO_ROOT}"
 
 # Create temporary directory for generated code
-DIFFROOT="${SCRIPT_ROOT}/pkg/generated"
+DIFFROOT="${REPO_ROOT}/pkg/generated"
 TMP_DIFFROOT="$(mktemp -d)"
 trap 'rm -rf "${TMP_DIFFROOT}"' EXIT
 
@@ -42,7 +42,7 @@ OUTPUT_PKG="pkg/generated"
 CODEGEN_VERSION=$(go list -m -f '{{.Version}}' k8s.io/code-generator)
 
 # Tools directory (repo-local, not GOPATH)
-TOOLS_BIN_DIR="${SCRIPT_ROOT}/hack/tools/bin"
+TOOLS_BIN_DIR="${REPO_ROOT}/hack/tools/bin"
 mkdir -p "${TOOLS_BIN_DIR}"
 TOOLS_BIN_DIR="$(cd "${TOOLS_BIN_DIR}" && pwd)"
 
@@ -53,24 +53,24 @@ GOBIN="${TOOLS_BIN_DIR}" go install "k8s.io/code-generator/cmd/lister-gen@${CODE
 GOBIN="${TOOLS_BIN_DIR}" go install "k8s.io/code-generator/cmd/informer-gen@${CODEGEN_VERSION}"
 
 # Header file for generated code
-BOILERPLATE="${SCRIPT_ROOT}/hack/boilerplate.go.txt"
+BOILERPLATE="${REPO_ROOT}/hack/boilerplate.go.txt"
 
 # Delete entire generated code tree for reproducibility
 echo "Clearing ${OUTPUT_PKG}..."
-rm -rf "${SCRIPT_ROOT}/${OUTPUT_PKG}"
+rm -rf "${REPO_ROOT}/${OUTPUT_PKG}"
 
 echo "Generating clientset..."
 "${TOOLS_BIN_DIR}/client-gen" \
     --clientset-name "versioned" \
     --input-base "" \
     --input "${MODULE}/${API_PKG}/v1alpha1" \
-    --output-dir "${SCRIPT_ROOT}/${OUTPUT_PKG}/clientset" \
+    --output-dir "${REPO_ROOT}/${OUTPUT_PKG}/clientset" \
     --output-pkg "${MODULE}/${OUTPUT_PKG}/clientset" \
     --go-header-file "${BOILERPLATE}"
 
 echo "Generating listers..."
 "${TOOLS_BIN_DIR}/lister-gen" \
-    --output-dir "${SCRIPT_ROOT}/${OUTPUT_PKG}/listers" \
+    --output-dir "${REPO_ROOT}/${OUTPUT_PKG}/listers" \
     --output-pkg "${MODULE}/${OUTPUT_PKG}/listers" \
     --go-header-file "${BOILERPLATE}" \
     "${MODULE}/${API_PKG}/v1alpha1"
@@ -79,7 +79,7 @@ echo "Generating informers..."
 "${TOOLS_BIN_DIR}/informer-gen" \
     --versioned-clientset-package "${MODULE}/${OUTPUT_PKG}/clientset/versioned" \
     --listers-package "${MODULE}/${OUTPUT_PKG}/listers" \
-    --output-dir "${SCRIPT_ROOT}/${OUTPUT_PKG}/informers" \
+    --output-dir "${REPO_ROOT}/${OUTPUT_PKG}/informers" \
     --output-pkg "${MODULE}/${OUTPUT_PKG}/informers" \
     --go-header-file "${BOILERPLATE}" \
     "${MODULE}/${API_PKG}/v1alpha1"
