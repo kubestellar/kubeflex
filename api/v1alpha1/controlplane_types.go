@@ -161,7 +161,3 @@ type BootstrapSecretReference struct {
 	// Required
 	InClusterKey string `json:"inClusterKey"`
 }
-
-func init() {
-	SchemeBuilder.Register(&ControlPlane{}, &ControlPlaneList{})
-}

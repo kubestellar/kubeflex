@@ -49,6 +49,4 @@ Ensure you have the correct version of Go installed and that `k8s.io/code-genera
 
 Check that:
 1. API types have proper markers (`+k8s:deepcopy-gen=package`, `+groupName=...`, `+genclient`)
-2. Types are registered with the scheme in `register.go`
-3. All required `init()` functions are present
 

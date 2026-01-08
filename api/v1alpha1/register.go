@@ -31,11 +31,11 @@ func Resource(resource string) schema.GroupResource {
 }
 
 var (
-	// localSchemeBuilder and AddToScheme will stay in k8s.io/kubernetes.
-	localSchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
+	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
+	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
 
-	// AddToSchemeInCore is a common registration function for mapping types to the scheme
-	AddToSchemeInCore = localSchemeBuilder.AddToScheme
+	// AddToScheme adds the types in this group-version to the given scheme.
+	AddToScheme = SchemeBuilder.AddToScheme
 )
 
 // Adds the list of known types to the given scheme.

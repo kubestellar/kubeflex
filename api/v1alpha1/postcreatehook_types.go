@@ -74,7 +74,3 @@ type Manifest struct {
 	// +kubebuilder:pruning:PreserveUnknownFields
 	runtime.RawExtension `json:",inline"`
 }
-
-func init() {
-	SchemeBuilder.Register(&PostCreateHook{}, &PostCreateHookList{})
-}
