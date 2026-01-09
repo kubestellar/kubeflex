@@ -33,11 +33,7 @@ if [[ -d "${DIFFROOT}" ]]; then
     cp -a "${DIFFROOT}/." "${TMP_DIFFROOT}"
 fi
 
-# Delete entire generated code tree for reproducibility
-echo "Clearing pkg/generated..."
-rm -rf "${REPO_ROOT}/pkg/generated"
-
-# Invoke update-codegen.sh to regenerate code
+# Invoke update-codegen.sh to regenerate code (it handles clearing)
 echo "Regenerating code..."
 "${REPO_ROOT}/hack/update-codegen.sh"
 
