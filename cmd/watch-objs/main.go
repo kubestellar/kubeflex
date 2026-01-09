@@ -53,7 +53,7 @@ func main() {
 
 	restConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, overrides).ClientConfig()
 	if err != nil {
-		logger.Error(err, "Failed to construct resstConfig")
+		logger.Error(err, "Failed to construct restConfig")
 		os.Exit(10)
 	}
 	if len(restConfig.UserAgent) == 0 {
@@ -88,10 +88,10 @@ type mrObject interface {
 }
 
 type GenericLister[ObjectType mrObject] interface {
-	// List lists all PostCreateHooks in the indexer.
+	// List lists all objects in the indexer.
 	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []ObjectType, err error)
-	// Get retrieves the PostCreateHook from the index for a given name.
+	// Get retrieves the object from the index for a given name.
 	// Objects returned here must be treated as read-only.
 	Get(name string) (ObjectType, error)
 }
@@ -110,7 +110,7 @@ func (eh eventHandler[ObjectType]) OnAdd(obj any, isInitial bool) {
 		eh.logger.Error(err, "Failed to Get object from lister", "kind", eh.kind, "name", mrObj.GetName())
 	}
 	if fromCache.GetName() != mrObj.GetName() {
-		eh.logger.Error(nil, "Lister returned objecgt of different name", "kind", eh.kind, "name", mrObj.GetName(), "nameFromLister", fromCache.GetName())
+		eh.logger.Error(nil, "Lister returned object of different name", "kind", eh.kind, "name", mrObj.GetName(), "nameFromLister", fromCache.GetName())
 	}
 }
 

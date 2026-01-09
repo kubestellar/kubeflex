@@ -21,9 +21,8 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
 REPO_ROOT=$(cd "$SCRIPT_DIR"; cd ../..; pwd)
 
 logfile=log-$$
-trap "rm $logfile" EXIT
-
 go run "$REPO_ROOT/cmd/watch-objs" -n default -v=4 &> $logfile &
+trap "rm $logfile; kill $!" EXIT
 
 
 if ! waitfor 'grep -q "Notified of add.*PostCreateHook.*name=\"synthetic-crd\"" '$logfile; then
@@ -42,4 +41,7 @@ fi
 
 kubectl delete cp cptest
 
-kill %1
+if ! waitfor 'grep -q "Notified of delete.*ControlPlane.*name=\"cptest\"" '$logfile; then
+    cat $logfile
+    exit 1
+fi
