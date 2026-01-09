@@ -19,30 +19,36 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"net/http"
+	http "net/http"
 
-	"github.com/kubestellar/kubeflex/pkg/generated/clientset/versioned/scheme"
+	apiv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
+	scheme "github.com/kubestellar/kubeflex/pkg/generated/clientset/versioned/scheme"
 	rest "k8s.io/client-go/rest"
 )
 
-type TenancyInterface interface {
+type TenancyV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	ControlPlanesGetter
+	PostCreateHooksGetter
 }
 
-// TenancyClient is used to interact with features provided by the tenancy.kflex.kubestellar.org group.
-type TenancyClient struct {
+// TenancyV1alpha1Client is used to interact with features provided by the tenancy.kflex.kubestellar.org group.
+type TenancyV1alpha1Client struct {
 	restClient rest.Interface
 }
 
-func (c *TenancyClient) ControlPlanes(namespace string) ControlPlaneInterface {
-	return newControlPlanes(c, namespace)
+func (c *TenancyV1alpha1Client) ControlPlanes() ControlPlaneInterface {
+	return newControlPlanes(c)
 }
 
-// NewForConfig creates a new TenancyClient for the given config.
+func (c *TenancyV1alpha1Client) PostCreateHooks() PostCreateHookInterface {
+	return newPostCreateHooks(c)
+}
+
+// NewForConfig creates a new TenancyV1alpha1Client for the given config.
 // NewForConfig is equivalent to NewForConfigAndClient(c, httpClient),
 // where httpClient was generated with rest.HTTPClientFor(c).
-func NewForConfig(c *rest.Config) (*TenancyClient, error) {
+func NewForConfig(c *rest.Config) (*TenancyV1alpha1Client, error) {
 	config := *c
 	if err := setConfigDefaults(&config); err != nil {
 		return nil, err
@@ -54,9 +60,9 @@ func NewForConfig(c *rest.Config) (*TenancyClient, error) {
 	return NewForConfigAndClient(&config, httpClient)
 }
 
-// NewForConfigAndClient creates a new TenancyClient for the given config and http client.
+// NewForConfigAndClient creates a new TenancyV1alpha1Client for the given config and http client.
 // Note the http client provided takes precedence over the configured transport values.
-func NewForConfigAndClient(c *rest.Config, h *http.Client) (*TenancyClient, error) {
+func NewForConfigAndClient(c *rest.Config, h *http.Client) (*TenancyV1alpha1Client, error) {
 	config := *c
 	if err := setConfigDefaults(&config); err != nil {
 		return nil, err
@@ -65,12 +71,12 @@ func NewForConfigAndClient(c *rest.Config, h *http.Client) (*TenancyClient, erro
 	if err != nil {
 		return nil, err
 	}
-	return &TenancyClient{client}, nil
+	return &TenancyV1alpha1Client{client}, nil
 }
 
-// NewForConfigOrDie creates a new TenancyClient for the given config and
+// NewForConfigOrDie creates a new TenancyV1alpha1Client for the given config and
 // panics if there is an error in the config.
-func NewForConfigOrDie(c *rest.Config) *TenancyClient {
+func NewForConfigOrDie(c *rest.Config) *TenancyV1alpha1Client {
 	client, err := NewForConfig(c)
 	if err != nil {
 		panic(err)
@@ -78,27 +84,19 @@ func NewForConfigOrDie(c *rest.Config) *TenancyClient {
 	return client
 }
 
-// New creates a new TenancyClient for the given RESTClient.
-func New(c rest.Interface) *TenancyClient {
-	return &TenancyClient{c}
+// New creates a new TenancyV1alpha1Client for the given RESTClient.
+func New(c rest.Interface) *TenancyV1alpha1Client {
+	return &TenancyV1alpha1Client{c}
 }
 
 func setConfigDefaults(config *rest.Config) error {
+	gv := apiv1alpha1.SchemeGroupVersion
+	config.GroupVersion = &gv
 	config.APIPath = "/apis"
+	config.NegotiatedSerializer = rest.CodecFactoryForGeneratedClient(scheme.Scheme, scheme.Codecs).WithoutConversion()
+
 	if config.UserAgent == "" {
 		config.UserAgent = rest.DefaultKubernetesUserAgent()
-	}
-	if config.GroupVersion == nil || config.GroupVersion.Group != scheme.Scheme.PrioritizedVersionsForGroup("tenancy.kflex.kubestellar.org")[0].Group {
-		gv := scheme.Scheme.PrioritizedVersionsForGroup("tenancy.kflex.kubestellar.org")[0]
-		config.GroupVersion = &gv
-	}
-	config.NegotiatedSerializer = scheme.Codecs
-
-	if config.QPS == 0 {
-		config.QPS = 5
-	}
-	if config.Burst == 0 {
-		config.Burst = 10
 	}
 
 	return nil
@@ -106,7 +104,7 @@ func setConfigDefaults(config *rest.Config) error {
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *TenancyClient) RESTClient() rest.Interface {
+func (c *TenancyV1alpha1Client) RESTClient() rest.Interface {
 	if c == nil {
 		return nil
 	}

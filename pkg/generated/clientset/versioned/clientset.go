@@ -19,10 +19,10 @@ limitations under the License.
 package versioned
 
 import (
-	"fmt"
-	"net/http"
+	fmt "fmt"
+	http "net/http"
 
-	tenancyv1alpha1 "github.com/kubestellar/kubeflex/pkg/generated/clientset/versioned/typed/v1alpha1"
+	tenancyv1alpha1 "github.com/kubestellar/kubeflex/pkg/generated/clientset/versioned/typed/api/v1alpha1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
@@ -30,18 +30,18 @@ import (
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
-	Tenancy() tenancyv1alpha1.TenancyInterface
+	TenancyV1alpha1() tenancyv1alpha1.TenancyV1alpha1Interface
 }
 
 // Clientset contains the clients for groups.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	tenancy *tenancyv1alpha1.TenancyClient
+	tenancyV1alpha1 *tenancyv1alpha1.TenancyV1alpha1Client
 }
 
-// Tenancy retrieves the TenancyClient
-func (c *Clientset) Tenancy() tenancyv1alpha1.TenancyInterface {
-	return c.tenancy
+// TenancyV1alpha1 retrieves the TenancyV1alpha1Client
+func (c *Clientset) TenancyV1alpha1() tenancyv1alpha1.TenancyV1alpha1Interface {
+	return c.tenancyV1alpha1
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -88,7 +88,7 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 
 	var cs Clientset
 	var err error
-	cs.tenancy, err = tenancyv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	cs.tenancyV1alpha1, err = tenancyv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +113,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 // New creates a new Clientset for the given RESTClient.
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
-	cs.tenancy = tenancyv1alpha1.New(c)
+	cs.tenancyV1alpha1 = tenancyv1alpha1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs

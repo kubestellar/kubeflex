@@ -19,22 +19,26 @@ limitations under the License.
 package fake
 
 import (
-	v1alpha1 "github.com/kubestellar/kubeflex/pkg/generated/clientset/versioned/typed/v1alpha1"
+	v1alpha1 "github.com/kubestellar/kubeflex/pkg/generated/clientset/versioned/typed/api/v1alpha1"
 	rest "k8s.io/client-go/rest"
 	testing "k8s.io/client-go/testing"
 )
 
-type FakeTenancy struct {
+type FakeTenancyV1alpha1 struct {
 	*testing.Fake
 }
 
-func (c *FakeTenancy) ControlPlanes(namespace string) v1alpha1.ControlPlaneInterface {
-	return &FakeControlPlanes{c, namespace}
+func (c *FakeTenancyV1alpha1) ControlPlanes() v1alpha1.ControlPlaneInterface {
+	return newFakeControlPlanes(c)
+}
+
+func (c *FakeTenancyV1alpha1) PostCreateHooks() v1alpha1.PostCreateHookInterface {
+	return newFakePostCreateHooks(c)
 }
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *FakeTenancy) RESTClient() rest.Interface {
+func (c *FakeTenancyV1alpha1) RESTClient() rest.Interface {
 	var ret *rest.RESTClient
 	return ret
 }
