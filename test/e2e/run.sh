@@ -53,7 +53,12 @@ if [[ "$(yq -o=json .extensions "$cfgfile" )" =~ ^[[] ]]; then
     mv -- $$ "$cfgfile"
 fi
 
-${SRC_DIR}/test-informers.sh
+if [ -z "${release}" ]; then
+    ${SRC_DIR}/test-informers.sh
+else
+    : there is no local watch-objs command, neither source nor executable, to use
+fi
+
 ${SRC_DIR}/manage-type-k8s.sh
 ${SRC_DIR}/test-controller-image-update.sh
 ${SRC_DIR}/manage-type-vcluster.sh

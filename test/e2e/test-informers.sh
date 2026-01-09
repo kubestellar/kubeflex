@@ -21,7 +21,7 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
 REPO_ROOT=$(cd "$SCRIPT_DIR"; cd ../..; pwd)
 
 logfile=log-$$
-go run "$REPO_ROOT/cmd/watch-objs" -n default -v=4 &> $logfile &
+bin/watch-objs -n default -v=4 &> $logfile &
 trap "rm $logfile; kill $!" EXIT
 
 
