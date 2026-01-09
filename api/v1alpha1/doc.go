@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// +kubebuilder:object:generate=true
 // +groupName=tenancy.kflex.kubestellar.org
 
 // Package v1alpha1 contains API Schema definitions for the tenancy v1alpha1 API group
