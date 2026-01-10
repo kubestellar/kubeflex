@@ -20,7 +20,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --release)
       if [[ $# -lt 2 ]]; then
-        echo "Error: --release requires a value (e.g. v0.9.1 — note: v0.9.2 is broken)"
+        echo "Error: --release requires a value (e.g. v0.9.1 - note: v0.9.2 is broken)"
         exit 1
       fi
       release="$2"
@@ -33,12 +33,6 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
-
-# v0.9.2 is known to be broken — use v0.9.1 instead
-if [[ "${release}" == "v0.9.2" ]]; then
-  echo "Warning: release v0.9.2 is broken. Using v0.9.1 instead."
-  release="v0.9.1"
-fi
 
 :
 : -------------------------------------------------------------------------
@@ -74,42 +68,39 @@ if [[ -z "${release}" ]]; then
     :
 else
     if [[ "${release}" == "latest" ]]; then
-      echo "Resolving latest kubeflex release from GitHub"
-      resolved_release="$(curl -fsSL https://api.github.com/repos/kubestellar/kubeflex/releases/latest \
-        | jq -r '.tag_name')"
+        echo "Resolving latest kubeflex release from GitHub"
+        release="$(curl -fsSL https://api.github.com/repos/kubestellar/kubeflex/releases/latest \
+          | jq -r '.tag_name')"
 
-      if [[ -z "${resolved_release}" ]]; then
-          echo "Failed to resolve latest kubeflex release"
-          exit 1
-      fi
+        if [[ -z "${release}" ]]; then
+            echo "Failed to resolve latest kubeflex release"
+            exit 1
+        fi
 
-      # v0.9.2 is known to be broken — fall back to v0.9.1
-      if [[ "${resolved_release}" == "v0.9.2" ]]; then
-          echo "Latest release v0.9.2 is broken. Falling back to v0.9.1."
-          release="v0.9.1"
-      else
-          release="${resolved_release}"
-      fi
-
-      echo "Resolved latest release to ${release}"
+        echo "Resolved latest release to ${release}"
+    fi
+    
+    # NOTE: v0.9.2 is known to be broken, but is still allowed for testing purposes
+    if [[ "${release}" == "v0.9.2" ]]; then
+        echo "WARNING: You are using release v0.9.2, which is known to be broken."
+        echo "E2E tests are expected to fail for this version."
     fi
 
     echo "Installing kubeflex release ${release}"
 
     bash <(curl -s https://raw.githubusercontent.com/kubestellar/kubeflex/refs/tags/${release}/scripts/install-kubeflex.sh) --version $release --ensure-folder bin --strip-bin -X
 
-    # NOTE: v0.9.2 is known to be broken and should not be used.
-    if [[ "${release}" == "v0.9.2" ]]; then
-      echo "Error: release v0.9.2 is broken. Please use v0.9.1 instead."
-      exit 1
+    if [ "$( { echo v0.9.2; echo "$release"; } | sort -V | head -1)" == v0.9.2 ]; then
+      helm install kubeflex-operator \
+        oci://ghcr.io/kubestellar/kubeflex/chart/kubeflex-operator \
+        --version "${release}"
+    else
+      kubectl create namespace kubeflex-system --dry-run=client -o yaml | kubectl apply -f -
+      helm install kubeflex-operator \
+        oci://ghcr.io/kubestellar/kubeflex/chart/kubeflex-operator \
+        --namespace kubeflex-system \
+        --version "${release}"
     fi
-
-kubectl create namespace kubeflex-system --dry-run=client -o yaml | kubectl apply -f -
-helm install kubeflex-operator \
-  oci://ghcr.io/kubestellar/kubeflex/chart/kubeflex-operator \
-  --namespace kubeflex-system \
-  --version "${release}"
-
 
 fi
 :
