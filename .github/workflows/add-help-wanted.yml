@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   label-on-comment:
-    if: github.event.comment.body == '/help-wanted' || github.event.comment.body == '/good-first-issue'
+    if: github.event.comment.body == '/help-wanted' || github.event.comment.body == '/good-first-issue' || github.event.comment.body == '/triage-accepted' 
     runs-on: ubuntu-latest
     steps:
       - name: Add label based on comment
@@ -20,6 +20,25 @@ jobs:
             const issue_number = context.payload.issue.number;
             const owner = context.repo.owner;
             const repo = context.repo.repo;
+            if (comment === '/triage accepted') {
+              try {
+                await github.rest.issues.removeLabel({
+                  owner,
+                  repo,
+                  issue_number,
+                  name: 'need-triage',
+                });
+              } catch (_) {
+                // ignore if label does not exist
+              }
+              await github.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number,
+                labels: ['triage-accepted'],
+              });
+              return;
+            }
 
             let label = null;
             if (comment === '/help-wanted') {
