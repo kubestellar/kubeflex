@@ -82,7 +82,7 @@ else
     
     # NOTE: v0.9.2 is known to be broken, but is still allowed for testing purposes
     if [[ "${release}" == "v0.9.2" ]]; then
-        echo "WARNING: You are using release v0.9.2, which is known to be broken."
+        echo "WARNING: You are testing release v0.9.2, which is known to be broken."
         echo "E2E tests are expected to fail for this version."
     fi
 
