@@ -60,7 +60,12 @@ else
 fi
 
 ${SRC_DIR}/manage-type-k8s.sh
-${SRC_DIR}/test-controller-image-update.sh
+
+if [ -z "${release}" ]; then
+    # This test is only appropriate when testing the local copy
+    ${SRC_DIR}/test-controller-image-update.sh
+fi
+
 ${SRC_DIR}/manage-type-vcluster.sh
 ${SRC_DIR}/manage-type-external.sh
 ${SRC_DIR}/manage-ctx.sh
