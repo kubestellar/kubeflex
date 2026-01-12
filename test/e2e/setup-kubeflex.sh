@@ -20,7 +20,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --release)
       if [[ $# -lt 2 ]]; then
-        echo "Error: --release requires a value (e.g. v0.9.2 or latest)"
+        echo "Error: --release requires a value (e.g. v0.9.1 - note: v0.9.2 is broken)"
         exit 1
       fi
       release="$2"
@@ -79,6 +79,13 @@ else
 
         echo "Resolved latest release to ${release}"
     fi
+    
+    # NOTE: v0.9.2 is known to be broken, but is still allowed for testing purposes
+    if [[ "${release}" == "v0.9.2" ]]; then
+        echo "WARNING: You are testing release v0.9.2, which is known to be broken."
+        echo "E2E tests are expected to fail for this version."
+    fi
+
     echo "Installing kubeflex release ${release}"
 
     bash <(curl -s https://raw.githubusercontent.com/kubestellar/kubeflex/refs/tags/${release}/scripts/install-kubeflex.sh) --version $release --ensure-folder bin --strip-bin -X

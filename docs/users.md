@@ -1,3 +1,8 @@
+> ⚠️ **Important notice**
+>
+> Release **v0.9.2** of Kubeflex is **broken** due to a known image tag mismatch issue.
+> Please **do not use this version**.
+
 # User's Guide
 
 ## Breaking changes
