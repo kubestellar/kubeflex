@@ -1,26 +1,20 @@
-name: spellcheck
+name: Spellcheck
+
 on:
-  # So we can trigger manually if needed
   workflow_dispatch:
   push:
     branches:
       - main
       - "release-*"
     paths:
-      - ".github/workflows/spellcheck_action.yaml"
+      - ".github/workflows/spellcheck_action.yml"
       - ".github/spellcheck/.spellcheck.yml"
-      - ".github/spellcheck/.wordlist.yml"
+      - ".github/spellcheck/.wordlist.txt"
+
+permissions:
+  contents: read
 
 jobs:
-  spellchecker:
-    name: Spellcheck
-    runs-on: ubuntu-latest
-    steps:
-    # The checkout step
-    - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
-    - uses: rojopolis/spellcheck-github-actions@16d0338a5a3b5e3111a078029fb9a07a8125053d
-      name: Spellcheck
-      with:
-        config_path: .github/spellcheck/.spellcheck.yml # put path to configuration file here
-        task_name: Markdown
-#         source_files: docs/content/*
+  spellcheck:
+    uses: kubestellar/infra/.github/workflows/reusable-spellcheck.yml@main
+    secrets: inherit
