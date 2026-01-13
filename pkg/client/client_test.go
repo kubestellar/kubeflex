@@ -28,10 +28,10 @@ import (
 // createTestKubeconfig creates a temporary kubeconfig file for testing
 func createTestKubeconfig(t *testing.T) string {
 	t.Helper()
-	
+
 	tmpDir := t.TempDir()
 	kubeconfigPath := filepath.Join(tmpDir, "config")
-	
+
 	config := clientcmdapi.Config{
 		Clusters: map[string]*clientcmdapi.Cluster{
 			"test-cluster": {
@@ -52,25 +52,25 @@ func createTestKubeconfig(t *testing.T) string {
 			},
 		},
 	}
-	
+
 	if err := clientcmd.WriteToFile(config, kubeconfigPath); err != nil {
 		t.Fatalf("Failed to write test kubeconfig: %v", err)
 	}
-	
+
 	return kubeconfigPath
 }
 
 // createInvalidKubeconfig creates an invalid kubeconfig file
 func createInvalidKubeconfig(t *testing.T) string {
 	t.Helper()
-	
+
 	tmpDir := t.TempDir()
 	kubeconfigPath := filepath.Join(tmpDir, "config")
-	
+
 	if err := os.WriteFile(kubeconfigPath, []byte("invalid yaml content: [[["), 0600); err != nil {
 		t.Fatalf("Failed to write invalid kubeconfig: %v", err)
 	}
-	
+
 	return kubeconfigPath
 }
 func TestGetClientSet(t *testing.T) {
@@ -97,13 +97,13 @@ func TestGetClientSet(t *testing.T) {
 			errContains: "error building kubeconfig",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			kubeconfig := tt.setupFunc()
-			
+
 			clientset, err := GetClientSet(kubeconfig)
-			
+
 			if tt.wantErr {
 				if err == nil {
 					t.Errorf("GetClientSet() expected error but got none")
@@ -148,13 +148,13 @@ func TestGetClient(t *testing.T) {
 			errContains: "error building kubeconfig",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			kubeconfig := tt.setupFunc()
-			
+
 			client, err := GetClient(kubeconfig)
-			
+
 			if tt.wantErr {
 				if err == nil {
 					t.Errorf("GetClient() expected error but got none")
@@ -199,13 +199,13 @@ func TestGetOpendShiftSecClient(t *testing.T) {
 			errContains: "error building kubeconfig",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			kubeconfig := tt.setupFunc()
-			
+
 			client, err := GetOpendShiftSecClient(kubeconfig)
-			
+
 			if tt.wantErr {
 				if err == nil {
 					t.Errorf("GetOpendShiftSecClient() expected error but got none")
@@ -235,19 +235,19 @@ func TestGetConfigWithHomeDirFallback(t *testing.T) {
 		os.Setenv("HOME", originalHome)
 		os.Setenv("USERPROFILE", originalUserProfile)
 	}()
-	
+
 	// Unset KUBECONFIG to force home dir lookup
 	originalKubeconfig := os.Getenv("KUBECONFIG")
 	os.Unsetenv("KUBECONFIG")
 	defer os.Setenv("KUBECONFIG", originalKubeconfig)
-	
+
 	// Create a temporary home directory with .kube/config
 	tmpHome := t.TempDir()
 	kubeDir := filepath.Join(tmpHome, ".kube")
 	if err := os.MkdirAll(kubeDir, 0755); err != nil {
 		t.Fatalf("Failed to create .kube directory: %v", err)
 	}
-	
+
 	// Create a valid kubeconfig in the temp home
 	config := clientcmdapi.Config{
 		Clusters: map[string]*clientcmdapi.Cluster{
@@ -269,16 +269,16 @@ func TestGetConfigWithHomeDirFallback(t *testing.T) {
 			},
 		},
 	}
-	
+
 	kubeconfigPath := filepath.Join(kubeDir, "config")
 	if err := clientcmd.WriteToFile(config, kubeconfigPath); err != nil {
 		t.Fatalf("Failed to write test kubeconfig: %v", err)
 	}
-	
+
 	// Set HOME to temp directory
 	os.Setenv("HOME", tmpHome)
 	os.Setenv("USERPROFILE", tmpHome) // For Windows compatibility
-	
+
 	// Test with empty kubeconfig parameter
 	cfg, err := getConfig("")
 	if err != nil {
@@ -291,7 +291,7 @@ func TestGetConfigWithHomeDirFallback(t *testing.T) {
 
 // Helper function
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(substr) == 0 || 
+	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
 		(len(s) > 0 && len(substr) > 0 && containsSubstring(s, substr)))
 }
 
