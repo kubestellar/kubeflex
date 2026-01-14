@@ -1,25 +1,11 @@
 # KubeFlex Architecture
 
-KubeFlex implements a sophisticated multi-tenant architecture that separates control plane management from workload execution:
-
-![KubeFlex Architecture](./images/kubeflex-architecture.png)
-
-## Core Components
-
-1. **KubeFlex Controller**: Orchestrates the lifecycle of tenant control planes through the ControlPlane CRD
-2. **Tenant Control Planes**: Isolated API server and controller manager instances per tenant
-3. **Flexible Data Plane**: Choose between shared host nodes, vCluster virtual nodes, or dedicated KubeVirt VMs
-4. **Unified CLI (kflex)**: Single binary for initializing, managing, and switching between control planes
-5. **Storage Abstraction**: Configurable backends from shared Postgres to dedicated etcd
-
-## Supported Control Plane Types
-
 KubeFlex is a flexible framework that supports various kinds of control planes, such as:
 
 - *k8s*: a basic Kubernetes API Server with a subset of kube controllers. 
 The control plane in this context does not execute workloads, such as pods, 
 because the controllers associated with these objects are not activated. 
-This environment is referred to as 'denatured' because it lacks the typical 
+This environment is referred to as ‘denatured’ because it lacks the typical 
 characteristics and functionalities of a standard Kubernetes cluster
 It uses about 350 MB of memory per instance with a shared Postgres Database Backend.
 
@@ -56,9 +42,6 @@ within the hosting cluster, and then deploys the following artifacts in that nam
       [**<u>kine</u>**](https://github.com/k3s-io/kine), a tool that
       emulates the etcd interface for Postgres, allowing the API server
       to interact with the database.
-      
-      > **Note**: PostgreSQL is installed using PostCreateHook Jobs rather than Helm subchart dependencies. 
-      > For detailed information about this architectural decision, see [PostgreSQL Architecture Decision](./postgresql-architecture-decision.md).
 
     - For control planes designated as type `vcluster`, the API
       server and an embedded etcd database run as a single process in
