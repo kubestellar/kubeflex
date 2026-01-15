@@ -145,6 +145,49 @@ Once installed, ask questions like:
 | `set_ownership_policy_mode` | Change policy enforcement mode |
 | `uninstall_ownership_policy` | Remove the ownership policy |
 
+### Upgrade Tools
+| Tool | Description |
+|------|-------------|
+| `detect_cluster_type` | Detect cluster distribution (OpenShift, EKS, GKE, AKS, kubeadm, k3s, kind) |
+| `get_cluster_version_info` | Get current version and available upgrades |
+| `check_olm_operator_upgrades` | Check OLM operators for pending upgrades |
+| `check_helm_release_upgrades` | List Helm releases and their versions |
+| `get_upgrade_prerequisites` | Validate upgrade readiness (nodes, pods, ClusterOperators) |
+| `trigger_openshift_upgrade` | Trigger OpenShift cluster upgrade (requires confirmation) |
+| `get_upgrade_status` | Monitor upgrade progress |
+
+## Slash Commands
+
+When using kubectl-claude as a Claude Code plugin, these slash commands provide guided workflows for common tasks:
+
+| Command | Description |
+|---------|-------------|
+| `/k8s-health` | Check health of all Kubernetes clusters |
+| `/k8s-issues` | Find pod and deployment issues across clusters |
+| `/k8s-security` | Check for security misconfigurations |
+| `/k8s-rbac` | Analyze RBAC permissions for a subject |
+| `/k8s-analyze` | Comprehensive namespace analysis |
+| `/k8s-audit-kubeconfig` | Audit kubeconfig clusters and recommend cleanup |
+| `/k8s-ownership` | Set up and manage resource ownership tracking with OPA Gatekeeper |
+| `/k8s-upgrade-check` | Check for available upgrades (cluster, OLM operators, Helm releases) |
+| `/k8s-upgrade` | Interactive cluster upgrade workflow with safety checks |
+
+### Example Usage
+
+```
+# Check for upgrades across all clusters
+/k8s-upgrade-check
+
+# Start an interactive upgrade workflow
+/k8s-upgrade
+
+# Find all pod and deployment issues
+/k8s-issues
+
+# Analyze RBAC for a service account
+/k8s-rbac
+```
+
 ## CLI Usage
 
 ### As kubectl plugin
