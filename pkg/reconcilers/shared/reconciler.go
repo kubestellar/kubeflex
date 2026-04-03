@@ -45,6 +45,7 @@ const (
 type PostCreateHookReconciler interface {
 	ReconcileUpdatePostCreateHook(context.Context, *tenancyv1alpha1.ControlPlane) error
 }
+
 // ControlPlaneReconciler defines Reconcile loop
 // each controlplane type must implement ControlPlaneReconciler as
 // internal/controller/controlplane_controller.go Reconcile acts

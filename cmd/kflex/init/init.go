@@ -37,10 +37,10 @@ import (
 )
 
 const (
-	CreateKindFlag        = "create-kind"
-	DomainFlag            = "domain"
-	HostContainerNameFlag = "host-container-name" // REFACTOR? replace with host-container-name?
-	ExternalPortFlag      = "external-port"       // REFACTOR? replace with external-port?
+	CreateKindFlag         = "create-kind"
+	DomainFlag             = "domain"
+	HostContainerNameFlag  = "host-container-name" // REFACTOR? replace with host-container-name?
+	ExternalPortFlag       = "external-port"       // REFACTOR? replace with external-port?
 	DefaultKindClusterName = "kind-kubeflex"       // Default cluster name for kind clusters
 )
 
@@ -58,7 +58,7 @@ func Command() *cobra.Command {
 			domain, _ := flagset.GetString(DomainFlag)
 			externalPort, _ := flagset.GetInt(ExternalPortFlag)
 			hostContainer, _ := flagset.GetString(HostContainerNameFlag)
-			
+
 			// Handle positional cluster name parameter
 			clusterName := DefaultKindClusterName // default
 			if len(args) > 0 {
@@ -108,7 +108,6 @@ func ExecuteInit(ctx context.Context, kubeconfig, version, buildDate string, dom
 	if err != nil {
 		return fmt.Errorf("error getting clientset: %v", err)
 	}
-	clientset := *clientsetp
 
 	util.PrintStatus(fmt.Sprintf("Kubeflex %s %s", version, buildDate), done, &wg, chattyStatus)
 	done <- true
@@ -145,7 +144,7 @@ func ExecuteInit(ctx context.Context, kubeconfig, version, buildDate string, dom
 
 	util.PrintStatus("Waiting for shared backend DB to become ready...", done, &wg, chattyStatus)
 	util.WaitForStatefulSetReady(
-		clientset,
+		clientsetp,
 		util.GeneratePSReplicaSetName(util.DBReleaseName),
 		util.SystemNamespace)
 	done <- true
@@ -159,7 +158,7 @@ func ExecuteInit(ctx context.Context, kubeconfig, version, buildDate string, dom
 
 	util.PrintStatus("Waiting for kubeflex operator to become ready...", done, &wg, chattyStatus)
 	util.WaitForDeploymentReady(
-		clientset,
+		clientsetp,
 		util.GenerateOperatorDeploymentName(),
 		util.SystemNamespace)
 	done <- true

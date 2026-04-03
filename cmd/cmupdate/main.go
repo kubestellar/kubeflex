@@ -100,7 +100,7 @@ func main() {
 	case util.VClusterKubeConfigSecret:
 		nodePortServiceName = util.VClusterNodePortServiceName
 		serviceName = util.VClusterServiceName
-		if err := util.WaitForStatefulSetReady(*clientset,
+		if err := util.WaitForStatefulSetReady(clientset,
 			util.VClusterServerDeploymentName,
 			namespace); err != nil {
 			log.Fatalf("Error waiting for stateful set to become ready: %s", err)
@@ -108,7 +108,7 @@ func main() {
 	case util.OCMKubeConfigSecret:
 		serviceName = ocm.ServiceName
 		nodePortServiceName = ocm.ServiceName
-		if err := util.WaitForDeploymentReady(*clientset,
+		if err := util.WaitForDeploymentReady(clientset,
 			util.OCMServerDeploymentName,
 			namespace); err != nil {
 			log.Fatalf("Error waiting for deployment to become ready: %s", err)
