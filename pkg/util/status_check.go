@@ -36,7 +36,7 @@ import (
 // TODO - refactor in a single base "WaitFor" function that can operate on the resource types
 // needed here
 
-func WaitForDeploymentReady(clientset kubernetes.Clientset, name, namespace string) error {
+func WaitForDeploymentReady(clientset kubernetes.Interface, name, namespace string) error {
 	watcher, err := clientset.AppsV1().Deployments(namespace).Watch(context.Background(), metav1.ListOptions{
 		FieldSelector:   fmt.Sprintf("metadata.name=%s", name),
 		ResourceVersion: "0",
@@ -49,7 +49,7 @@ func WaitForDeploymentReady(clientset kubernetes.Clientset, name, namespace stri
 	for {
 		event, ok := <-watcher.ResultChan()
 		if !ok {
-			return nil
+			return fmt.Errorf("watch channel closed before deployment %s/%s became ready", namespace, name)
 		}
 
 		switch event.Type {
@@ -66,7 +66,7 @@ func WaitForDeploymentReady(clientset kubernetes.Clientset, name, namespace stri
 	}
 }
 
-func WaitForStatefulSetReady(clientset kubernetes.Clientset, name, namespace string) error {
+func WaitForStatefulSetReady(clientset kubernetes.Interface, name, namespace string) error {
 	watcher, err := clientset.AppsV1().StatefulSets(namespace).Watch(context.Background(), metav1.ListOptions{
 		FieldSelector: fmt.Sprintf("metadata.name=%s", name),
 	})
@@ -78,7 +78,7 @@ func WaitForStatefulSetReady(clientset kubernetes.Clientset, name, namespace str
 	for {
 		event, ok := <-watcher.ResultChan()
 		if !ok {
-			return nil
+			return fmt.Errorf("watch channel closed before statefulset %s/%s became ready", namespace, name)
 		}
 
 		switch event.Type {
@@ -95,7 +95,7 @@ func WaitForStatefulSetReady(clientset kubernetes.Clientset, name, namespace str
 	}
 }
 
-func WaitForNamespaceDeletion(clientset kubernetes.Clientset, name string) error {
+func WaitForNamespaceDeletion(clientset kubernetes.Interface, name string) error {
 	watcher, err := clientset.CoreV1().Namespaces().Watch(context.Background(), metav1.ListOptions{
 		FieldSelector: fmt.Sprintf("metadata.name=%s", name),
 	})
@@ -107,7 +107,7 @@ func WaitForNamespaceDeletion(clientset kubernetes.Clientset, name string) error
 	for {
 		event, ok := <-watcher.ResultChan()
 		if !ok {
-			return nil
+			return fmt.Errorf("watch channel closed before namespace %s was deleted", name)
 		}
 
 		switch event.Type {
@@ -167,8 +167,8 @@ func IsAPIServerDeploymentReady(log logr.Logger, c client.Client, hcp tenancyv1a
 			return false, err
 		}
 
-		log.Info("Deployment status check", "name", d.Name, "namespace", d.Namespace, 
-			"readyReplicas", d.Status.ReadyReplicas, "replicas", d.Status.Replicas, 
+		log.Info("Deployment status check", "name", d.Name, "namespace", d.Namespace,
+			"readyReplicas", d.Status.ReadyReplicas, "replicas", d.Status.Replicas,
 			"specReplicas", *d.Spec.Replicas)
 
 		// we need to ensure that there is al least one replica in the spec

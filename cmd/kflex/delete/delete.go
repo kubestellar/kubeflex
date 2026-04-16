@@ -92,7 +92,7 @@ func ExecuteDelete(cp common.CP, chattyStatus bool) error {
 		return fmt.Errorf("error getting kf client: %v", err)
 	}
 	util.PrintStatus(fmt.Sprintf("Waiting for control plane %s to be deleted...", cp.Name), done, &wg, chattyStatus)
-	util.WaitForNamespaceDeletion(*clientsetKflex, util.GenerateNamespaceFromControlPlaneName(cp.Name))
+	util.WaitForNamespaceDeletion(clientsetKflex, util.GenerateNamespaceFromControlPlaneName(cp.Name))
 
 	if controlPlane.Spec.Type != tenancyv1alpha1.ControlPlaneTypeHost &&
 		controlPlane.Spec.Type != tenancyv1alpha1.ControlPlaneTypeExternal {
