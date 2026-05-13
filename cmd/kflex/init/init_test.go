@@ -63,9 +63,8 @@ func TestDefaultKindClusterNameUsage(t *testing.T) {
 	if len(DefaultKindClusterName) <= 5 {
 		t.Error("DefaultKindClusterName should be longer than 5 characters")
 	}
-	
+
 	if DefaultKindClusterName[:5] != "kind-" {
 		t.Error("DefaultKindClusterName should start with 'kind-' prefix")
 	}
 }
-

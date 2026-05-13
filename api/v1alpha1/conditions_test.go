@@ -26,7 +26,6 @@ func TestAreConditionsEqual(t *testing.T) {
 	}
 }
 
-
 func TestAreConditionSlicesSame(t *testing.T) {
 	// Create two slices of conditions with the same elements in different orders
 	c1 := []ControlPlaneCondition{
