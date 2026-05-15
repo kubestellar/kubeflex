@@ -125,8 +125,11 @@ kubectl get controlplanes
 ```
 
 Expected output:
+
+```shell
 NAME   SYNCED   READY   AGE
 cp1    True     True    2m
+```
 
 ## Cleaning Up
 
