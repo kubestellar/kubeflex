@@ -16,6 +16,7 @@
 set -x # echo so that users can understand what is happening
 set -e # exit on error
 release=""
+platform=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -23,12 +24,19 @@ while [[ $# -gt 0 ]]; do
       release="$2"
       shift 2
       ;;
+    --platform)
+      platform="$2"
+      shift 2
+      ;;
     *)
       echo "Unknown argument: $1"
       exit 1
       ;;
   esac
-done 
+done
+
+platform=${platform:-kind}
+
 # Change to repository root directory to ensure scripts work from any location
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
@@ -45,7 +53,7 @@ echo "Running E2E tests from: ${PWD}"
 SRC_DIR="$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)"
 
 ${SRC_DIR}/cleanup.sh
-${SRC_DIR}/setup-kubeflex.sh --release "${release}"
+${SRC_DIR}/setup-kubeflex.sh --release "${release}" --platform "$platform"
 cfgfile="${KUBECONFIG:-$HOME/.kube/config}"
 if [[ "$(yq -o=json .extensions "$cfgfile" )" =~ ^[[] ]]; then
     yq '.extensions |= [ .[] | select(.name != "kubeflex") ]' "$cfgfile" > $$
@@ -58,6 +66,8 @@ if [ -z "${release}" ]; then
 else
     : there is no local watch-objs command, neither source nor executable, to use
 fi
+
+echo Current kubectl context is $(kubectl config current-context)
 
 ${SRC_DIR}/manage-type-k8s.sh
 

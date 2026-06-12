@@ -22,6 +22,7 @@ KO_DOCKER_REPO = ko.local
 IMAGE_TAG ?= $(shell git rev-parse --short HEAD)
 CMD_NAME ?= manager
 IMG ?= ${KO_DOCKER_REPO}/${CMD_NAME}:${IMAGE_TAG}
+TEST_HOST ?= kind
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.26.1
@@ -212,13 +213,18 @@ chart: manifests kustomize
 ko-local-build:
 	KO_DOCKER_REPO=${KO_DOCKER_REPO} ko build -B ./cmd/${CMD_NAME} -t ${IMAGE_TAG} --platform linux/${ARCH}
 
-# this is used for local testing
+# The following are used for local testing
+
 .PHONY: kind-load-image
 kind-load-image: ko-local-build
 	kind load docker-image ${IMG} --name kubeflex
 
+.PHONY: k3d-load-image
+k3d-load-image: ko-local-build
+	k3d image import ${IMG} --cluster kubeflex
+
 .PHONY: install-local-chart
-install-local-chart: chart kind-load-image
+install-local-chart: chart ${TEST_HOST}-load-image
 	helm upgrade --install kubeflex-operator ./chart
 
 ##@ Build Dependencies
