@@ -16,6 +16,23 @@
 set -x # echo so that users can understand what is happening
 set -e # exit on error
 
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --host-context)
+      host_context="$2"
+      shift 2 ;;
+    *)
+      echo "Unknown argument: $1"
+      exit 1
+      ;;
+  esac
+done
+
+if [ -z "$host_context" ]; then
+    echo $0: Host context must be defined, by '--host-context' option or host_context environment variable >&2
+    exit 1
+fi
+
 SRC_DIR="$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)"
 source "${SRC_DIR}/setup-shell.sh"
 
@@ -56,8 +73,8 @@ echo "SUCCESS: Kubeconfig extensions verified for control plane cp2"
 : -------------------------------------------------------------------------
 : Wait for the running component of ControlPlane cp2 to be ready/completed
 :
-kubectl --context kind-kubeflex -n cp2-system wait --for=jsonpath='{.status.availableReplicas}'=1 statefulset/vcluster --timeout=120s
-kubectl --context kind-kubeflex -n cp2-system wait --for=condition=Complete job/update-cluster-info --timeout=120s
+kubectl --context "$host_context" -n cp2-system wait --for=jsonpath='{.status.availableReplicas}'=1 statefulset/vcluster --timeout=120s
+kubectl --context "$host_context" -n cp2-system wait --for=condition=Complete job/update-cluster-info --timeout=120s
 
 :
 : -------------------------------------------------------------------------
@@ -78,7 +95,7 @@ kubectl --context cp2 wait --for=condition=Available deploy/my-nginx --timeout=1
 : -------------------------------------------------------------------------
 : Test PostCreateHook in-cluster kubeconfig access
 :
-${SRC_DIR}/test-kubeconfig-access.sh -t vcluster
+${SRC_DIR}/test-kubeconfig-access.sh -t vcluster --host-context "$host_context"
 
 :
 : -------------------------------------------------------------------------

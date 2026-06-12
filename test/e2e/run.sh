@@ -36,6 +36,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 platform=${platform:-kind}
+host_context="${platform}-kubeflex"
 
 # Change to repository root directory to ensure scripts work from any location
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -67,18 +68,16 @@ else
     : there is no local watch-objs command, neither source nor executable, to use
 fi
 
-echo Current kubectl context is $(kubectl config current-context)
-
-${SRC_DIR}/manage-type-k8s.sh
+${SRC_DIR}/manage-type-k8s.sh --host-context "$host_context"
 
 if [ -z "${release}" ]; then
     # This test is only appropriate when testing the local copy
-    ${SRC_DIR}/test-controller-image-update.sh
+    ${SRC_DIR}/test-controller-image-update.sh --platform "$platform"
 fi
 
-${SRC_DIR}/manage-type-vcluster.sh
-${SRC_DIR}/manage-type-external.sh
-${SRC_DIR}/manage-ctx.sh
+${SRC_DIR}/manage-type-vcluster.sh --host-context "$host_context"
+${SRC_DIR}/manage-type-external.sh --platform "$platform"
+${SRC_DIR}/manage-ctx.sh --host-context "$host_context"
 ${SRC_DIR}/test-postcreate-completion.sh -t k8s
 ${SRC_DIR}/test-postcreate-completion.sh -t vcluster
 ${SRC_DIR}/test-postcreatehook-retry.sh -t k8s

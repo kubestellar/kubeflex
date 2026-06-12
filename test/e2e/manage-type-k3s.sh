@@ -15,6 +15,24 @@
 
 set -x # echo so that users can understand what is happening
 set -e # exit on error
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --host-context)
+      host_context="$2"
+      shift 2 ;;
+    *)
+      echo "Unknown argument: $1"
+      exit 1
+      ;;
+  esac
+done
+
+if [ -z "$host_context" ]; then
+    echo $0: Host context must be defined, by '--host-context' option or host_context environment variable >&2
+    exit 1
+fi
+
 SRC_DIR="$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)"
 source "${SRC_DIR}/setup-shell.sh"
 
@@ -54,9 +72,9 @@ echo "SUCCESS: Kubeconfig extensions verified for control plane $CP_NAME"
 : -------------------------------------------------------------------------
 : Wait for the running component of ControlPlane $CP_NAME to be ready/completed
 :
-kubectl --context kind-kubeflex -n $CP_NAME-system wait --for=jsonpath='{.status.availableReplicas}'=1 statefulset/k3s-server --timeout=120s
-kubectl --context kind-kubeflex -n $CP_NAME-system wait --for=condition=Complete job/k3s-bootstrap-kubeconfig --timeout=120s
-kubectl --context kind-kubeflex -n $CP_NAME-system wait --for=jsonpath='{.status.conditions[?(@.type == "Ready")]}' cps/$CP_NAME --timeout=120s
+kubectl --context "$host_context" -n $CP_NAME-system wait --for=jsonpath='{.status.availableReplicas}'=1 statefulset/k3s-server --timeout=120s
+kubectl --context "$host_context" -n $CP_NAME-system wait --for=condition=Complete job/k3s-bootstrap-kubeconfig --timeout=120s
+kubectl --context "$host_context" -n $CP_NAME-system wait --for=jsonpath='{.status.conditions[?(@.type == "Ready")]}' cps/$CP_NAME --timeout=120s
 
 : -------------------------------------------------------------------------
 : Create a Deployment in ControlPlane $CP_NAME, then wait for the Deployment

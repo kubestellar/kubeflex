@@ -26,6 +26,11 @@ while (( $# > 0 )); do
     then { CP_TYPE="$2"; shift 2; }
     else { echo "missing value for controlplane type" >&2; exit 1; }
     fi;;
+  (--host-context)
+    if (( $# > 1 ));
+    then { host_context="$2"; shift 2; }
+    else { echo "missing value for --host-context" >&2; exit 1; }
+    fi;;
   (-d|--debug)
     DEBUG=true
     shift;;
@@ -37,6 +42,12 @@ while (( $# > 0 )); do
     exit 1;;
   esac
 done
+
+if [ -z "$host_context" ]; then
+    echo $0: Host context must be defined, by '--host-context' option or host_context environment variable >&2
+    exit 1
+fi
+
 
 CP_NAME="kubeconfig-test-${CP_TYPE}"
 SRC_DIR="$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)"
@@ -66,14 +77,14 @@ echo "Using secret: $SECRET_NAME with key: $SECRET_KEY for $CP_TYPE"
 : -------------------------------------------------------------------------
 : Clean up any existing resources
 :
-kubectl --context kind-kubeflex delete controlplane ${CP_NAME} --ignore-not-found=true
-kubectl --context kind-kubeflex delete postcreatehook kubeconfig-test-${CP_TYPE} --ignore-not-found=true
+kubectl --context "$host_context" delete controlplane ${CP_NAME} --ignore-not-found=true
+kubectl --context "$host_context" delete postcreatehook kubeconfig-test-${CP_TYPE} --ignore-not-found=true
 
 :
 : -------------------------------------------------------------------------
 : Create PostCreateHook that tests kubeconfig access
 :
-kubectl --context kind-kubeflex apply -f - <<EOF
+kubectl --context "$host_context" apply -f - <<EOF
 apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
 kind: PostCreateHook
 metadata:
@@ -107,7 +118,7 @@ EOF
 : Create ControlPlane with kubeconfig test PostCreateHook
 :
 echo "Creating ${CP_TYPE} ControlPlane..."
-kubectl --context kind-kubeflex apply -f - <<EOF
+kubectl --context "$host_context" apply -f - <<EOF
 apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
 kind: ControlPlane
 metadata:
@@ -124,21 +135,21 @@ EOF
 : Wait for ControlPlane to be ready
 :
 echo "Waiting for ${CP_TYPE} ControlPlane to be ready..."
-kubectl --context kind-kubeflex wait --for=condition=Ready controlplane/${CP_NAME} --timeout=600s
+kubectl --context "$host_context" wait --for=condition=Ready controlplane/${CP_NAME} --timeout=600s
 
 :
 : -------------------------------------------------------------------------
 : Verify PostCreateHook Job completed successfully
 :
-kubectl --context kind-kubeflex wait --for=condition=Complete job/validation-${CP_NAME} -n ${CP_NAME}-system --timeout=150s
+kubectl --context "$host_context" wait --for=condition=Complete job/validation-${CP_NAME} -n ${CP_NAME}-system --timeout=150s
 
 if [[ "$DEBUG" != "true" ]]; then
   :
   : -------------------------------------------------------------------------
   : Clean up any existing resources
   :
-  kubectl --context kind-kubeflex delete controlplane ${CP_NAME} --ignore-not-found=true
-  kubectl --context kind-kubeflex delete postcreatehook kubeconfig-test-${CP_TYPE} --ignore-not-found=true
+  kubectl --context "$host_context" delete controlplane ${CP_NAME} --ignore-not-found=true
+  kubectl --context "$host_context" delete postcreatehook kubeconfig-test-${CP_TYPE} --ignore-not-found=true
 fi
 
 echo "SUCCESS: ${CP_TYPE} PostCreateHook kubeconfig access test completed"
