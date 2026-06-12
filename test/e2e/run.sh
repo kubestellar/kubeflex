@@ -76,7 +76,19 @@ if [ -z "${release}" ]; then
 fi
 
 ${SRC_DIR}/manage-type-vcluster.sh --host-context "$host_context"
-${SRC_DIR}/manage-type-external.sh --platform "$platform"
+
+case "$platform" in
+    (kind) ${SRC_DIR}/manage-type-external.sh ;;
+    (k3d)
+        echo -e "\n================================"
+        echo "External cluster adoption is not working when the host cluster is made by k3d"
+        echo -e "================================\n"
+        ;;
+    (*) echo "Unexpected platform '$platform' !" >&2
+        exit 1
+        86 ;;
+esac
+
 ${SRC_DIR}/manage-ctx.sh --host-context "$host_context"
 ${SRC_DIR}/test-postcreate-completion.sh -t k8s
 ${SRC_DIR}/test-postcreate-completion.sh -t vcluster

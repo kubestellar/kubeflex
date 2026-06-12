@@ -13,28 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Currently this only works whe testing with a host cluster made my `kind`.
+platform="kind"
+
 SRC_DIR="$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)"
 source "${SRC_DIR}/setup-shell.sh"
 
 set -x # echo so that users can understand what is happening
 set -e # exit on error
-
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --platform)
-      platform="$2"
-      shift 2 ;;
-    *)
-      echo "Unknown argument: $1"
-      exit 1
-      ;;
-  esac
-done
-
-if [ -z "$platform" ]; then
-    echo $0: Host platform must be defined, by '--platform' option or platform environment variable >&2
-    exit 1
-fi
 
 host_context="${platform}-kubeflex"
 EXT_CLUSTER_NAME=ext
