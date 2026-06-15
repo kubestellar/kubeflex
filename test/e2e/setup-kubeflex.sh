@@ -16,7 +16,7 @@
 set -x # echo so that users can understand what is happening
 set -e # exit on error
 release=""
-platform=""
+cluster_type=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --release)
@@ -27,12 +27,12 @@ while [[ $# -gt 0 ]]; do
       release="$2"
       shift 2
       ;;
-    --platform)
+    --cluster-type)
       if [[ $# -lt 2 ]]; then
-        echo "Error: --platform requires a value (kind or k3d)"
+        echo "Error: --cluster-type requires a value (kind or k3d)"
         exit 1
       fi
-      platform="$2"
+      cluster_type="$2"
       shift 2
       ;;
     *)
@@ -43,7 +43,7 @@ while [[ $# -gt 0 ]]; do
 done
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
 
-platform=${platform:-kind}
+cluster_type=${cluster_type:-kind}
 k3d_image=rancher/k3s:v1.32.13-k3s1
 
 :
@@ -51,14 +51,14 @@ k3d_image=rancher/k3s:v1.32.13-k3s1
 : Create the hosting cluster with ingress controller
 :
 
-if [ "$platform" == kind ]; then
+if [ "$cluster_type" == kind ]; then
 
     kind create cluster --name kubeflex --config ${SCRIPT_DIR}/kind-config.yaml
     kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/refs/tags/controller-v1.12.1/deploy/static/provider/kind/deploy.yaml
     kubectl -n ingress-nginx patch deployment/ingress-nginx-controller --patch-file=${SCRIPT_DIR}/nginx-patch.yaml
     host_context=kind-kubeflex
 
-elif [ "$platform" == k3d ]; then
+elif [ "$cluster_type" == k3d ]; then
 
     k3d cluster create --image "$k3d_image" -p "9443:443@loadbalancer" --k3s-arg "--disable=traefik@server:*" kubeflex
     kubectl wait --for=condition=Ready node --all --timeout=600s
@@ -66,7 +66,7 @@ elif [ "$platform" == k3d ]; then
     host_context=k3d-kubeflex
 
 else
-    echo "$0: Invalid --platform; must be 'kind' or 'k3d'" >&2
+    echo "$0: Invalid --cluster-type; must be 'kind' or 'k3d'" >&2
     exit 1
 fi
 
@@ -90,7 +90,7 @@ if [[ -z "${release}" ]]; then
     : Load the local image into host cluster, re-generate manifests and helm chart, and install the helm chart:
     :
     :
-    make install-local-chart TEST_HOST="$platform"
+    make install-local-chart TEST_HOST="$cluster_type"
     :
     :
 else

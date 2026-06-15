@@ -14,7 +14,7 @@
 # limitations under the License.
 
 # Currently this only works when testing with a host cluster made by `kind`.
-platform="kind"
+cluster_type="kind"
 
 SRC_DIR="$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)"
 source "${SRC_DIR}/setup-shell.sh"
@@ -22,7 +22,7 @@ source "${SRC_DIR}/setup-shell.sh"
 set -x # echo so that users can understand what is happening
 set -e # exit on error
 
-host_context="${platform}-kubeflex"
+host_context="${cluster_type}-kubeflex"
 EXT_CLUSTER_NAME=ext
 
 :
@@ -35,7 +35,7 @@ kubectl --context "$host_context" apply -f ${SRC_DIR}/list-controller-pch.yaml
 : -------------------------------------------------------------------------
 : Create an external cluster to be adopted
 :
-if [ "$platform" == kind ]; then
+if [ "$cluster_type" == kind ]; then
     kind create cluster --name ${EXT_CLUSTER_NAME}
     override_endpoint="${EXT_CLUSTER_NAME}-control-plane:6443"
 else
@@ -48,7 +48,7 @@ fi
 : Create a ControlPlane of type external
 :
 
-./bin/kflex adopt --adopted-context "${platform}-${EXT_CLUSTER_NAME}" --url-override "https://${override_endpoint}" ${EXT_CLUSTER_NAME} --postcreate-hook list-controller --chatty-status=false
+./bin/kflex adopt --adopted-context "${cluster_type}-${EXT_CLUSTER_NAME}" --url-override "https://${override_endpoint}" ${EXT_CLUSTER_NAME} --postcreate-hook list-controller --chatty-status=false
 
 :
 : -------------------------------------------------------------------------

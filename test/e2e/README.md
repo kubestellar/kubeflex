@@ -10,11 +10,11 @@ Also, either `kind` or `k3d`, depending on the sort of host cluster chosen.
 
 ## Run E2E tests manually
 
-From the root directory of this git repository, you can run any of the following commands. The `--platform` and `--release` options combine orthogonally.
+From the root directory of this git repository, you can run any of the following commands. The `--cluster-type` and `--release` options combine orthogonally.
 
 ```shell
 test/e2e/run.sh   # Run E2E tests against local source in kind cluster
 test/e2e/run.sh --release latest   # Run E2E tests against the latest released version
 test/e2e/run.sh --release v0.9.1   # Run E2E tests against a specific release
-test/e2e/run.sh --platform k3d     # Run E2E tests against local source in k3d cluster
+test/e2e/run.sh --cluster-type k3d     # Run E2E tests against local source in k3d cluster
 ```

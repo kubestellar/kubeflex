@@ -16,7 +16,7 @@
 set -x # echo so that users can understand what is happening
 set -e # exit on error
 release=""
-platform=""
+cluster_type=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -24,8 +24,8 @@ while [[ $# -gt 0 ]]; do
       release="$2"
       shift 2
       ;;
-    --platform)
-      platform="$2"
+    --cluster-type)
+      cluster_type="$2"
       shift 2
       ;;
     *)
@@ -35,8 +35,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-platform=${platform:-kind}
-host_context="${platform}-kubeflex"
+cluster_type=${cluster_type:-kind}
+host_context="${cluster_type}-kubeflex"
 
 # Change to repository root directory to ensure scripts work from any location
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -54,7 +54,7 @@ echo "Running E2E tests from: ${PWD}"
 SRC_DIR="$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)"
 
 ${SRC_DIR}/cleanup.sh
-${SRC_DIR}/setup-kubeflex.sh --release "${release}" --platform "$platform"
+${SRC_DIR}/setup-kubeflex.sh --release "${release}" --cluster-type "$cluster_type"
 cfgfile="${KUBECONFIG:-$HOME/.kube/config}"
 if [[ "$(yq -o=json .extensions "$cfgfile" )" =~ ^[[] ]]; then
     yq '.extensions |= [ .[] | select(.name != "kubeflex") ]' "$cfgfile" > $$
@@ -72,19 +72,19 @@ ${SRC_DIR}/manage-type-k8s.sh --host-context "$host_context"
 
 if [ -z "${release}" ]; then
     # This test is only appropriate when testing the local copy
-    ${SRC_DIR}/test-controller-image-update.sh --platform "$platform"
+    ${SRC_DIR}/test-controller-image-update.sh --cluster-type "$cluster_type"
 fi
 
 ${SRC_DIR}/manage-type-vcluster.sh --host-context "$host_context"
 
-case "$platform" in
+case "$cluster_type" in
     (kind) ${SRC_DIR}/manage-type-external.sh ;;
     (k3d)
         echo -e "\n================================"
         echo "External cluster adoption is not working when the host cluster is made by k3d"
         echo -e "================================\n"
         ;;
-    (*) echo "Unexpected platform '$platform' !" >&2
+    (*) echo "Unexpected cluster_type '$cluster_type' !" >&2
         exit 1 ;;
 esac
 
