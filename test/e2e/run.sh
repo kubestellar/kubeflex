@@ -16,6 +16,7 @@
 set -x # echo so that users can understand what is happening
 set -e # exit on error
 release=""
+cluster_type="kind"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -23,8 +24,20 @@ while [[ $# -gt 0 ]]; do
       release="$2"
       shift 2
       ;;
+    --cluster-type)
+      if (( $# < 2 )); then
+        echo "Error: --cluster-type requires a value (kind or k3d)" >&2
+        exit 1
+      fi
+      cluster_type="$2"
+      if [[ "${cluster_type}" != "kind" && "${cluster_type}" != "k3d" ]]; then
+        echo "Error: --cluster-type must be 'kind' or 'k3d', got '${cluster_type}'" >&2
+        exit 1
+      fi
+      shift 2
+      ;;
     *)
-      echo "Unknown argument: $1"
+      echo "Unknown argument: $1" >&2
       exit 1
       ;;
   esac
@@ -45,7 +58,7 @@ echo "Running E2E tests from: ${PWD}"
 SRC_DIR="$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)"
 
 ${SRC_DIR}/cleanup.sh
-${SRC_DIR}/setup-kubeflex.sh --release "${release}"
+${SRC_DIR}/setup-kubeflex.sh --cluster-type "${cluster_type}" --release "${release}"
 cfgfile="${KUBECONFIG:-$HOME/.kube/config}"
 if [[ "$(yq -o=json .extensions "$cfgfile" )" =~ ^[[] ]]; then
     yq '.extensions |= [ .[] | select(.name != "kubeflex") ]' "$cfgfile" > $$
@@ -67,7 +80,7 @@ if [ -z "${release}" ]; then
 fi
 
 ${SRC_DIR}/manage-type-vcluster.sh
-${SRC_DIR}/manage-type-external.sh
+${SRC_DIR}/manage-type-external.sh --cluster-type "${cluster_type}"
 ${SRC_DIR}/manage-ctx.sh
 ${SRC_DIR}/test-postcreate-completion.sh -t k8s
 ${SRC_DIR}/test-postcreate-completion.sh -t vcluster

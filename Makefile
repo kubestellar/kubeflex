@@ -151,7 +151,19 @@ ko-build-local-cmupdate: test
 
 .PHONY: kind-load-cmupdate-image
 kind-load-cmupdate-image:
-	kind load docker-image ko.local/cmupdate:${LATEST_TAG} --name kubeflex
+	@if kind get clusters 2>/dev/null | grep -q "^kubeflex$$"; then \
+		echo "Loading cmupdate image into kind cluster..."; \
+		kind load docker-image ko.local/cmupdate:${LATEST_TAG} --name kubeflex; \
+	elif command -v k3d > /dev/null 2>&1 && k3d cluster get kubeflex > /dev/null 2>&1; then \
+		echo "Loading cmupdate image into k3d cluster..."; \
+		k3d image import ko.local/cmupdate:${LATEST_TAG} --cluster kubeflex; \
+	elif ! command -v k3d > /dev/null 2>&1; then \
+		echo "Error: k3d is not installed and no kind cluster named 'kubeflex' found."; \
+		exit 1; \
+	else \
+		echo "Error: no kind or k3d cluster named 'kubeflex' found."; \
+		exit 1; \
+	fi
 
 .PHONY: ko-build-push-cmupdate
 ko-build-push-cmupdate: test ## Build and push container image with ko
@@ -215,7 +227,19 @@ ko-local-build:
 # this is used for local testing
 .PHONY: kind-load-image
 kind-load-image: ko-local-build
-	kind load docker-image ${IMG} --name kubeflex
+	@if kind get clusters 2>/dev/null | grep -q "^kubeflex$$"; then \
+		echo "Loading image into kind cluster..."; \
+		kind load docker-image ${IMG} --name kubeflex; \
+	elif command -v k3d > /dev/null 2>&1 && k3d cluster get kubeflex > /dev/null 2>&1; then \
+		echo "Loading image into k3d cluster..."; \
+		k3d image import ${IMG} --cluster kubeflex; \
+	elif ! command -v k3d > /dev/null 2>&1; then \
+		echo "Error: k3d is not installed and no kind cluster named 'kubeflex' found."; \
+		exit 1; \
+	else \
+		echo "Error: no kind or k3d cluster named 'kubeflex' found."; \
+		exit 1; \
+	fi
 
 .PHONY: install-local-chart
 install-local-chart: chart kind-load-image

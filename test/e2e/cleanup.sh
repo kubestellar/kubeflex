@@ -25,3 +25,5 @@ kubectl config delete-context cp1 &> /dev/null 2>&1 || true
 kubectl config delete-context cp2 &> /dev/null 2>&1 || true
 kind delete cluster --name kubeflex >/dev/null 2>&1 || true
 kind delete cluster --name ext >/dev/null 2>&1 || true
+k3d cluster delete kubeflex >/dev/null 2>&1 || true
+k3d cluster delete ext >/dev/null 2>&1 || true

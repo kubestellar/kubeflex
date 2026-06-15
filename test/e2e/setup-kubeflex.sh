@@ -16,6 +16,7 @@
 set -x # echo so that users can understand what is happening
 set -e # exit on error
 release=""
+cluster_type="kind"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --release)
@@ -26,8 +27,20 @@ while [[ $# -gt 0 ]]; do
       release="$2"
       shift 2
       ;;
+    --cluster-type)
+      if [[ $# -lt 2 ]]; then
+        echo "Error: --cluster-type requires a value (kind or k3d)" >&2
+        exit 1
+      fi
+      cluster_type="$2"
+      if [[ "${cluster_type}" != "kind" && "${cluster_type}" != "k3d" ]]; then
+        echo "Error: --cluster-type must be 'kind' or 'k3d', got '${cluster_type}'" >&2
+        exit 1
+      fi
+      shift 2
+      ;;
     *)
-      echo "Unknown argument: $1"
+      echo "Unknown argument: $1" >&2
       exit 1
       ;;
   esac
@@ -36,11 +49,21 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
 
 :
 : -------------------------------------------------------------------------
-: Create the hosting kind cluster with ingress controller
+: Create the hosting cluster with ingress controller
 :
 
-kind create cluster --name kubeflex --config ${SCRIPT_DIR}/kind-config.yaml
-kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/refs/tags/controller-v1.12.1/deploy/static/provider/kind/deploy.yaml
+if [[ "${cluster_type}" == "k3d" ]]; then
+    # Port mapping (-p 9080:80, -p 9443:443) intentionally mirrors kind-config.yaml
+    # which maps hostPort 9080->80 and 9443->443 for consistent behavior across both cluster types.
+    k3d cluster create kubeflex --k3s-arg "--disable=traefik@server:0" -p "9080:80@loadbalancer" -p "9443:443@loadbalancer"
+    kubectl config rename-context k3d-kubeflex kind-kubeflex || true
+    kubectl label node --all ingress-ready=true --overwrite
+    # Use the cloud/generic manifest which works on k3d (no kind-specific host paths)
+    kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/refs/tags/controller-v1.12.1/deploy/static/provider/cloud/deploy.yaml
+else
+    kind create cluster --name kubeflex --config ${SCRIPT_DIR}/kind-config.yaml
+    kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/refs/tags/controller-v1.12.1/deploy/static/provider/kind/deploy.yaml
+fi
 kubectl -n ingress-nginx patch deployment/ingress-nginx-controller --patch-file=${SCRIPT_DIR}/nginx-patch.yaml
 
 :

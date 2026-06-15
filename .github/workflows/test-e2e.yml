@@ -26,8 +26,12 @@ on:
 
 jobs:
   test-controlplane-lifecycle-management:
-    name: Test ControlPlane lifecycle management
+    name: Test ControlPlane lifecycle management (${{ matrix.cluster-type }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cluster-type: [kind, k3d]
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
@@ -40,6 +44,15 @@ jobs:
 
       - uses: ko-build/setup-ko@d006021bd0c28d1ce33a07e7943d48b079944c8d
 
+      - name: Install k3d
+        if: matrix.cluster-type == 'k3d'
+        run: |
+          K3D_VERSION=v5.8.3
+          curl -sL "https://github.com/k3d-io/k3d/releases/download/${K3D_VERSION}/k3d-linux-amd64" -o k3d
+          chmod +x k3d
+          sudo mv k3d /usr/local/bin/k3d
+          k3d version
+
       - name: Install kubectl
         uses: azure/setup-kubectl@829323503d1be3d00ca8346e5391ca0b07a9ab0d
         id: install
@@ -47,10 +60,10 @@ jobs:
       - name: Run test
         run: |
           if [ -n "${{ inputs.release }}" ]; then
-             test/e2e/run.sh --release ${{ inputs.release }}
+            test/e2e/run.sh --cluster-type ${{ matrix.cluster-type }} --release "${{ inputs.release }}"
           else
-             test/e2e/run.sh
-          fi    
+            test/e2e/run.sh --cluster-type ${{ matrix.cluster-type }}
+          fi
       - name: Examine GitHub rate limit
         run: curl https://api.github.com/rate_limit
 
