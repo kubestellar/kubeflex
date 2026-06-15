@@ -16,6 +16,7 @@
 set -x # echo so that users can understand what is happening
 set -e # exit on error
 release=""
+cluster_type=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --release)
@@ -26,6 +27,14 @@ while [[ $# -gt 0 ]]; do
       release="$2"
       shift 2
       ;;
+    --cluster-type)
+      if [[ $# -lt 2 ]]; then
+        echo "Error: --cluster-type requires a value (kind or k3d)"
+        exit 1
+      fi
+      cluster_type="$2"
+      shift 2
+      ;;
     *)
       echo "Unknown argument: $1"
       exit 1
@@ -34,14 +43,32 @@ while [[ $# -gt 0 ]]; do
 done
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
 
+cluster_type=${cluster_type:-kind}
+k3d_image=rancher/k3s:v1.32.13-k3s1
+
 :
 : -------------------------------------------------------------------------
-: Create the hosting kind cluster with ingress controller
+: Create the hosting cluster with ingress controller
 :
 
-kind create cluster --name kubeflex --config ${SCRIPT_DIR}/kind-config.yaml
-kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/refs/tags/controller-v1.12.1/deploy/static/provider/kind/deploy.yaml
-kubectl -n ingress-nginx patch deployment/ingress-nginx-controller --patch-file=${SCRIPT_DIR}/nginx-patch.yaml
+if [ "$cluster_type" == kind ]; then
+
+    kind create cluster --name kubeflex --config ${SCRIPT_DIR}/kind-config.yaml
+    kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/refs/tags/controller-v1.12.1/deploy/static/provider/kind/deploy.yaml
+    kubectl -n ingress-nginx patch deployment/ingress-nginx-controller --patch-file=${SCRIPT_DIR}/nginx-patch.yaml
+    host_context=kind-kubeflex
+
+elif [ "$cluster_type" == k3d ]; then
+
+    k3d cluster create --image "$k3d_image" -p "9443:443@loadbalancer" --k3s-arg "--disable=traefik@server:*" kubeflex
+    kubectl wait --for=condition=Ready node --all --timeout=600s
+    helm install ingress-nginx ingress-nginx --set "controller.extraArgs.enable-ssl-passthrough=" --repo https://kubernetes.github.io/ingress-nginx --version 4.12.1 --namespace ingress-nginx --create-namespace --timeout 24h
+    host_context=k3d-kubeflex
+
+else
+    echo "$0: Invalid --cluster-type; must be 'kind' or 'k3d'" >&2
+    exit 1
+fi
 
 :
 : -------------------------------------------------------------------------
@@ -60,10 +87,10 @@ if [[ -z "${release}" ]]; then
 
     :
     : -------------------------------------------------------------------------
-    : Load the local image in kind, re-generate manifests and helm chart, and install the helm chart:
+    : Load the local image into host cluster, re-generate manifests and helm chart, and install the helm chart:
     :
     :
-    make install-local-chart
+    make install-local-chart TEST_HOST="$cluster_type"
     :
     :
 else
@@ -79,7 +106,7 @@ else
 
         echo "Resolved latest release to ${release}"
     fi
-    
+
     # NOTE: v0.9.2 is known to be broken, but is still allowed for testing purposes
     if [[ "${release}" == "v0.9.2" ]]; then
         echo "WARNING: You are testing release v0.9.2, which is known to be broken."
@@ -107,7 +134,7 @@ fi
 : -------------------------------------------------------------------------
 : Create a PostCreateHook
 :
-kubectl --context kind-kubeflex apply -f - <<EOF
+kubectl --context $host_context apply -f - <<EOF
 apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
 kind: PostCreateHook
 metadata:

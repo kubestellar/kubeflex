@@ -26,8 +26,12 @@ on:
 
 jobs:
   test-controlplane-lifecycle-management:
-    name: Test ControlPlane lifecycle management
+    name: E2E test on ${{ matrix.cluster-type }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cluster-type: [kind, k3d]
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
@@ -44,13 +48,18 @@ jobs:
         uses: azure/setup-kubectl@829323503d1be3d00ca8346e5391ca0b07a9ab0d
         id: install
 
+      - name: Install k3d
+        if: matrix.cluster-type == 'k3d'
+        run: bash <(curl -sSL https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh)
+
       - name: Run test
         run: |
           if [ -n "${{ inputs.release }}" ]; then
-             test/e2e/run.sh --release ${{ inputs.release }}
+             test/e2e/run.sh --cluster-type ${{ matrix.cluster-type }} --release ${{ inputs.release }}
           else
-             test/e2e/run.sh
-          fi    
+             test/e2e/run.sh --cluster-type ${{ matrix.cluster-type }}
+          fi
+
       - name: Examine GitHub rate limit
         run: curl https://api.github.com/rate_limit
 
@@ -60,16 +69,16 @@ jobs:
 
       - name: Show running components of KubeFlex
         if: always()
-        run: kubectl --context kind-kubeflex -n kubeflex-system get all
+        run: kubectl --context ${{ matrix.cluster-type }}-kubeflex -n kubeflex-system get all
 
       - name: Show logs of the KubeFlex controller manager
         if: always()
-        run: kubectl --context kind-kubeflex -n kubeflex-system logs deploy/kubeflex-controller-manager
+        run: kubectl --context ${{ matrix.cluster-type }}-kubeflex -n kubeflex-system logs deploy/kubeflex-controller-manager
 
       - name: Show logs of the shared Postgres DB
         if: always()
-        run: kubectl --context kind-kubeflex -n kubeflex-system logs sts/postgres-postgresql
+        run: kubectl --context ${{ matrix.cluster-type }}-kubeflex -n kubeflex-system logs sts/postgres-postgresql
 
       - name: Show logs of the KubeFlex operator
         if: always()
-        run: kubectl --context kind-kubeflex -n kubeflex-system logs job/kubeflex-operator
+        run: kubectl --context ${{ matrix.cluster-type }}-kubeflex -n kubeflex-system logs job/kubeflex-operator

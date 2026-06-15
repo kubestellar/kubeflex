@@ -13,49 +13,59 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Currently this only works when testing with a host cluster made by `kind`.
+cluster_type="kind"
+
 SRC_DIR="$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)"
 source "${SRC_DIR}/setup-shell.sh"
 
 set -x # echo so that users can understand what is happening
 set -e # exit on error
 
+host_context="${cluster_type}-kubeflex"
 EXT_CLUSTER_NAME=ext
 
 :
 : -------------------------------------------------------------------------
 : Define a post-create-hook for testing
 :
-kubectl --context kind-kubeflex apply -f ${SRC_DIR}/list-controller-pch.yaml
+kubectl --context "$host_context" apply -f ${SRC_DIR}/list-controller-pch.yaml
 
 :
 : -------------------------------------------------------------------------
 : Create an external cluster to be adopted
 :
-kind create cluster --name ${EXT_CLUSTER_NAME}
+if [ "$cluster_type" == kind ]; then
+    kind create cluster --name ${EXT_CLUSTER_NAME}
+    override_endpoint="${EXT_CLUSTER_NAME}-control-plane:6443"
+else
+    k3d cluster create --image rancher/k3s:v1.32.13-k3s1 -p "10443:443@loadbalancer" --k3s-arg "--disable=traefik@server:*" ${EXT_CLUSTER_NAME}
+    override_endpoint="k3d-${EXT_CLUSTER_NAME}-server-0:6443"
+fi
 
 :
 : -------------------------------------------------------------------------
 : Create a ControlPlane of type external
 :
 
-./bin/kflex adopt --adopted-context kind-${EXT_CLUSTER_NAME} --url-override https://${EXT_CLUSTER_NAME}-control-plane:6443 ${EXT_CLUSTER_NAME} --postcreate-hook list-controller --chatty-status=false
+./bin/kflex adopt --adopted-context "${cluster_type}-${EXT_CLUSTER_NAME}" --url-override "https://${override_endpoint}" ${EXT_CLUSTER_NAME} --postcreate-hook list-controller --chatty-status=false
 
 :
 : -------------------------------------------------------------------------
 : Wait for adopted cluster secret to be created
 :
-wait-for-secret kind-kubeflex ${EXT_CLUSTER_NAME}-system admin-kubeconfig
+wait-for-secret "$host_context" ${EXT_CLUSTER_NAME}-system admin-kubeconfig
 
 :
 : -------------------------------------------------------------------------
 : Wait for test controller pod installed by pch to be running
 :
 
-kubectl --context kind-kubeflex -n ${EXT_CLUSTER_NAME}-system wait --for=condition=Ready pod list-controller
+kubectl --context "$host_context" -n ${EXT_CLUSTER_NAME}-system wait --for=condition=Ready pod list-controller
 
 :
 : -------------------------------------------------------------------------
-: Delete ControlPlane 
+: Delete ControlPlane
 :
 ./bin/kflex delete ${EXT_CLUSTER_NAME} --chatty-status=false
 
