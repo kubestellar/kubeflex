@@ -31,7 +31,7 @@ import (
 
 const (
 	URL         = "https://charts.loft.sh"
-	Version     = "0.16.4"
+	Version     = "0.30.4"
 	RepoName    = "loft"
 	ChartName   = "vcluster"
 	ReleaseName = "vcluster"
@@ -39,7 +39,7 @@ const (
 
 var (
 	configsBase = []string{
-		"vcluster.image=rancher/k3s:v1.27.2-k3s1",
+		"vcluster.image=rancher/k3s:v1.29.9-k3s1",
 	}
 )
 
