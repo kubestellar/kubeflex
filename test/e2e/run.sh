@@ -16,7 +16,7 @@
 set -x # echo so that users can understand what is happening
 set -e # exit on error
 release=""
-cluster_type="kind"
+platform=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -24,24 +24,20 @@ while [[ $# -gt 0 ]]; do
       release="$2"
       shift 2
       ;;
-    --cluster-type)
-      if (( $# < 2 )); then
-        echo "Error: --cluster-type requires a value (kind or k3d)" >&2
-        exit 1
-      fi
-      cluster_type="$2"
-      if [[ "${cluster_type}" != "kind" && "${cluster_type}" != "k3d" ]]; then
-        echo "Error: --cluster-type must be 'kind' or 'k3d', got '${cluster_type}'" >&2
-        exit 1
-      fi
+    --platform)
+      platform="$2"
       shift 2
       ;;
     *)
-      echo "Unknown argument: $1" >&2
+      echo "Unknown argument: $1"
       exit 1
       ;;
   esac
-done 
+done
+
+platform=${platform:-kind}
+host_context="${platform}-kubeflex"
+
 # Change to repository root directory to ensure scripts work from any location
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
@@ -58,7 +54,7 @@ echo "Running E2E tests from: ${PWD}"
 SRC_DIR="$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)"
 
 ${SRC_DIR}/cleanup.sh
-${SRC_DIR}/setup-kubeflex.sh --cluster-type "${cluster_type}" --release "${release}"
+${SRC_DIR}/setup-kubeflex.sh --release "${release}" --platform "$platform"
 cfgfile="${KUBECONFIG:-$HOME/.kube/config}"
 if [[ "$(yq -o=json .extensions "$cfgfile" )" =~ ^[[] ]]; then
     yq '.extensions |= [ .[] | select(.name != "kubeflex") ]' "$cfgfile" > $$
@@ -72,16 +68,27 @@ else
     : there is no local watch-objs command, neither source nor executable, to use
 fi
 
-${SRC_DIR}/manage-type-k8s.sh
+${SRC_DIR}/manage-type-k8s.sh --host-context "$host_context"
 
 if [ -z "${release}" ]; then
     # This test is only appropriate when testing the local copy
-    ${SRC_DIR}/test-controller-image-update.sh
+    ${SRC_DIR}/test-controller-image-update.sh --platform "$platform"
 fi
 
-${SRC_DIR}/manage-type-vcluster.sh
-${SRC_DIR}/manage-type-external.sh --cluster-type "${cluster_type}"
-${SRC_DIR}/manage-ctx.sh
+${SRC_DIR}/manage-type-vcluster.sh --host-context "$host_context"
+
+case "$platform" in
+    (kind) ${SRC_DIR}/manage-type-external.sh ;;
+    (k3d)
+        echo -e "\n================================"
+        echo "External cluster adoption is not working when the host cluster is made by k3d"
+        echo -e "================================\n"
+        ;;
+    (*) echo "Unexpected platform '$platform' !" >&2
+        exit 1 ;;
+esac
+
+${SRC_DIR}/manage-ctx.sh --host-context "$host_context"
 ${SRC_DIR}/test-postcreate-completion.sh -t k8s
 ${SRC_DIR}/test-postcreate-completion.sh -t vcluster
 ${SRC_DIR}/test-postcreatehook-retry.sh -t k8s

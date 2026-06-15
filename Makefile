@@ -22,6 +22,7 @@ KO_DOCKER_REPO = ko.local
 IMAGE_TAG ?= $(shell git rev-parse --short HEAD)
 CMD_NAME ?= manager
 IMG ?= ${KO_DOCKER_REPO}/${CMD_NAME}:${IMAGE_TAG}
+TEST_HOST ?= kind
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.26.1
@@ -224,25 +225,18 @@ chart: manifests kustomize
 ko-local-build:
 	KO_DOCKER_REPO=${KO_DOCKER_REPO} ko build -B ./cmd/${CMD_NAME} -t ${IMAGE_TAG} --platform linux/${ARCH}
 
-# this is used for local testing
+# The following are used for local testing
+
 .PHONY: kind-load-image
 kind-load-image: ko-local-build
-	@if kind get clusters 2>/dev/null | grep -q "^kubeflex$$"; then \
-		echo "Loading image into kind cluster..."; \
-		kind load docker-image ${IMG} --name kubeflex; \
-	elif command -v k3d > /dev/null 2>&1 && k3d cluster get kubeflex > /dev/null 2>&1; then \
-		echo "Loading image into k3d cluster..."; \
-		k3d image import ${IMG} --cluster kubeflex; \
-	elif ! command -v k3d > /dev/null 2>&1; then \
-		echo "Error: k3d is not installed and no kind cluster named 'kubeflex' found."; \
-		exit 1; \
-	else \
-		echo "Error: no kind or k3d cluster named 'kubeflex' found."; \
-		exit 1; \
-	fi
+	kind load docker-image ${IMG} --name kubeflex
+
+.PHONY: k3d-load-image
+k3d-load-image: ko-local-build
+	k3d image import ${IMG} --cluster kubeflex
 
 .PHONY: install-local-chart
-install-local-chart: chart kind-load-image
+install-local-chart: chart ${TEST_HOST}-load-image
 	helm upgrade --install kubeflex-operator ./chart
 
 ##@ Build Dependencies

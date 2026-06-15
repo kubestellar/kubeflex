@@ -16,6 +16,23 @@
 set -x # echo so that users can understand what is happening
 set -e # exit on error
 
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --host-context)
+      host_context="$2"
+      shift 2 ;;
+    *)
+      echo "Unknown argument: $1"
+      exit 1
+      ;;
+  esac
+done
+
+if [ -z "$host_context" ]; then
+    echo $0: Host context must be defined, by '--host-context' option or host_context environment variable >&2
+    exit 1
+fi
+
 SRC_DIR="$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)"
 source "${SRC_DIR}/setup-shell.sh"
 
@@ -57,17 +74,17 @@ echo "SUCCESS: Kubeconfig extensions verified for control plane cp1"
 : Wait for the running components of ControlPlane cp1 to be ready, with
 : default timeout which is 30 seconds
 :
-kubectl --context kind-kubeflex -n cp1-system wait --for=condition=Available deployment/kube-apiserver
-kubectl --context kind-kubeflex -n cp1-system wait --for=condition=Available deployment/kube-controller-manager
+kubectl --context "$host_context" -n cp1-system wait --for=condition=Available deployment/kube-apiserver
+kubectl --context "$host_context" -n cp1-system wait --for=condition=Available deployment/kube-controller-manager
 
 :
 : -------------------------------------------------------------------------
 : Specify a PostCreateHook for cp1, then wait for the PostCreateHook to
 : take effect, with default timeout which is 30 seconds
 :
-kubectl --context kind-kubeflex patch cp/cp1 --type=merge --patch '{"spec":{"postCreateHook":"synthetic-crd"}}'
-wait-for-cmd 'kubectl --context kind-kubeflex get crd cr1s.synthetic-crd.com'
-kubectl --context kind-kubeflex wait --for=condition=Established crd cr1s.synthetic-crd.com
+kubectl --context "$host_context" patch cp/cp1 --type=merge --patch '{"spec":{"postCreateHook":"synthetic-crd"}}'
+wait-for-cmd 'kubectl --context "$host_context" get crd cr1s.synthetic-crd.com'
+kubectl --context "$host_context" wait --for=condition=Established crd cr1s.synthetic-crd.com
 
 :
 : -------------------------------------------------------------------------
@@ -87,7 +104,7 @@ kubectl --context cp1 wait --for=jsonpath='{.status.phase}'=Active ns/e2e --time
 : -------------------------------------------------------------------------
 : Test PostCreateHook kubeconfig access
 :
-${SRC_DIR}/test-kubeconfig-access.sh -t k8s
+${SRC_DIR}/test-kubeconfig-access.sh -t k8s --host-context "$host_context"
 
 :
 : -------------------------------------------------------------------------

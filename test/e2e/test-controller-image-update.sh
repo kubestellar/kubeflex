@@ -16,6 +16,23 @@
 set -x # echo so that users can understand what is happening
 set -e # exit on error
 
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --platform)
+      platform="$2"
+      shift 2 ;;
+    *)
+      echo "Unknown argument: $1"
+      exit 1
+      ;;
+  esac
+done
+
+if [ -z "$platform" ]; then
+    echo $0: Host platform must be defined, by '--platform' option or platform environment variable >&2
+    exit 1
+fi
+
 SRC_DIR="$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)"
 source "${SRC_DIR}/setup-shell.sh"
 
@@ -55,8 +72,8 @@ export IMAGE_TAG="e2e-test-$(date +%s)"
 echo "Using image tag: $IMAGE_TAG"
 
 # Run the make install-local-chart command
-echo "5. Running make install-local-chart..."
-make install-local-chart
+echo "5. Running make install-local-chart TEST_HOST=$platform ..."
+make install-local-chart TEST_HOST="$platform"
 
 # Wait for the deployment to update with proper timeout and status checking
 echo "6. Waiting for deployment to update..."
