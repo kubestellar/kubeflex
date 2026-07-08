@@ -18,6 +18,7 @@ package shared
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -86,15 +87,17 @@ func (r *BaseReconciler) UpdateStatusForSyncingError(ctx context.Context, hcp *t
 		r.EventRecorder.Event(hcp, "Warning", "SyncFail", err.Error())
 	}
 	tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionReconcileError(err))
-	if err1 := r.Status().Update(context.Background(), hcp); err1 != nil {
-		log.Error(err1, "update status for syncing error failed")
-		return ctrl.Result{}, errors.Wrap(err, err1.Error())
+	reqRV := hcp.ResourceVersion
+	if err1 := r.Status().Update(ctx, hcp); err1 != nil {
+		log.Error(err1, "update status for syncing error failed", "reqRV", reqRV)
+		return ctrl.Result{}, errors.Wrap(err, "failed to write that error to status of CP (ResourceVersion="+reqRV+"): "+err1.Error())
 	}
 	if errors.Is(err, ErrPostCreateHookNotFound) {
+		log.Info("Requeuing to retry updating status for syncing error", "newResourceVersion", hcp.ResourceVersion)
 		// Requeue after 10 seconds, don't mark as failed
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
-	log.Info("update status for syncing error is done")
+	log.Info("update status for syncing error is done", "newResourceVersion", hcp.ResourceVersion)
 	return result, err
 }
 
@@ -105,11 +108,12 @@ func (r *BaseReconciler) UpdateStatusForSyncingSuccess(ctx context.Context, hcp 
 		r.EventRecorder.Event(hcp, "Normal", "SyncSuccess", "")
 	}
 	tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionReconcileSuccess())
-	if err := r.Status().Update(context.Background(), hcp); err != nil {
-		log.Error(err, "update status for syncing success failed")
-		return ctrl.Result{}, err
+	reqRV := hcp.ResourceVersion
+	if err := r.Status().Update(ctx, hcp); err != nil {
+		log.Error(err, "update status for syncing success failed", "reqRV", reqRV)
+		return ctrl.Result{}, fmt.Errorf("failed to write syncing success (ResourceVersion=%s): %w", reqRV, err)
 	}
-	log.Info("update status for syncing success is done")
+	log.Info("update status for syncing success is done", "newResourceVersion", hcp.ResourceVersion)
 	return ctrl.Result{}, nil
 }
 

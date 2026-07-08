@@ -72,6 +72,9 @@ esac
 
 echo "Using secret: $SECRET_NAME with key: $SECRET_KEY for $CP_TYPE"
 
+: Document server version
+kubectl --context "$host_context" version
+
 :
 : -------------------------------------------------------------------------
 : Clean up any existing resources
@@ -101,7 +104,15 @@ spec:
           containers:
           - name: kubeconfig-tester
             image: quay.io/kubestellar/kubectl:1.30.14
-            command: ["kubectl", "--kubeconfig=/root/.kube/${SECRET_KEY}", "get", "namespace", "kube-system"]
+            command:
+            - bash
+            - "-c"
+            - |
+              ls -lad  /root/.kube/${SECRET_KEY}
+              ls -ladL /root/.kube/${SECRET_KEY}
+              wc /root/.kube/${SECRET_KEY}
+              echo ====
+              kubectl --kubeconfig=/root/.kube/${SECRET_KEY} get ns kube-system
             volumeMounts:
             - name: kubeconfig-volume
               mountPath: "/root/.kube"

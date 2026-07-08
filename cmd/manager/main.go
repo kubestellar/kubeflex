@@ -75,6 +75,10 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
+	flag.CommandLine.VisitAll(func(f *flag.Flag) {
+		setupLog.V(1).Info("Command line flag", "name", f.Name, "value", f.Value.String())
+	})
+
 	config := ctrl.GetConfigOrDie()
 	mgr, err := ctrl.NewManager(config, ctrl.Options{
 		Metrics:                server.Options{BindAddress: metricsAddr},

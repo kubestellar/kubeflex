@@ -29,8 +29,6 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-func int32Ptr(i int32) *int32 { return &i }
-
 func TestWaitForDeploymentReady_IsReady(t *testing.T) {
 	fakeClient := fake.NewSimpleClientset(&appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{

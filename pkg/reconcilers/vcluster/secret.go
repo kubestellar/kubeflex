@@ -32,7 +32,7 @@ import (
 
 // Reconcile the kubeconfig secret to set the `config-incluster` key with the in-cluster configuration
 func (r *VClusterReconciler) ReconcileKubeconfigSecret(ctx context.Context, hcp *tenancyv1alpha1.ControlPlane) error {
-	_ = clog.FromContext(ctx)
+	log := clog.FromContext(ctx)
 	namespace := util.GenerateNamespaceFromControlPlaneName(hcp.Name)
 
 	ksecret := &v1.Secret{
@@ -74,13 +74,16 @@ func (r *VClusterReconciler) ReconcileKubeconfigSecret(ctx context.Context, hcp 
 	// update secret and write it back
 	ksecret.Data[util.KubeconfigSecretKeyVClusterInCluster] = inclusterConfig
 
+	reqRV := ksecret.ResourceVersion
 	err = r.Client.Update(context.TODO(), ksecret, &client.UpdateOptions{})
 	if err != nil {
 		if util.IsTransientError(err) {
-			return err // Retry transient errors
+			log.Info("ReconcileKubeconfigSecret is retrying transient error", "secretRV", reqRV, "err", err)
+			return fmt.Errorf("failed to update kubeconfig Secret (ResourceVersion=%s): %w", reqRV, err) // Retry transient errors
 		}
-		return fmt.Errorf("failed to update kubeconfig secret: %w", err)
+		return fmt.Errorf("failed to update kubeconfig Secret (ResourceVersion=%s): %w", reqRV, err)
 	}
+	log.V(3).Info("Updated kubeconfig Secret", "newResourceVersion", ksecret.ResourceVersion)
 
 	return nil
 }

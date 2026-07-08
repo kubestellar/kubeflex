@@ -18,6 +18,7 @@ package vcluster
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -193,9 +194,12 @@ func (r *VClusterReconciler) addOwnerReference(ctx context.Context, hcp *tenancy
 		return err
 	}
 
+	reqRV := statefulset.ResourceVersion
 	if err := r.Client.Update(context.TODO(), statefulset, &client.UpdateOptions{}); err != nil {
-		return err
+		return fmt.Errorf("failed to set controller reference on apiserver StatefulSet (ResourceVersion=%s) of vcluster: %w", reqRV, err)
 	}
+	logger := clog.FromContext(ctx)
+	logger.V(3).Info("Set controller reference on apiserver StatefulSet", "newResourceVersion", statefulset.ResourceVersion)
 
 	return nil
 }

@@ -267,7 +267,14 @@ func (r *ExternalReconciler) ReconcileKubeconfigSecret(ctx context.Context, cp t
 	}
 
 	// Update the existing kubeconfig secret
-	return r.Client.Update(ctx, kubeConfigSecret)
+	reqRV := kubeConfigSecret.ResourceVersion
+	err = r.Client.Update(ctx, kubeConfigSecret)
+	if err == nil {
+		logger := clog.FromContext(ctx)
+		logger.V(3).Info("Updated kubeconfigSecret for external cluster", "newResourceVersion", kubeConfigSecret.ResourceVersion)
+		return nil
+	}
+	return fmt.Errorf("failed to update kubeconfig Secret (ResourceVersion=%s) for external cluster: %w", reqRV, err)
 }
 
 func deleteBootstrapSecret(ctx context.Context, crClient client.Client, hcp *tenancyv1alpha1.ControlPlane) error {

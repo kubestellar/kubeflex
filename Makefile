@@ -24,6 +24,8 @@ CMD_NAME ?= manager
 IMG ?= ${KO_DOCKER_REPO}/${CMD_NAME}:${IMAGE_TAG}
 TEST_HOST ?= kind
 
+INSTALL_EXTRAS ?=
+
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.26.1
 
@@ -237,7 +239,7 @@ k3d-load-image: ko-local-build
 
 .PHONY: install-local-chart
 install-local-chart: chart ${TEST_HOST}-load-image
-	helm upgrade --install kubeflex-operator ./chart
+	helm upgrade --install kubeflex-operator ./chart $(INSTALL_EXTRAS)
 
 ##@ Build Dependencies
 

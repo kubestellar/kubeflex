@@ -105,17 +105,21 @@ type ControlPlaneReconciler struct {
 func (r *ControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := clog.FromContext(ctx)
 
-	log.Info("Got ControlPlane event!")
-
 	// Fetch the hostedControlPlane instance
 	hostedControlPlane := &tenancyv1alpha1.ControlPlane{}
 	err := r.Client.Get(ctx, req.NamespacedName, hostedControlPlane)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
+			log.Info("ControlPlaneReconciler.Reconcile called for non-existent object")
 			return ctrl.Result{}, nil
 		}
+		log.Info("ControlPlaneReconciler.Reconcile suffered Get failure", "err", err)
 		return ctrl.Result{}, err
 	}
+	log = log.WithValues("cpResourceVersion", hostedControlPlane.GetResourceVersion())
+	ctx = clog.IntoContext(ctx, log)
+	log.Info("Got ControlPlane event!")
+
 	hcp := hostedControlPlane.DeepCopy()
 
 	// Update observedGeneration if it doesn't match the current generation
@@ -131,20 +135,25 @@ func (r *ControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			}
 
 			controllerutil.RemoveFinalizer(hcp, kfFinalizer)
+			reqUID, reqRV := hcp.UID, hcp.ResourceVersion
 			err := r.Update(ctx, hcp)
 			if err != nil {
-				return ctrl.Result{}, err
+				return ctrl.Result{}, fmt.Errorf("failed to remove finalizer (cp.UID=%q, cp.ResourceVersion=%s): %w", reqUID, reqRV, err)
 			}
+			log.V(3).Info("Removed finalizer")
 		}
+		log.V(3).Info("Waiting for deletion to finish")
 		return ctrl.Result{}, nil
 	}
 
 	if !controllerutil.ContainsFinalizer(hcp, kfFinalizer) {
 		controllerutil.AddFinalizer(hcp, kfFinalizer)
+		reqRV := hcp.ResourceVersion
 		err = r.Update(ctx, hcp)
 		if err != nil {
-			return ctrl.Result{}, err
+			return ctrl.Result{}, fmt.Errorf("failed to add finalizer (cp.ResourceVersion=%s): %w", reqRV, err)
 		}
+		log.V(3).Info("Added finalizer")
 	}
 
 	// PHASE 1: Type-specific controlplane reconciliation
@@ -195,9 +204,11 @@ func (r *ControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		log.Info("API Server Not Ready. Requeuing...", "controlPlane", hcp.Name)
 		// Update Status
 		tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionUnavailable())
+		reqRV := hcp.ResourceVersion
 		if err = r.Status().Update(ctx, hcp); err != nil {
-			log.Error(err, "Failed to update ControlPlane status")
+			log.Error(err, "Failed to update ControlPlane status", "reqRV", reqRV)
 		}
+		log.V(3).Info("Updated ControlPlane status (waiting for apiserver to become ready)", "ResourceVersion", hcp.ResourceVersion)
 		return ctrl.Result{RequeueAfter: time.Second * 15}, nil
 	}
 
@@ -259,11 +270,13 @@ func (r *ControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	// Update final status
+	reqRV := hcp.ResourceVersion
 	err = r.Status().Update(ctx, hcp)
 	if err != nil {
-		log.Error(err, "Failed to update ControlPlane final status")
+		log.Error(err, "Failed to update ControlPlane final status", "reqRV", reqRV)
 		return ctrl.Result{}, err
 	}
+	log.Info("Updated status of ControlPlane", "newResourceVersion", hcp.ResourceVersion)
 
 	// If we're still waiting for hooks to complete, requeue to check again later
 	if hcp.Spec.WaitForPostCreateHooks != nil && *hcp.Spec.WaitForPostCreateHooks &&
