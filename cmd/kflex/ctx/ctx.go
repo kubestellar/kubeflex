@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"os"
 	"sync"
-	"time"
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/cmd/kflex/common"
@@ -97,36 +96,41 @@ func (cpCtx *CPCtx) ExecuteCtx(chattyStatus, failIfNone, overwriteExistingCtx, s
 				return fmt.Errorf("error on ExecuteCtx: %v", err)
 			}
 		}
-		util.PrintStatus("Checking for saved hosting cluster context...", done, &wg, chattyStatus)
-		time.Sleep(1 * time.Second)
-		done <- true
-		if kubeconfig.IsHostingClusterContextSet(kconf) {
+		// Prefer the current context when it already accesses the hosting
+		// cluster (docs/users.md precondition (a)) over a possibly-stale stored one.
+		currentAccessesHosting := false
+		if pclientset, cerr := kfclient.GetClientSet(cpCtx.Kubeconfig); cerr == nil {
+			currentAccessesHosting = cpCtx.isCurrentContextHostingClusterContext(*pclientset)
+		}
+		storedSet := kubeconfig.IsHostingClusterContextSet(kconf)
+
+		switch decideHostingCtxAction(currentAccessesHosting, storedSet) {
+		case keepCurrentContext:
+			util.PrintStatus("Current context accesses the hosting cluster, using it", done, &wg, chattyStatus)
+			if !storedSet {
+				// Record the current context so later runs have a fallback,
+				// preserving the prior behavior of learning the hosting context.
+				if err = kubeconfig.SetHostingClusterContext(kconf, nil); err != nil {
+					done <- true
+					return fmt.Errorf("error on ExecuteCtx: %v", err)
+				}
+			}
+			done <- true
+		case switchToStoredContext:
 			util.PrintStatus("Switching to hosting cluster context...", done, &wg, chattyStatus)
 			if err = kubeconfig.SwitchToHostingClusterContext(kconf); err != nil {
 				// The stored hosting context is invalid (missing/removed cluster or server).
 				// Warn the user and proceed as if no hosting context was set.
 				fmt.Fprintf(os.Stderr, "warning: saved hosting cluster context is invalid, ignoring it: %v\n", err)
-			} else {
-				done <- true
 			}
-		} else if failIfNone {
-			pclientset, err := kfclient.GetClientSet(cpCtx.Kubeconfig)
-			if err != nil {
-				return fmt.Errorf("error getting clientset: %v", err)
-			}
-			if !cpCtx.isCurrentContextHostingClusterContext(*pclientset) {
+			done <- true
+		case hostingContextUnknown:
+			if failIfNone {
 				return fmt.Errorf("the hosting cluster context is not known!\n" +
 					"you can make it known to kflex by doing `kubectl config use-context` \n" +
 					"to set the current context to the hosting cluster context and then using \n" +
 					"`kflex ctx --set-current-for-hosting` to restore the needed kubeconfig extension")
-
 			}
-			util.PrintStatus("Hosting cluster context not set, setting it to current context", done, &wg, chattyStatus)
-			err = kubeconfig.SetHostingClusterContext(kconf, nil)
-			if err != nil {
-				return fmt.Errorf("error on ExecuteCtx: %v", err)
-			}
-			done <- true
 		}
 	} else {
 		// Switch to given context
