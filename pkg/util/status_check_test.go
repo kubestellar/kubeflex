@@ -17,6 +17,7 @@ limitations under the License.
 package util
 
 import (
+	"context"
 	"testing"
 
 	v1 "k8s.io/api/apps/v1"
@@ -25,9 +26,41 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
+	"k8s.io/utils/ptr"
 )
 
 func int32Ptr(i int32) *int32 { return &i }
+
+func TestWaitForDeploymentReady_IsReady(t *testing.T) {
+	fakeClient := fake.NewSimpleClientset(&v1.Deployment{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Deployment",
+			APIVersion: v1.SchemeGroupVersion.String(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "test-ns",
+			Name:      "test-deploys",
+		},
+		Spec: v1.DeploymentSpec{
+			Replicas: ptr.To[int32](3),
+		},
+		Status: v1.DeploymentStatus{
+			Replicas:      3,
+			ReadyReplicas: 3,
+		},
+	})
+
+	if true {
+		deps := fakeClient.AppsV1().Deployments("test-ns")
+		deps.List(context.Background(), metav1.ListOptions{})
+		deps.Watch(context.Background(), metav1.ListOptions{})
+	}
+
+	err := WaitForDeploymentReady(fakeClient, "test-deploy", "test-ns")
+	if err != nil {
+		t.Fatalf("Failed to wait for ready Deployment, er=%v", err)
+	}
+}
 
 // TestWaitForDeploymentReady_ChannelClosedBeforeReady verifies that closing the
 // watch channel before the deployment reaches readiness returns an error instead
@@ -37,12 +70,23 @@ func TestWaitForDeploymentReady_ChannelClosedBeforeReady(t *testing.T) {
 	fw := watch.NewFake()
 
 	fakeClient.PrependWatchReactor("deployments", func(action k8stesting.Action) (bool, watch.Interface, error) {
-		return true, fw, nil
+		if fw != nil {
+			return true, fw, nil
+		}
+		wa := action.(k8stesting.WatchAction)
+		restricions := wa.GetWatchRestrictions()
+		lo := metav1.ListOptions{
+			LabelSelector:   restricions.Labels.String(),
+			FieldSelector:   restricions.Fields.String(),
+			ResourceVersion: restricions.ResourceVersion,
+		}
+		w, err := fakeClient.AppsV1().Deployments(action.GetNamespace()).Watch(context.Background(), lo)
+		return true, w, err
 	})
 
 	// Close the channel immediately — simulates API server dropping the connection
 	// before the deployment becomes ready.
-	go fw.Stop()
+	fw.Stop()
 
 	err := WaitForDeploymentReady(fakeClient, "test-deploy", "test-ns")
 	if err == nil {

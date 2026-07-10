@@ -19,109 +19,109 @@ package util
 import (
 	"context"
 	"fmt"
-	"log"
+	"sync/atomic"
 
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
+	k8srest "k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/go-logr/logr"
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 )
 
-// TODO - refactor in a single base "WaitFor" function that can operate on the resource types
-// needed here
-
-func WaitForDeploymentReady(clientset kubernetes.Interface, name, namespace string) error {
-	watcher, err := clientset.AppsV1().Deployments(namespace).Watch(context.Background(), metav1.ListOptions{
-		FieldSelector:   fmt.Sprintf("metadata.name=%s", name),
-		ResourceVersion: "0",
-	})
-	if err != nil {
-		return err
-	}
-	defer watcher.Stop()
-
-	for {
-		event, ok := <-watcher.ResultChan()
-		if !ok {
-			return fmt.Errorf("watch channel closed before deployment %s/%s became ready", namespace, name)
-		}
-
-		switch event.Type {
-		case watch.Error:
-			log.Println("Error watching deployment:", watch.Error)
-		case watch.Added, watch.Modified:
-			deploy := event.Object.(*v1.Deployment)
-			if deploy.Status.ReadyReplicas == deploy.Status.Replicas && deploy.Status.Replicas == *deploy.Spec.Replicas {
-				return nil
-			}
-		case watch.Deleted:
-			return nil
-		}
-	}
+// WaitForDeploymentReady returns once the identified Deployment is ready or gone
+func WaitForDeploymentReady(kubeClient kubernetes.Interface, name, namespace string) error {
+	return WaitForObjectState(context.Background(), kubeClient.AppsV1().RESTClient(),
+		"deployments", &v1.Deployment{}, name, namespace,
+		func(deploy *v1.Deployment) bool {
+			return deploy.Status.ReadyReplicas == deploy.Status.Replicas &&
+				deploy.Status.Replicas == *deploy.Spec.Replicas
+		},
+		true)
 }
 
-func WaitForStatefulSetReady(clientset kubernetes.Interface, name, namespace string) error {
-	watcher, err := clientset.AppsV1().StatefulSets(namespace).Watch(context.Background(), metav1.ListOptions{
-		FieldSelector: fmt.Sprintf("metadata.name=%s", name),
-	})
-	if err != nil {
-		return err
-	}
-	defer watcher.Stop()
-
-	for {
-		event, ok := <-watcher.ResultChan()
-		if !ok {
-			return fmt.Errorf("watch channel closed before statefulset %s/%s became ready", namespace, name)
-		}
-
-		switch event.Type {
-		case watch.Error:
-			log.Println("Error watching statefulset:", watch.Error)
-		case watch.Added, watch.Modified:
-			stset := event.Object.(*v1.StatefulSet)
-			if stset.Status.ReadyReplicas == stset.Status.Replicas && stset.Status.Replicas == *stset.Spec.Replicas {
-				return nil
-			}
-		case watch.Deleted:
-			return nil
-		}
-	}
+// WaitForStatefulSetReady returns once the identified StatefulSet is ready or gone
+func WaitForStatefulSetReady(kubeClient kubernetes.Interface, name, namespace string) error {
+	return WaitForObjectState(context.Background(), kubeClient.AppsV1().RESTClient(),
+		"statefulsets", &v1.StatefulSet{}, name, namespace,
+		func(stset *v1.StatefulSet) bool {
+			return stset.Status.ReadyReplicas == stset.Status.Replicas &&
+				stset.Status.Replicas == *stset.Spec.Replicas
+		},
+		true)
 }
 
-func WaitForNamespaceDeletion(clientset kubernetes.Interface, name string) error {
-	watcher, err := clientset.CoreV1().Namespaces().Watch(context.Background(), metav1.ListOptions{
-		FieldSelector: fmt.Sprintf("metadata.name=%s", name),
-	})
-	if err != nil {
-		return err
-	}
-	defer watcher.Stop()
+// WaitForNamespaceDeletion returns once the identified namespace is gone
+func WaitForNamespaceDeletion(kubeClient kubernetes.Interface, name string) error {
+	return WaitForObjectState(context.Background(), kubeClient.CoreV1().RESTClient(),
+		"namespaces", &corev1.Namespace{},
+		name, corev1.NamespaceAll,
+		func(*corev1.Namespace) bool { return false },
+		false)
+}
 
-	for {
-		event, ok := <-watcher.ResultChan()
-		if !ok {
-			return fmt.Errorf("watch channel closed before namespace %s was deleted", name)
+// WaitForObjectState returns once the identified object meets the given test or
+// the given context's Done() is closed.
+// Returns nil in the first case, `ctx.Err()` in the last.
+// Iff `!mustExist` then absence of the object is considered to meet the test.
+func WaitForObjectState[T k8sruntime.Object](
+	ctx context.Context,
+	restClient k8srest.Interface,
+	resource string, example T,
+	name, namespace string,
+	testState func(T) bool,
+	mustExist bool,
+) error {
+	var success atomic.Bool
+	cancelable, cancel := context.WithCancel(ctx)
+	defer cancel()
+	listwatch := cache.NewListWatchFromClient(
+		restClient,
+		resource,
+		namespace,
+		fields.OneTermEqualSelector("metadata.name", name),
+	)
+	consider := func(obj any) {
+		typed := obj.(T)
+		if testState(typed) {
+			success.Store(true)
+			cancel()
 		}
-
-		switch event.Type {
-		case watch.Error:
-			log.Println("Error watching namespace:", watch.Error)
-		case watch.Added, watch.Modified:
-			namespace := event.Object.(*corev1.Namespace)
-			if namespace.Status.Phase == corev1.NamespaceTerminating {
-				continue
-			}
-		case watch.Deleted:
+	}
+	store, controller := cache.NewInformerWithOptions(cache.InformerOptions{
+		ListerWatcher: listwatch,
+		ObjectType:    example,
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc:    consider,
+			UpdateFunc: func(oldObj, newObj any) { consider(newObj) },
+			DeleteFunc: func(obj any) {
+				if !mustExist {
+					success.Store(true)
+					cancel()
+				}
+			},
+		},
+		ResyncPeriod: 0,
+	})
+	go controller.Run(cancelable.Done())
+	if cache.WaitForCacheSync(cancelable.Done(), controller.HasSynced) {
+		if len(store.ListKeys()) == 0 && !mustExist {
 			return nil
 		}
+		<-cancelable.Done()
 	}
+	if success.Load() {
+		return nil
+	}
+	// ctx.Done() must have been closed
+	return ctx.Err()
 }
 
 func IsAPIServerDeploymentReady(log logr.Logger, c client.Client, hcp tenancyv1alpha1.ControlPlane) (bool, error) {

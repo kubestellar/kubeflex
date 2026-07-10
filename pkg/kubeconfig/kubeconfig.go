@@ -22,19 +22,17 @@ import (
 	"strconv"
 	"time"
 
-	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
-	"github.com/kubestellar/kubeflex/pkg/certs"
-	"github.com/kubestellar/kubeflex/pkg/util"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+
+	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
+	"github.com/kubestellar/kubeflex/pkg/certs"
+	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
 const (
@@ -345,63 +343,27 @@ func WriteKubeconfig(kubeconfig string, kconf *clientcmdapi.Config) error {
 // Watch for secret creation
 func WatchForSecretCreation(clientset kubernetes.Clientset, controlPlaneName, secretName string) error {
 	namespace := util.GenerateNamespaceFromControlPlaneName(controlPlaneName)
-
-	listwatch := cache.NewListWatchFromClient(
+	return util.WaitForObjectState(context.Background(),
 		clientset.CoreV1().RESTClient(),
-		"secrets",
-		namespace,
-		fields.Everything(),
+		"secrets", &corev1.Secret{},
+		secretName, namespace,
+		func(*corev1.Secret) bool { return true },
+		true,
 	)
-
-	stopCh := make(chan struct{})
-
-	_, controller := cache.NewInformer(
-		listwatch,
-		&corev1.Secret{},
-		0,
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				secret := obj.(*corev1.Secret)
-				if secret.Name == secretName {
-					close(stopCh)
-				}
-			},
-		},
-	)
-
-	go controller.Run(stopCh)
-	<-stopCh
-	return nil
 }
 
 // Wait for namespace to be ready
 func WaitForNamespaceReady(ctx context.Context, clientset kubernetes.Interface, controlPlaneName string) error {
 	namespace := util.GenerateNamespaceFromControlPlaneName(controlPlaneName)
-
-	err := wait.PollUntilContextTimeout(
-		ctx,
-		2*time.Second,
-		2*time.Minute,
+	limited, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+	return util.WaitForObjectState(limited,
+		clientset.CoreV1().RESTClient(),
+		"namespaces", &corev1.Namespace{},
+		namespace, corev1.NamespaceAll,
+		func(ns *corev1.Namespace) bool { return ns.Status.Phase == corev1.NamespaceActive },
 		true,
-		func(context.Context) (bool, error) {
-			ns, err := clientset.CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{})
-			if errors.IsNotFound(err) {
-				return false, nil // Retry if namespace is not found
-			} else if err != nil {
-				return false, fmt.Errorf("error checking namespace status: %v", err)
-			}
-
-			if ns.Status.Phase == corev1.NamespaceActive {
-				return true, nil // Namespace is ready
-			}
-
-			return false, nil // Continue waiting
-		},
 	)
-	if err != nil {
-		return fmt.Errorf("timed out waiting for namespace %s to be ready: %v", namespace, err)
-	}
-	return nil
 }
 
 // IsContextManagedByKubeflex checks if a context is managed by KubeFlex
