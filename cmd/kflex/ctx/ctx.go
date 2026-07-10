@@ -96,35 +96,41 @@ func (cpCtx *CPCtx) ExecuteCtx(chattyStatus, failIfNone, overwriteExistingCtx, s
 				return fmt.Errorf("error on ExecuteCtx: %v", err)
 			}
 		}
-		// Prefer the current context when it already accesses the hosting
-		// cluster (docs/users.md precondition (a)) over a possibly-stale stored one.
+		// Live-discover whether the current context is already a hosting
+		// cluster (ControlPlane CRD present). A failed clientset build or
+		// unreachable current context is treated as "not hosting" and falls
+		// back to the stored extension.
 		currentAccessesHosting := false
 		if pclientset, cerr := kfclient.GetClientSet(cpCtx.Kubeconfig); cerr == nil {
 			currentAccessesHosting = cpCtx.isCurrentContextHostingClusterContext(*pclientset)
 		}
 		storedSet := kubeconfig.IsHostingClusterContextSet(kconf)
 
-		switch decideHostingCtxAction(currentAccessesHosting, storedSet) {
-		case keepCurrentContext:
+		// Prefer the live current context over the stored extension: using
+		// a stale stored name can redirect create/ctx away from the cluster
+		// the user is pointed at (issue #597).
+		switch {
+		case currentAccessesHosting:
 			util.PrintStatus("Current context accesses the hosting cluster, using it", done, &wg, chattyStatus)
 			if !storedSet {
-				// Record the current context so later runs have a fallback,
-				// preserving the prior behavior of learning the hosting context.
+				// First successful use with no extension yet: remember
+				// current so later bare `kflex ctx` has a fallback when the
+				// user is no longer on the hosting cluster.
 				if err = kubeconfig.SetHostingClusterContext(kconf, nil); err != nil {
 					done <- true
 					return fmt.Errorf("error on ExecuteCtx: %v", err)
 				}
 			}
 			done <- true
-		case switchToStoredContext:
+		case storedSet:
 			util.PrintStatus("Switching to hosting cluster context...", done, &wg, chattyStatus)
 			if err = kubeconfig.SwitchToHostingClusterContext(kconf); err != nil {
-				// The stored hosting context is invalid (missing/removed cluster or server).
-				// Warn the user and proceed as if no hosting context was set.
+				// Extension points at a missing/removed context or cluster;
+				// warn and stay on current rather than hard-failing.
 				fmt.Fprintf(os.Stderr, "warning: saved hosting cluster context is invalid, ignoring it: %v\n", err)
 			}
 			done <- true
-		case hostingContextUnknown:
+		default:
 			if failIfNone {
 				return fmt.Errorf("the hosting cluster context is not known!\n" +
 					"you can make it known to kflex by doing `kubectl config use-context` \n" +
