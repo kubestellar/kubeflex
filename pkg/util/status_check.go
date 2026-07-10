@@ -20,15 +20,18 @@ import (
 	"context"
 	"fmt"
 	"sync/atomic"
+	"time"
 
-	v1 "k8s.io/api/apps/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/informers"
+	informersappsv1 "k8s.io/client-go/informers/apps/v1"
 	"k8s.io/client-go/kubernetes"
-	k8srest "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -36,58 +39,85 @@ import (
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 )
 
-// WaitForDeploymentReady returns once the identified Deployment is ready or gone
-func WaitForDeploymentReady(kubeClient kubernetes.Interface, name, namespace string) error {
-	return WaitForObjectState(context.Background(), kubeClient.AppsV1().RESTClient(),
-		"deployments", &v1.Deployment{}, name, namespace,
-		func(deploy *v1.Deployment) bool {
+// WaitForDeploymentReady returns once the identified Deployment exists and is ready
+// or 10 minutes pass, returning `context.DeadlineExceeded` in the latter case.
+func WaitForDeploymentReady(ctx context.Context, kubeClient kubernetes.Interface, name, namespace string) error {
+	inf := informersappsv1.NewFilteredDeploymentInformer(kubeClient, namespace, 0,
+		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, OptionsAddName(name))
+	err := WaitForObjectState(ctx, 10*time.Minute,
+		inf, nil,
+		func(deploy *appsv1.Deployment) bool {
 			return deploy.Status.ReadyReplicas == deploy.Status.Replicas &&
 				deploy.Status.Replicas == *deploy.Spec.Replicas
 		},
 		true)
+	if err != nil {
+		return fmt.Errorf("the Deployment %s/%s did not become ready in time: %w", namespace, name, err)
+	}
+	return nil
 }
 
-// WaitForStatefulSetReady returns once the identified StatefulSet is ready or gone
-func WaitForStatefulSetReady(kubeClient kubernetes.Interface, name, namespace string) error {
-	return WaitForObjectState(context.Background(), kubeClient.AppsV1().RESTClient(),
-		"statefulsets", &v1.StatefulSet{}, name, namespace,
-		func(stset *v1.StatefulSet) bool {
+// WaitForStatefulSetReady returns once the identified StatefulSet exists and is ready
+// or 10 minutes pass, returning `context.DeadlineExceeded` in the latter case.
+func WaitForStatefulSetReady(ctx context.Context, kubeClient kubernetes.Interface, name, namespace string) error {
+	inf := informersappsv1.NewFilteredStatefulSetInformer(kubeClient, namespace, 0,
+		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, OptionsAddName(name))
+	err := WaitForObjectState(ctx, 10*time.Minute,
+		inf, nil,
+		func(stset *appsv1.StatefulSet) bool {
 			return stset.Status.ReadyReplicas == stset.Status.Replicas &&
 				stset.Status.Replicas == *stset.Spec.Replicas
 		},
 		true)
+	if err != nil {
+		return fmt.Errorf("the StatefulSet %s/%s did not become ready in time: %w", namespace, name, err)
+	}
+	return nil
 }
 
 // WaitForNamespaceDeletion returns once the identified namespace is gone
-func WaitForNamespaceDeletion(kubeClient kubernetes.Interface, name string) error {
-	return WaitForObjectState(context.Background(), kubeClient.CoreV1().RESTClient(),
-		"namespaces", &corev1.Namespace{},
-		name, corev1.NamespaceAll,
+// or 10 minutes pass, returning a `context.DeadlineExceeded` in the latter case.
+func WaitForNamespaceDeletion(ctx context.Context, kubeClient kubernetes.Interface, name string) error {
+	li := informers.NewSharedInformerFactoryWithOptions(kubeClient, 0,
+		informers.WithTweakListOptions(OptionsAddName(name))).Core().V1().Namespaces()
+	err := WaitForObjectState(ctx, 10*time.Minute,
+		li.Informer(), li.Lister().List,
 		func(*corev1.Namespace) bool { return false },
 		false)
+	if err != nil {
+		return fmt.Errorf("namespace %s was not deleted in time: %w", name, err)
+	}
+	return nil
 }
 
-// WaitForObjectState returns once the identified object meets the given test or
-// the given context's Done() is closed.
-// Returns nil in the first case, `ctx.Err()` in the last.
+func OptionsAddName(name string) func(lo *metav1.ListOptions) {
+	return func(lo *metav1.ListOptions) {
+		newSel := fields.OneTermEqualSelector("metadata.name", name).String()
+		if lo.FieldSelector == "" {
+			lo.FieldSelector = newSel
+		} else {
+			lo.FieldSelector = lo.FieldSelector + "," + newSel
+		}
+	}
+}
+
+// WaitForObjectState waits for one Kubernetes API object to reach a state
+// that passes the given test or the timeout to pass or the context's `Done()` to be closed.
+// Returns nil in the first case, `context.DeadlineExceeded` in the second, `ctx.Err()` in the last.
+// The informer and lister must be focused on just the object in question.
 // Iff `!mustExist` then absence of the object is considered to meet the test.
+// If `mustExist` then the lister may be `nil`.
 func WaitForObjectState[T k8sruntime.Object](
 	ctx context.Context,
-	restClient k8srest.Interface,
-	resource string, example T,
-	name, namespace string,
+	timeout time.Duration,
+	informer cache.SharedIndexInformer,
+	lister func(labels.Selector) ([]T, error),
 	testState func(T) bool,
 	mustExist bool,
 ) error {
 	var success atomic.Bool
-	cancelable, cancel := context.WithCancel(ctx)
+	cancelable, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	listwatch := cache.NewListWatchFromClient(
-		restClient,
-		resource,
-		namespace,
-		fields.OneTermEqualSelector("metadata.name", name),
-	)
 	consider := func(obj any) {
 		typed := obj.(T)
 		if testState(typed) {
@@ -95,10 +125,8 @@ func WaitForObjectState[T k8sruntime.Object](
 			cancel()
 		}
 	}
-	store, controller := cache.NewInformerWithOptions(cache.InformerOptions{
-		ListerWatcher: listwatch,
-		ObjectType:    example,
-		Handler: cache.ResourceEventHandlerFuncs{
+	informer.AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
 			AddFunc:    consider,
 			UpdateFunc: func(oldObj, newObj any) { consider(newObj) },
 			DeleteFunc: func(obj any) {
@@ -107,21 +135,26 @@ func WaitForObjectState[T k8sruntime.Object](
 					cancel()
 				}
 			},
-		},
-		ResyncPeriod: 0,
-	})
-	go controller.Run(cancelable.Done())
-	if cache.WaitForCacheSync(cancelable.Done(), controller.HasSynced) {
-		if len(store.ListKeys()) == 0 && !mustExist {
-			return nil
+		})
+
+	go informer.Run(cancelable.Done())
+	if cache.WaitForCacheSync(cancelable.Done(), informer.HasSynced) {
+		if !mustExist {
+			list, err := lister(labels.Everything())
+			if err != nil { // Only happens if wrong kind of objects are in the cache
+				return fmt.Errorf("impossible failure in lister: %w", err)
+			}
+			if len(list) == 0 {
+				return nil
+			}
 		}
 		<-cancelable.Done()
 	}
 	if success.Load() {
 		return nil
 	}
-	// ctx.Done() must have been closed
-	return ctx.Err()
+	// either the timeout happened or ctx.Done() was closed
+	return cancelable.Err()
 }
 
 func IsAPIServerDeploymentReady(log logr.Logger, c client.Client, hcp tenancyv1alpha1.ControlPlane) (bool, error) {
@@ -139,7 +172,7 @@ func IsAPIServerDeploymentReady(log logr.Logger, c client.Client, hcp tenancyv1a
 		// host or external is always available
 		return true, nil
 	case tenancyv1alpha1.ControlPlaneTypeVCluster, tenancyv1alpha1.ControlPlaneTypeK3s:
-		s := &v1.StatefulSet{
+		s := &appsv1.StatefulSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      GetAPIServerDeploymentNameByControlPlaneType(string(hcp.Spec.Type)),
 				Namespace: ns.Name,
@@ -155,7 +188,7 @@ func IsAPIServerDeploymentReady(log logr.Logger, c client.Client, hcp tenancyv1a
 			s.Status.Replicas == *s.Spec.Replicas &&
 			*s.Spec.Replicas > 0, nil
 	case tenancyv1alpha1.ControlPlaneTypeK8S, tenancyv1alpha1.ControlPlaneTypeOCM:
-		d := &v1.Deployment{
+		d := &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      GetAPIServerDeploymentNameByControlPlaneType(string(hcp.Spec.Type)),
 				Namespace: ns.Name,
@@ -195,7 +228,7 @@ func IsAPIServerDeploymentExists(c client.Client, hcp tenancyv1alpha1.ControlPla
 	case tenancyv1alpha1.ControlPlaneTypeHost, tenancyv1alpha1.ControlPlaneTypeExternal:
 		return true, nil
 	case tenancyv1alpha1.ControlPlaneTypeK8S, tenancyv1alpha1.ControlPlaneTypeOCM:
-		d := &v1.Deployment{
+		d := &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      GetAPIServerDeploymentNameByControlPlaneType(string(hcp.Spec.Type)),
 				Namespace: ns.Name,
@@ -204,7 +237,7 @@ func IsAPIServerDeploymentExists(c client.Client, hcp tenancyv1alpha1.ControlPla
 		err := c.Get(context.Background(), types.NamespacedName{Name: d.Name, Namespace: d.Namespace}, d)
 		return err == nil, nil // Just check if it exists, not if it's ready
 	case tenancyv1alpha1.ControlPlaneTypeVCluster:
-		s := &v1.StatefulSet{
+		s := &appsv1.StatefulSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      GetAPIServerDeploymentNameByControlPlaneType(string(hcp.Spec.Type)),
 				Namespace: ns.Name,

@@ -26,7 +26,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	informerscorev1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
@@ -340,30 +342,41 @@ func WriteKubeconfig(kubeconfig string, kconf *clientcmdapi.Config) error {
 	return clientcmd.WriteToFile(*kconf, kubeconfig)
 }
 
-// Watch for secret creation
-func WatchForSecretCreation(clientset kubernetes.Clientset, controlPlaneName, secretName string) error {
+// WatchForSecretCreation returns once the identified Secret object exists
+// or 10 minutes pass, returning `context.DeadlineExceeded` in the latter case.
+func WatchForSecretCreation(ctx context.Context, kubeClient kubernetes.Interface, controlPlaneName, secretName string) error {
 	namespace := util.GenerateNamespaceFromControlPlaneName(controlPlaneName)
-	return util.WaitForObjectState(context.Background(),
-		clientset.CoreV1().RESTClient(),
-		"secrets", &corev1.Secret{},
-		secretName, namespace,
+	inf := informerscorev1.NewFilteredSecretInformer(kubeClient, namespace, 0,
+		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, util.OptionsAddName(secretName))
+	err := util.WaitForObjectState(ctx, 10*time.Minute,
+		inf, nil,
 		func(*corev1.Secret) bool { return true },
 		true,
 	)
+	if err != nil {
+		return fmt.Errorf("the Secret %s/%s did not appear in time: %w", namespace, secretName, err)
+	}
+	return nil
 }
 
-// Wait for namespace to be ready
-func WaitForNamespaceReady(ctx context.Context, clientset kubernetes.Interface, controlPlaneName string) error {
+// WaitForNamespaceReady returns once the identified Namespace exists and has `.Status.Phase == "Active"`
+// or two minutes pass without that state appearing.
+// The result is nil in the first case, a `context.DeadlineExceeded` in the second.
+func WaitForNamespaceReady(ctx context.Context, kubeClient kubernetes.Interface, controlPlaneName string) error {
 	namespace := util.GenerateNamespaceFromControlPlaneName(controlPlaneName)
-	limited, cancel := context.WithTimeout(ctx, 2*time.Minute)
-	defer cancel()
-	return util.WaitForObjectState(limited,
-		clientset.CoreV1().RESTClient(),
-		"namespaces", &corev1.Namespace{},
-		namespace, corev1.NamespaceAll,
-		func(ns *corev1.Namespace) bool { return ns.Status.Phase == corev1.NamespaceActive },
+	inf := informerscorev1.NewFilteredNamespaceInformer(kubeClient, 0,
+		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, util.OptionsAddName(namespace))
+	err := util.WaitForObjectState(ctx, 2*time.Minute,
+		inf, nil,
+		func(ns *corev1.Namespace) bool {
+			return ns.Status.Phase == corev1.NamespaceActive
+		},
 		true,
 	)
+	if err != nil {
+		return fmt.Errorf("the Namespace %s did not become ready in time: %w", namespace, err)
+	}
+	return nil
 }
 
 // IsContextManagedByKubeflex checks if a context is managed by KubeFlex

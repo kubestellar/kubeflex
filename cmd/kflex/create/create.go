@@ -108,7 +108,6 @@ func ExecuteCreate(cp common.CP, controlPlaneType string, backendType string, ho
 	if err != nil {
 		return fmt.Errorf("error getting clientset: %v", err)
 	}
-	clientset := *clientsetp
 
 	util.PrintStatus("Waiting for API server to become ready...", done, &wg, chattyStatus)
 	switch controlPlaneType {
@@ -116,24 +115,30 @@ func ExecuteCreate(cp common.CP, controlPlaneType string, backendType string, ho
 		// hosting cluster is always ready
 	case string(tenancyv1alpha1.ControlPlaneTypeVCluster):
 
-		kubeconfig.WatchForSecretCreation(clientset, cp.Name, util.GetKubeconfSecretNameByControlPlaneType(controlPlaneType))
-		if err := util.WaitForStatefulSetReady(clientsetp,
+		if err := kubeconfig.WatchForSecretCreation(cp.Ctx, clientsetp, cp.Name, util.GetKubeconfSecretNameByControlPlaneType(controlPlaneType)); err != nil {
+			return err
+		}
+		if err := util.WaitForStatefulSetReady(cp.Ctx, clientsetp,
 			util.GetAPIServerDeploymentNameByControlPlaneType(controlPlaneType),
 			// TODO replace util.GenerateNamespaceFromControlPlaneName like in k3s
 			util.GenerateNamespaceFromControlPlaneName(controlPlane.Name)); err != nil {
 			return fmt.Errorf("error waiting for stateful set to become ready: %v", err)
 		}
 	case string(tenancyv1alpha1.ControlPlaneTypeK8S), string(tenancyv1alpha1.ControlPlaneTypeOCM):
-		kubeconfig.WatchForSecretCreation(clientset, cp.Name, util.GetKubeconfSecretNameByControlPlaneType(controlPlaneType))
-		if err := util.WaitForDeploymentReady(clientsetp,
+		if err := kubeconfig.WatchForSecretCreation(cp.Ctx, clientsetp, cp.Name, util.GetKubeconfSecretNameByControlPlaneType(controlPlaneType)); err != nil {
+			return err
+		}
+		if err := util.WaitForDeploymentReady(cp.Ctx, clientsetp,
 			util.GetAPIServerDeploymentNameByControlPlaneType(controlPlaneType),
 			// TODO replace util.GenerateNamespaceFromControlPlaneName like in k3s
 			util.GenerateNamespaceFromControlPlaneName(controlPlane.Name)); err != nil {
 			return fmt.Errorf("error waiting for deployment to become ready: %v", err)
 		}
 	case string(tenancyv1alpha1.ControlPlaneTypeK3s):
-		kubeconfig.WatchForSecretCreation(clientset, cp.Name, k3s.KubeconfigSecretName)
-		if err := util.WaitForStatefulSetReady(clientsetp, k3s.ServerName, util.GenerateNamespaceFromControlPlaneName(controlPlane.Name)); err != nil {
+		if err := kubeconfig.WatchForSecretCreation(cp.Ctx, clientsetp, cp.Name, k3s.KubeconfigSecretName); err != nil {
+			return err
+		}
+		if err := util.WaitForStatefulSetReady(cp.Ctx, clientsetp, k3s.ServerName, util.GenerateNamespaceFromControlPlaneName(controlPlane.Name)); err != nil {
 			return fmt.Errorf("error waiting for stateful set to become ready: %v", err)
 		}
 	default:
@@ -141,7 +146,7 @@ func ExecuteCreate(cp common.CP, controlPlaneType string, backendType string, ho
 	}
 
 	done <- true
-	kconf, err := kubeconfig.LoadAndMergeClientServerKubeconfig(cp.Ctx, cp.Kubeconfig, clientset, cp.Name, controlPlaneType)
+	kconf, err := kubeconfig.LoadAndMergeClientServerKubeconfig(cp.Ctx, cp.Kubeconfig, *clientsetp, cp.Name, controlPlaneType)
 	if err != nil {
 		return fmt.Errorf("error loading and merging kubeconfig: %v", err)
 	}
