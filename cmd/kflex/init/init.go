@@ -143,10 +143,13 @@ func ExecuteInit(ctx context.Context, kubeconfig, version, buildDate string, dom
 	done <- true
 
 	util.PrintStatus("Waiting for shared backend DB to become ready...", done, &wg, chattyStatus)
-	util.WaitForStatefulSetReady(
-		clientsetp,
+	err = util.WaitForStatefulSetReady(
+		ctx, clientsetp,
 		util.GeneratePSReplicaSetName(util.DBReleaseName),
 		util.SystemNamespace)
+	if err != nil {
+		return err
+	}
 	done <- true
 
 	util.PrintStatus("Installing kubeflex operator...", done, &wg, chattyStatus)
@@ -157,10 +160,13 @@ func ExecuteInit(ctx context.Context, kubeconfig, version, buildDate string, dom
 	done <- true
 
 	util.PrintStatus("Waiting for kubeflex operator to become ready...", done, &wg, chattyStatus)
-	util.WaitForDeploymentReady(
-		clientsetp,
+	err = util.WaitForDeploymentReady(
+		ctx, clientsetp,
 		util.GenerateOperatorDeploymentName(),
 		util.SystemNamespace)
+	if err != nil {
+		return err
+	}
 	done <- true
 
 	wg.Wait()

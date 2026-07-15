@@ -22,19 +22,19 @@ import (
 	"strconv"
 	"time"
 
-	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
-	"github.com/kubestellar/kubeflex/pkg/certs"
-	"github.com/kubestellar/kubeflex/pkg/util"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	informerscorev1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+
+	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
+	"github.com/kubestellar/kubeflex/pkg/certs"
+	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
 const (
@@ -342,64 +342,39 @@ func WriteKubeconfig(kubeconfig string, kconf *clientcmdapi.Config) error {
 	return clientcmd.WriteToFile(*kconf, kubeconfig)
 }
 
-// Watch for secret creation
-func WatchForSecretCreation(clientset kubernetes.Clientset, controlPlaneName, secretName string) error {
+// WatchForSecretCreation returns once the identified Secret object exists
+// or 10 minutes pass, returning `context.DeadlineExceeded` in the latter case.
+func WatchForSecretCreation(ctx context.Context, kubeClient kubernetes.Interface, controlPlaneName, secretName string) error {
 	namespace := util.GenerateNamespaceFromControlPlaneName(controlPlaneName)
-
-	listwatch := cache.NewListWatchFromClient(
-		clientset.CoreV1().RESTClient(),
-		"secrets",
-		namespace,
-		fields.Everything(),
+	inf := informerscorev1.NewFilteredSecretInformer(kubeClient, namespace, 0,
+		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, util.OptionsAddName(secretName))
+	err := util.WaitForObjectState(ctx, 10*time.Minute,
+		inf, nil,
+		func(*corev1.Secret) bool { return true },
+		true,
 	)
-
-	stopCh := make(chan struct{})
-
-	_, controller := cache.NewInformer(
-		listwatch,
-		&corev1.Secret{},
-		0,
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				secret := obj.(*corev1.Secret)
-				if secret.Name == secretName {
-					close(stopCh)
-				}
-			},
-		},
-	)
-
-	go controller.Run(stopCh)
-	<-stopCh
+	if err != nil {
+		return fmt.Errorf("the Secret %s/%s did not appear in time: %w", namespace, secretName, err)
+	}
 	return nil
 }
 
-// Wait for namespace to be ready
-func WaitForNamespaceReady(ctx context.Context, clientset kubernetes.Interface, controlPlaneName string) error {
+// WaitForNamespaceReady returns once the identified Namespace exists and has `.Status.Phase == "Active"`
+// or two minutes pass without that state appearing.
+// The result is nil in the first case, a `context.DeadlineExceeded` in the second.
+func WaitForNamespaceReady(ctx context.Context, kubeClient kubernetes.Interface, controlPlaneName string) error {
 	namespace := util.GenerateNamespaceFromControlPlaneName(controlPlaneName)
-
-	err := wait.PollUntilContextTimeout(
-		ctx,
-		2*time.Second,
-		2*time.Minute,
-		true,
-		func(context.Context) (bool, error) {
-			ns, err := clientset.CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{})
-			if errors.IsNotFound(err) {
-				return false, nil // Retry if namespace is not found
-			} else if err != nil {
-				return false, fmt.Errorf("error checking namespace status: %v", err)
-			}
-
-			if ns.Status.Phase == corev1.NamespaceActive {
-				return true, nil // Namespace is ready
-			}
-
-			return false, nil // Continue waiting
+	inf := informerscorev1.NewFilteredNamespaceInformer(kubeClient, 0,
+		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, util.OptionsAddName(namespace))
+	err := util.WaitForObjectState(ctx, 2*time.Minute,
+		inf, nil,
+		func(ns *corev1.Namespace) bool {
+			return ns.Status.Phase == corev1.NamespaceActive
 		},
+		true,
 	)
 	if err != nil {
-		return fmt.Errorf("timed out waiting for namespace %s to be ready: %v", namespace, err)
+		return fmt.Errorf("the Namespace %s did not become ready in time: %w", namespace, err)
 	}
 	return nil
 }
