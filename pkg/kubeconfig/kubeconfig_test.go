@@ -95,10 +95,10 @@ func TestWatchForSecretCreation_Absent(t *testing.T) {
 	err := WatchForSecretCreation(limited, fakeClient, "test-cp", "test-secret")
 	switch {
 	case err == nil:
-		t.Fatal("Expected timeout but got success")
+		t.Fatal("Expected a timeout but got success")
 	case errors.Is(err, context.DeadlineExceeded):
 	default:
-		t.Fatalf("Expected timeout but got: %#v", err)
+		t.Fatalf("Expected a timeout but got: %#v", err)
 	}
 }
 
@@ -123,9 +123,9 @@ func TestWaitForNamespaceReady_Happy(t *testing.T) {
 	switch {
 	case err == nil:
 	case errors.Is(err, context.DeadlineExceeded):
-		t.Fatal("Expected success but got timeout")
+		t.Fatal("Expected success but got a timeout")
 	default:
-		t.Fatalf("Expected timeout but got err=%#v", err)
+		t.Fatalf("Expected success but got err=%#v", err)
 	}
 }
 
@@ -152,10 +152,10 @@ func TestWaitForNamespaceReady_StuckTerminating(t *testing.T) {
 	err := WaitForNamespaceReady(ctx, fakeClient, "test-cp")
 	switch {
 	case err == nil:
-		t.Fatal("Expected timeout but got success")
+		t.Fatal("Expected a timeout but got success")
 	case errors.Is(err, context.DeadlineExceeded):
 	default:
-		t.Fatalf("Expected timeout but got err=%#v", err)
+		t.Fatalf("Expected a timeout but got err=%#v", err)
 	}
 }
 

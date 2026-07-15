@@ -77,7 +77,7 @@ func TestWaitForStatefulSetReady_IsReady(t *testing.T) {
 
 	err := WaitForStatefulSetReady(t.Context(), fakeClient, "test-ss", "test-ns")
 	if err != nil {
-		t.Fatalf("Failed to wait for ready Deployment, er=%v", err)
+		t.Fatalf("Failed to wait for ready StatefulSet, err=%v", err)
 	}
 }
 
@@ -105,10 +105,10 @@ func TestWaitForStatefulSetReady_StuckUnready(t *testing.T) {
 	err := WaitForStatefulSetReady(limited, fakeClient, "test-ss", "test-ns")
 	switch {
 	case err == nil:
-		t.Fatal("Expected timeout but got success")
+		t.Fatal("Expected a timeout but got success")
 	case errors.Is(err, context.DeadlineExceeded):
 	default:
-		t.Fatalf("Expected timeout but got: %#v", err)
+		t.Fatalf("Expected a timeout but got: %#v", err)
 	}
 }
 
@@ -120,10 +120,10 @@ func TestWaitForStatefulSetReady_Absent(t *testing.T) {
 	err := WaitForStatefulSetReady(limited, fakeClient, "test-ss", "test-ns")
 	switch {
 	case err == nil:
-		t.Fatal("Expected timeout but got success")
+		t.Fatal("Expected a timeout but got success")
 	case errors.Is(err, context.DeadlineExceeded):
 	default:
-		t.Fatalf("Expected timeout but got: %#v", err)
+		t.Fatalf("Expected a timeout but got: %#v", err)
 	}
 }
 
@@ -154,9 +154,9 @@ func TestWaitForNamespaceDeletion_Stuck(t *testing.T) {
 	err := WaitForNamespaceDeletion(limited, fakeClient, "test-ns")
 	switch {
 	case err == nil:
-		t.Fatal("Expected timeout but got success")
+		t.Fatal("Expected a timeout but got success")
 	case errors.Is(err, context.DeadlineExceeded):
 	default:
-		t.Fatalf("Expected timeout but got: %#v", err)
+		t.Fatalf("Expected a timeout but got: %#v", err)
 	}
 }
