@@ -33,7 +33,9 @@ import (
 	informersappsv1 "k8s.io/client-go/informers/apps/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	clog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/go-logr/logr"
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
@@ -155,6 +157,64 @@ func WaitForObjectState[T k8sruntime.Object](
 	}
 	// either the timeout happened or ctx.Done() was closed
 	return cancelable.Err()
+}
+
+// IsAPIServiceAvail tests whether the API service of the given ControlPlane is reachable and working.
+// If not, an explanatory message is logged to the context's logger.
+func IsAPIServiceAvail(ctx context.Context, kubeClient kubernetes.Interface, hcp *tenancyv1alpha1.ControlPlane) bool {
+	switch hcp.Spec.Type {
+	case tenancyv1alpha1.ControlPlaneTypeExternal, tenancyv1alpha1.ControlPlaneTypeHost:
+		return true
+	}
+	logger := clog.FromContext(ctx)
+	secretRef := hcp.Status.SecretRef
+	if secretRef == nil {
+		logger.V(3).Info("ControlPlane's API service is not reachable because status.secretRef is nil")
+		return false
+	}
+	if secretRef.Namespace == "" || secretRef.Name == "" {
+		logger.V(3).Info("ControlPlane's API service is not reachable because status.secretRef has an empty Secret name or namespace")
+		return false
+	}
+	if secretRef.InClusterKey == "" {
+		logger.V(3).Info("ControlPlane's API service is not reachable because status.secretRef.inClusterKey is empty")
+		return false
+	}
+	secret, err := kubeClient.CoreV1().Secrets(secretRef.Namespace).Get(ctx, secretRef.Name, metav1.GetOptions{})
+	if err != nil {
+		logger.V(3).Info("ControlPlane's API service is not reachable because Get of Secret fails", "secretName", secretRef.Name)
+		return false
+	}
+	cpKubeconfigBytes := secret.Data[secretRef.InClusterKey]
+	if len(cpKubeconfigBytes) == 0 {
+		logger.V(3).Info("ControlPlane's API service is not reachable because Secret has empty value", "secretName", secretRef.Name, "key", secretRef.InClusterKey)
+		return false
+	}
+	cpKubeconfig, err := clientcmd.Load(cpKubeconfigBytes)
+	if err != nil {
+		logger.V(3).Info("ControlPlane's API service is not reachable because loading of its kubeconfig failed", "err", err)
+		return false
+	}
+	cpConfig, err := clientcmd.NewDefaultClientConfig(*cpKubeconfig, &clientcmd.ConfigOverrides{}).ClientConfig()
+	if err != nil {
+		logger.V(3).Info("ControlPlane's API service is not reachable because its kubeconfig fails conversion to rest.Config", "err", err)
+		return false
+	}
+	if cpConfig.Timeout == 0 || cpConfig.Timeout > 25*time.Second {
+		cpConfig.Timeout = 5 * time.Second
+	}
+	cpClient, err := kubernetes.NewForConfig(cpConfig)
+	if err != nil {
+		logger.V(3).Info("ControlPlane's API service is not reachable because its kubeconfig fails conversion to kubernetes.Clientset", "err", err)
+		return false
+	}
+	coreGroupVersion := corev1.SchemeGroupVersion.String()
+	_, err = cpClient.ServerResourcesForGroupVersion(coreGroupVersion)
+	if err != nil {
+		logger.V(3).Info("ControlPlane's API service fails to list resources in corev1", "err", err)
+		return false
+	}
+	return true
 }
 
 func IsAPIServerDeploymentReady(log logr.Logger, c client.Client, hcp tenancyv1alpha1.ControlPlane) (bool, error) {

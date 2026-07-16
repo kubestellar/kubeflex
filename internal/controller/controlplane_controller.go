@@ -197,11 +197,13 @@ func (r *ControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		log.Error(err, "Error checking API server readiness", "controlPlane", hcp.Name)
 		return ctrl.Result{}, err
 	}
-	log.Info("API server readiness check", "controlPlane", hcp.Name, "apiServerReady", apiServerReady)
 
-	// Requeue if API Server is Not Ready
-	if !apiServerReady {
-		log.Info("API Server Not Ready. Requeuing...", "controlPlane", hcp.Name)
+	apiServing := apiServerReady && util.IsAPIServiceAvail(ctx, r.ClientSet, hcp)
+	log.Info("API server readiness check", "controlPlane", hcp.Name, "apiServerReady", apiServerReady, "apiServing", apiServing)
+
+	// Requeue if API Service is not available
+	if !apiServing {
+		log.Info("API Server not serving. Requeuing...")
 		// Update Status
 		tenancyv1alpha1.EnsureCondition(hcp, tenancyv1alpha1.ConditionUnavailable())
 		reqRV := hcp.ResourceVersion
@@ -241,6 +243,7 @@ func (r *ControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		// NEW BEHAVIOR: CP ready = API Server ready AND PostCreateHooks completed
 		log.Info("Checking both API server and PostCreateHook completion",
 			"apiServerReady", apiServerReady,
+			"apiServing", apiServing,
 			"postCreateHookCompleted", hcp.Status.PostCreateHookCompleted)
 
 		if apiServerReady && hcp.Status.PostCreateHookCompleted {
