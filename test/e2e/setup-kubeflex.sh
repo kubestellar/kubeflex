@@ -60,7 +60,7 @@ if [ "$cluster_type" == kind ]; then
 
 elif [ "$cluster_type" == k3d ]; then
 
-    k3d cluster create --image "$k3d_image" -p "9443:443@loadbalancer" --k3s-arg "--disable=traefik@server:*" kubeflex
+    k3d cluster create --image "$k3d_image" -p "9443:443@loadbalancer" --k3s-arg "--disable=traefik@server:*" --k3s-arg "--kubelet-arg=--container-log-max-size=20Mi@server:*" kubeflex
     kubectl wait --for=condition=Ready node --all --timeout=600s
     helm install ingress-nginx ingress-nginx --set "controller.extraArgs.enable-ssl-passthrough=" --repo https://kubernetes.github.io/ingress-nginx --version 4.12.1 --namespace ingress-nginx --create-namespace --timeout 24h
     host_context=k3d-kubeflex
@@ -90,7 +90,7 @@ if [[ -z "${release}" ]]; then
     : Load the local image into host cluster, re-generate manifests and helm chart, and install the helm chart:
     :
     :
-    make install-local-chart TEST_HOST="$cluster_type"
+    make install-local-chart TEST_HOST="$cluster_type" INSTALL_EXTRAS="--set verbosity=5"
     :
     :
 else

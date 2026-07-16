@@ -119,12 +119,6 @@ func (r *K8sReconciler) Reconcile(ctx context.Context, hcp *v1alpha1.ControlPlan
 
 	r.UpdateStatusWithSecretRef(hcp, util.AdminConfSecret, util.KubeconfigSecretKeyDefault, util.KubeconfigSecretKeyInCluster)
 
-	if hcp.Spec.PostCreateHook != nil &&
-		v1alpha1.HasConditionAvailable(hcp.Status.Conditions) {
-		if err := r.ReconcileUpdatePostCreateHook(ctx, hcp); err != nil {
-			return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
-		}
-	}
 	log.Info("Reconcile is done")
 	return r.UpdateStatusForSyncingSuccess(ctx, hcp)
 }

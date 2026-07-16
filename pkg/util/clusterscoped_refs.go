@@ -18,6 +18,7 @@ package util
 
 import (
 	"context"
+	"fmt"
 
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -66,9 +67,10 @@ func setClusterRolesOwner(c crc.Client, scheme *runtime.Scheme, hcp *tenancyv1al
 			if err := controllerutil.SetControllerReference(hcp, &clusterRole, scheme); err != nil {
 				return err
 			}
+			reqRV := clusterRole.ResourceVersion
 			err = c.Update(context.Background(), &clusterRole)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to set controller reference on ClusterRole %s (ResourceVersion=%s): %w", clusterRole.Name, reqRV, err)
 			}
 		}
 	}
@@ -88,9 +90,10 @@ func setClusterRoleBindingsOwner(c crc.Client, scheme *runtime.Scheme, hcp *tena
 			if err := controllerutil.SetControllerReference(hcp, &clusterRoleBinding, scheme); err != nil {
 				return err
 			}
+			reqRV := clusterRoleBinding.ResourceVersion
 			err = c.Update(context.Background(), &clusterRoleBinding)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to set controller reference on ClusterRoleBinding %s (ResourceVersion=%s): %w", clusterRoleBinding.Name, reqRV, err)
 			}
 		}
 	}
@@ -110,9 +113,10 @@ func setCRDOwner(c crc.Client, scheme *runtime.Scheme, hcp *tenancyv1alpha1.Cont
 			if err := controllerutil.SetControllerReference(hcp, &crd, scheme); err != nil {
 				return err
 			}
+			reqRV := crd.ResourceVersion
 			err = c.Update(context.Background(), &crd)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to set controller reference on CRD %s (ResourceVersion=%s): %w", crd.Name, reqRV, err)
 			}
 		}
 	}

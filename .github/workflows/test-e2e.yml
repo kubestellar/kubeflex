@@ -61,24 +61,58 @@ jobs:
           fi
 
       - name: Examine GitHub rate limit
+        if: always()
         run: curl https://api.github.com/rate_limit
 
       - name: Show kubeconfig contexts
         if: always()
         run: kubectl config get-contexts
 
-      - name: Show running components of KubeFlex
+      - name: Dump ControlPlane objects
         if: always()
-        run: kubectl --context ${{ matrix.cluster-type }}-kubeflex -n kubeflex-system get all
+        run: kubectl --context ${{ matrix.cluster-type }}-kubeflex get controlplanes -o yaml
 
-      - name: Show logs of the KubeFlex controller manager
+      - name: Dump PostCreateHooks
         if: always()
-        run: kubectl --context ${{ matrix.cluster-type }}-kubeflex -n kubeflex-system logs deploy/kubeflex-controller-manager
+        run: kubectl --context ${{ matrix.cluster-type }}-kubeflex get postcreatehooks -o yaml
 
-      - name: Show logs of the shared Postgres DB
+      - name: List all objects of category all
         if: always()
-        run: kubectl --context ${{ matrix.cluster-type }}-kubeflex -n kubeflex-system logs sts/postgres-postgresql
+        run: kubectl --context ${{ matrix.cluster-type }}-kubeflex get -A all
 
-      - name: Show logs of the KubeFlex operator
+      - name: Dump all Job objects
         if: always()
-        run: kubectl --context ${{ matrix.cluster-type }}-kubeflex -n kubeflex-system logs job/kubeflex-operator
+        run: kubectl --context ${{ matrix.cluster-type }}-kubeflex get -A jobs -o yaml
+
+      - name: Dump all Pod objects
+        if: always()
+        run: kubectl --context ${{ matrix.cluster-type }}-kubeflex get -A pods -o yaml
+
+      - name: Dump all Kubernetes event objects
+        if: always()
+        run: kubectl --context ${{ matrix.cluster-type }}-kubeflex get -A events --sort-by='.lastTimestamp'
+
+      - name: Dump all Service objects
+        if: always()
+        run: kubectl --context ${{ matrix.cluster-type }}-kubeflex get -A services -o yaml
+
+      - name: Dump all EndpointSlice objects
+        if: always()
+        run: kubectl --context ${{ matrix.cluster-type }}-kubeflex get -A endpointslices -o yaml
+
+      - name: Dump kubeflex Pod logs
+        if: always()
+        run: |
+          for ns in $(kubectl --context ${{ matrix.cluster-type }}-kubeflex get ns -o name | sed s:namespace/:: | grep -e '-system$' | grep -v kube-system); do
+            for pod in $(kubectl --context ${{ matrix.cluster-type }}-kubeflex -n "$ns" get pods -o 'jsonpath={.items[*].metadata.name} ' || true) ; do
+              containers=$(kubectl --context ${{ matrix.cluster-type }}-kubeflex -n "$ns" get pod "$pod" -o 'jsonpath={.spec.containers[*].name}' || true)
+              for container in $containers ; do
+                echo ""
+                echo "=== Previous log of $ns/$pod (container: $container) ==="
+                kubectl --context ${{ matrix.cluster-type }}-kubeflex -n "$ns" logs "$pod" -c "$container" --previous || true
+                echo ""
+                echo "=== Log of $ns/$pod (container: $container) ==="
+                kubectl --context ${{ matrix.cluster-type }}-kubeflex -n "$ns" logs "$pod" -c "$container" || true
+              done
+            done
+          done

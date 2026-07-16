@@ -18,12 +18,14 @@ package shared
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -32,8 +34,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	clog "sigs.k8s.io/controller-runtime/pkg/log"
 
-	"errors"
 	"github.com/kubestellar/kubeflex/api/v1alpha1"
+	"github.com/kubestellar/kubeflex/pkg/merge"
 	"github.com/kubestellar/kubeflex/pkg/util"
 )
 
@@ -89,22 +91,24 @@ func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp 
 	// Process each hook
 	for _, hook := range hooks {
 		hookName := *hook.HookName
+		logger := logger.WithValues("hook", hookName)
+		ctx := clog.IntoContext(ctx, logger)
 
 		// Check if hook is already applied
 		_, ok := hcp.Status.PostCreateHooks[hookName]
 		if ok {
 			// Hook is applied, check if resources are ready only if WaitForPostCreateHooks is enabled
 			if hcp.Spec.WaitForPostCreateHooks != nil && *hcp.Spec.WaitForPostCreateHooks {
-				logger.Info("Checking post-create hook resources", "hook", hookName)
+				logger.Info("Checking post-create hook resources")
 				if err := r.checkPostCreateHookResources(ctx, hcp, hookName, hook.Vars); err != nil {
-					logger.Info("Hook resources not ready", "hook", hookName, "error", err)
+					logger.Info("Hook resources not ready", "error", err)
 					allResourcesReady = false
 				}
 			}
 			continue
 		}
 
-		logger.Info("Processing post-create hook", "hook", hookName)
+		logger.Info("Processing post-create hook")
 
 		// Get hook definition
 		pch := &v1alpha1.PostCreateHook{}
@@ -142,7 +146,7 @@ func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp 
 				errs = append(errs, fmt.Errorf("transient error applying hook %s: %w", hookName, err))
 				allHooksApplied = false
 			} else {
-				logger.Error(err, "Permanent error applying post-create hook", "hook", hookName)
+				logger.Error(err, "Permanent error applying post-create hook")
 				errs = append(errs, fmt.Errorf("permanent error applying hook %s: %w", hookName, err))
 				allHooksApplied = false
 			}
@@ -151,20 +155,20 @@ func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp 
 
 		// Check if newly applied resources are ready (if enabled)
 		if hcp.Spec.WaitForPostCreateHooks != nil && *hcp.Spec.WaitForPostCreateHooks {
-			ready, err := r.checkAppliedResourcesReady(ctx, appliedResources, namespace)
+			unready, err := r.checkAppliedResourcesReady(ctx, appliedResources, namespace)
 			if err != nil {
 				if util.IsTransientError(err) {
 					errs = append(errs, fmt.Errorf("transient error checking readiness for hook %s: %w", hookName, err))
 				} else {
-					logger.Error(err, "Error checking resource readiness for hook", "hook", hookName)
+					logger.Error(err, "Error checking resource readiness for hook")
 					errs = append(errs, fmt.Errorf("error checking readiness for hook %s: %w", hookName, err))
 				}
 				allHooksApplied = false
 				allResourcesReady = false
 				continue
 			}
-			if !ready {
-				logger.Info("Resources not ready yet for hook", "hook", hookName)
+			if len(unready) > 0 {
+				logger.Info("Resources not ready yet for hook", "resources", unready)
 				allResourcesReady = false
 				// Don't mark hook as applied yet - will retry
 				continue
@@ -176,15 +180,17 @@ func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp 
 			hcp.Status.PostCreateHooks = make(map[string]bool)
 		}
 		hcp.Status.PostCreateHooks[hookName] = true
+		reqRV := hcp.ResourceVersion
 		if err := r.Client.Status().Update(ctx, hcp); err != nil {
-			errs = append(errs, fmt.Errorf("failed to update status for hook %s: %w", hookName, err))
+			errs = append(errs, fmt.Errorf("failed to update status (ResourceVersion=%s) for hook %s: %w", reqRV, hookName, err))
 			allHooksApplied = false
 			// Break on status update error to prevent inconsistent state
 			break
 		}
+		logger.V(3).Info("Updated ControlPlane status wrt PCH", "newResourceVersion", hcp.ResourceVersion)
 
 		// Propagate labels from hook to control plane
-		if err := r.propagateLabels(pch, hcp, r.Client); err != nil {
+		if err := r.propagateLabels(ctx, pch, hcp, r.Client); err != nil {
 			logger.Error(err, "Failed to propagate labels from hook", "hook", hookName)
 		}
 	}
@@ -199,9 +205,11 @@ func (r *BaseReconciler) ReconcileUpdatePostCreateHook(ctx context.Context, hcp 
 	}
 
 	// Update final status
+	reqRV := hcp.ResourceVersion
 	if err := r.Client.Status().Update(ctx, hcp); err != nil {
-		errs = append(errs, fmt.Errorf("failed to update final status: %w", err))
+		errs = append(errs, fmt.Errorf("failed to update final status (ResourceVersion=%s): %w", reqRV, err))
 	}
+	logger.V(3).Info("Finished ReconcileUpdatePostCreateHook", "newResourceVersion", hcp.ResourceVersion)
 
 	if len(errs) > 0 {
 		return fmt.Errorf("errors processing hooks: %v", errs)
@@ -323,16 +331,46 @@ func (r *BaseReconciler) applyPostCreateHook(ctx context.Context, clientSet *kub
 			return nil, err
 		}
 
-		logger.Info("Applying", "object", util.GenerateObjectInfoString(*obj), "cpNamespace", namespace)
-
-		// Apply the resource
+		olog := logger.WithValues("hook", hook.Name, "object", util.GenerateObjectInfoString(*obj), "cpNamespace", namespace)
+		var rscIfc dynamic.ResourceInterface
 		if clusterScoped {
 			r.setTrackingLabelsAndAnnotations(obj, hcp.Name)
-			_, err = dynamicClient.Resource(gvr).Apply(ctx, obj.GetName(), obj, metav1.ApplyOptions{FieldManager: FieldManager})
+			rscIfc = dynamicClient.Resource(gvr)
 		} else {
-			_, err = dynamicClient.Resource(gvr).Namespace(namespace).Apply(ctx, obj.GetName(), obj, metav1.ApplyOptions{FieldManager: FieldManager})
+			rscIfc = dynamicClient.Resource(gvr).Namespace(namespace)
 		}
-		if err != nil {
+		found, err := rscIfc.Get(ctx, obj.GetName(), metav1.GetOptions{})
+		if err == nil {
+			doApply := true
+			merged := found.DeepCopy().UnstructuredContent()
+			mergedAny, err := merge.MergePatch(merged, obj.UnstructuredContent())
+			if err != nil {
+				olog.Info("Failed to merge patch found object", "err", err)
+			} else if hasDiff, lVal, rVal, path, descr := merge.FindADiff(found.UnstructuredContent(), mergedAny); hasDiff {
+				olog.Info("Found existing object from PCH template, with wrong content", "resourceVersion", found.GetResourceVersion(), "foundVal", lVal, "desiredVal", rVal, "where", path, "difference", descr)
+			} else {
+				doApply = false
+			}
+			if doApply {
+				echo, err := rscIfc.Apply(ctx, obj.GetName(), obj, metav1.ApplyOptions{FieldManager: FieldManager})
+				if err != nil {
+					olog.Info("Failed to apply PCH template to existing object", "resourceVersion", found.GetResourceVersion(), "err", err)
+					return nil, err
+				}
+				olog.Info("Applied PCH template to existing object", "oldResourceVersion", found.GetResourceVersion(), "newResourceVersion", echo.GetResourceVersion())
+			} else {
+				olog.Info("Found existing object and it already has the desired content", "resourceVersion", found.GetResourceVersion())
+			}
+		} else if apierrors.IsNotFound(err) {
+			echo, err := rscIfc.Create(ctx, obj, metav1.CreateOptions{FieldManager: FieldManager})
+			if err == nil {
+				olog.Info("Created object from PCH template", "resourceVersion", echo.GetResourceVersion())
+			} else {
+				olog.Info("Failed to create object from PCH template", "err", err)
+				return nil, err
+			}
+		} else {
+			olog.Info("Failed to fetch object from PCH template", "err", err)
 			return nil, err
 		}
 
@@ -350,18 +388,20 @@ func (r *BaseReconciler) applyPostCreateHook(ctx context.Context, clientSet *kub
 	return appliedResources, nil
 }
 
-// checkAppliedResourcesReady checks if all newly applied resources are ready
-func (r *BaseReconciler) checkAppliedResourcesReady(ctx context.Context, resources []ResourceInfo, namespace string) (bool, error) {
+// checkAppliedResourcesReady checks if all newly applied resources are ready,
+// and returns the unready ones.
+func (r *BaseReconciler) checkAppliedResourcesReady(ctx context.Context, resources []ResourceInfo, namespace string) ([]ResourceInfo, error) {
+	var ans []ResourceInfo
 	for _, resource := range resources {
 		ready, err := r.checkResourceStatus(ctx, resource.GVR, resource.Name, namespace, resource.Kind)
 		if err != nil {
-			return false, err
+			return ans, err
 		}
 		if !ready {
-			return false, nil
+			ans = append(ans, resource)
 		}
 	}
-	return true, nil
+	return ans, nil
 }
 
 // checkResourceStatus checks if a specific resource is ready based on its type
@@ -467,7 +507,7 @@ func (r *BaseReconciler) setTrackingLabelsAndAnnotations(obj *unstructured.Unstr
 }
 
 // propagateLabels copies labels from PostCreateHook to ControlPlane for consistency
-func (r *BaseReconciler) propagateLabels(hook *v1alpha1.PostCreateHook, hcp *v1alpha1.ControlPlane, c client.Client) error {
+func (r *BaseReconciler) propagateLabels(ctx context.Context, hook *v1alpha1.PostCreateHook, hcp *v1alpha1.ControlPlane, c client.Client) error {
 	hookLabels := hook.GetLabels()
 	if len(hookLabels) == 0 {
 		return nil
@@ -488,9 +528,12 @@ func (r *BaseReconciler) propagateLabels(hook *v1alpha1.PostCreateHook, hcp *v1a
 
 	if updateRequired {
 		hcp.SetLabels(hcpLabels)
-		if err := c.Update(context.TODO(), hcp, &client.SubResourceUpdateOptions{}); err != nil {
-			return err
+		reqRV := hcp.ResourceVersion
+		if err := c.Update(ctx, hcp, &client.SubResourceUpdateOptions{}); err != nil {
+			return fmt.Errorf("failed to update CP (ResourceVersion=%s) with labels from PCH: %w", reqRV, err)
 		}
+		logger := clog.FromContext(ctx)
+		logger.V(3).Info("Updated with labels from PCH", "newResourceVersion", hcp.ResourceVersion)
 	}
 
 	return nil

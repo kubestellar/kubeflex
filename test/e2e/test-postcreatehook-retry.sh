@@ -73,9 +73,11 @@ EOF
 : -------------------------------------------------------------------------
 : Verify ControlPlane is not marked as failed while waiting for hook
 :
+date
 echo "Waiting 10s to check that ControlPlane is not marked as failed..."
 sleep 10
 
+date
 echo "ControlPlane status after 10s (should NOT be failed):"
 kubectl get controlplane cp-missing-hook-${CP_TYPE} -o jsonpath='{.status.conditions}' | jq '.'
 
@@ -110,9 +112,11 @@ EOF
 : -------------------------------------------------------------------------
 : Verify ControlPlane becomes Ready after hook is created
 :
+date
 echo "Waiting for ControlPlane to become Ready (900s timeout)..."
 kubectl wait --for=condition=Ready controlplane/cp-missing-hook-${CP_TYPE} --timeout=600s
 
+date
 echo "FINAL STATUS:"
 kubectl get controlplane cp-missing-hook-${CP_TYPE} -o jsonpath='{.status}' | jq '.'
 

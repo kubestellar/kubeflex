@@ -18,6 +18,7 @@ package ocm
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -111,13 +112,6 @@ func (r *OCMReconciler) Reconcile(ctx context.Context, hcp *tenancyv1alpha1.Cont
 
 	r.UpdateStatusWithSecretRef(hcp, util.OCMKubeConfigSecret, util.KubeconfigSecretKeyDefault, "")
 
-	if hcp.Spec.PostCreateHook != nil &&
-		tenancyv1alpha1.HasConditionAvailable(hcp.Status.Conditions) {
-		if err := r.ReconcileUpdatePostCreateHook(ctx, hcp); err != nil {
-			return r.UpdateStatusForSyncingError(ctx, hcp, ctrl.Result{}, err)
-		}
-	}
-
 	return r.UpdateStatusForSyncingSuccess(ctx, hcp)
 }
 
@@ -138,9 +132,12 @@ func (r *OCMReconciler) addOwnerReference(ctx context.Context, hcp *tenancyv1alp
 		return err
 	}
 
-	if err := r.Client.Update(context.TODO(), deployment, &client.UpdateOptions{}); err != nil {
-		return err
+	reqRV := deployment.ResourceVersion
+	if err := r.Client.Update(ctx, deployment, &client.UpdateOptions{}); err != nil {
+		return fmt.Errorf("failed to update Deployment (ResourceVersion=%s): %w", reqRV, err)
 	}
+	logger := clog.FromContext(ctx)
+	logger.V(3).Info("Updated Deployment", "newResourceVersion", deployment.ResourceVersion)
 
 	return nil
 }
