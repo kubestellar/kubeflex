@@ -19,7 +19,7 @@ package util
 import (
 	"fmt"
 	"os"
-	"strings"
+	"regexp"
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/client"
@@ -83,13 +83,15 @@ func GenerateOperatorDeploymentName() string {
 	return fmt.Sprintf("%s-controller-manager", ProjectName)
 }
 
+// leading semver tag of a "<git-tag>.<git-commit>" build version
+var versionTag = regexp.MustCompile(`^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+)?`)
+
 func ParseVersionNumber(versionString string) string {
-	parts := strings.Split(versionString, ".")
-	if len(parts) < 2 {
-		fmt.Fprintf(os.Stderr, "WARNING: Unexpected version string format in ParseVersionNumber: %q\n", versionString)
-		return versionString
+	if tag := versionTag.FindString(versionString); tag != "" {
+		return tag
 	}
-	return parts[1]
+	fmt.Fprintf(os.Stderr, "WARNING: Unexpected version string format in ParseVersionNumber: %q\n", versionString)
+	return versionString
 }
 
 func GetKubernetesClusterVersionInfo(kubeconfig string) (string, error) {
