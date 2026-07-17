@@ -55,12 +55,6 @@ SRC_DIR="$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)"
 
 ${SRC_DIR}/cleanup.sh
 ${SRC_DIR}/setup-kubeflex.sh --release "${release}" --cluster-type "$cluster_type"
-cfgfile="${KUBECONFIG:-$HOME/.kube/config}"
-if [[ "$(yq -o=json .extensions "$cfgfile" )" =~ ^[[] ]]; then
-    yq '.extensions |= [ .[] | select(.name != "kubeflex") ]' "$cfgfile" > $$
-    mv -f -- "$cfgfile" "${cfgfile}.bak"
-    mv -- $$ "$cfgfile"
-fi
 
 if [ -z "${release}" ]; then
     ${SRC_DIR}/test-informers.sh
