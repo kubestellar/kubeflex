@@ -19,7 +19,7 @@ package util
 import (
 	"fmt"
 	"os"
-	"regexp"
+	"strings"
 
 	tenancyv1alpha1 "github.com/kubestellar/kubeflex/api/v1alpha1"
 	"github.com/kubestellar/kubeflex/pkg/client"
@@ -83,15 +83,13 @@ func GenerateOperatorDeploymentName() string {
 	return fmt.Sprintf("%s-controller-manager", ProjectName)
 }
 
-// leading semver tag of a "<git-tag>.<git-commit>" build version
-var versionTag = regexp.MustCompile(`^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+)?`)
-
+// ParseVersionNumber returns the release tag of a build version of the form
+// vMAJOR.MINOR.PATCH+GIT_COMMIT, discarding the commit, which is semver build
+// metadata (clause 10 of https://semver.org/) and not part of the tag that
+// identifies a published chart or image.
 func ParseVersionNumber(versionString string) string {
-	if tag := versionTag.FindString(versionString); tag != "" {
-		return tag
-	}
-	fmt.Fprintf(os.Stderr, "WARNING: Unexpected version string format in ParseVersionNumber: %q\n", versionString)
-	return versionString
+	tag, _, _ := strings.Cut(versionString, "+")
+	return tag
 }
 
 func GetKubernetesClusterVersionInfo(kubeconfig string) (string, error) {

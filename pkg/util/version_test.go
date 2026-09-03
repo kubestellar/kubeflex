@@ -24,12 +24,12 @@ func TestParseVersionNumber(t *testing.T) {
 		in   string
 		want string
 	}{
-		{"release build strips commit", "v0.9.3.518e21f", "v0.9.3"},
-		{"double-digit minor", "v0.10.0.abc1234", "v0.10.0"},
-		{"prerelease tag preserved", "v0.8.7-redux.518e21f", "v0.8.7-redux"},
+		{"release build strips commit", "v0.9.3+518e21f", "v0.9.3"},
+		{"double-digit minor", "v0.10.0+abc1234", "v0.10.0"},
+		{"prerelease tag preserved", "v0.8.7-redux+518e21f", "v0.8.7-redux"},
+		{"dotted prerelease preserved", "v0.10.0-rc.1+abc123", "v0.10.0-rc.1"},
 		{"plain tag unchanged", "v0.9.3", "v0.9.3"},
-		{"unrecognized format returned as-is", "9", "9"},
-		{"empty returned as-is", "", ""},
+		{"empty unchanged", "", ""},
 	}
 
 	for _, tt := range tests {
