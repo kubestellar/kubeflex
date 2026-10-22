@@ -41,7 +41,7 @@ presubmits:
       preset-goproxy: "true"
     spec:
       containers:
-        - image: ghcr.io/kubestellar/infra/build:1.24.11-1
+        - image: ghcr.io/kubestellar/infra/build:1.26.10-1
           command:
             - make
             - test
