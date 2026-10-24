@@ -5,22 +5,22 @@
 class Kflex < Formula
   desc ""
   homepage "https://github.com/kubestellar/kubeflex"
-  version "0.9.3"
+  version "0.9.4"
 
   on_macos do
     if Hardware::CPU.intel?
-      url "https://github.com/kubestellar/kubeflex/releases/download/v0.9.3/kubeflex_0.9.3_darwin_amd64.tar.gz"
-      sha256 "29106a79dd6f2eddf2c72ce28402d030a83a18aa4f53ae8929aeb51b6ed161f8"
+      url "https://github.com/kubestellar/kubeflex/releases/download/v0.9.4/kubeflex_0.9.4_darwin_amd64.tar.gz"
+      sha256 "55f96c3afa022d6c267aa133bab1324723f262f8a132601112aa2a4f822fa78b"
 
-      def install
+      define_method(:install) do
         bin.install "bin/kflex"
       end
     end
     if Hardware::CPU.arm?
-      url "https://github.com/kubestellar/kubeflex/releases/download/v0.9.3/kubeflex_0.9.3_darwin_arm64.tar.gz"
-      sha256 "214420b415f2013f8d15e1a2128ac16b9b5edd998b13fb638c5078c55fde2fd6"
+      url "https://github.com/kubestellar/kubeflex/releases/download/v0.9.4/kubeflex_0.9.4_darwin_arm64.tar.gz"
+      sha256 "cf113074a2fc863735bcec31dbbb607f558f8b3b6c5396ab4d38cb051b0c138d"
 
-      def install
+      define_method(:install) do
         bin.install "bin/kflex"
       end
     end
@@ -28,16 +28,16 @@ class Kflex < Formula
 
   on_linux do
     if Hardware::CPU.intel? && Hardware::CPU.is_64_bit?
-      url "https://github.com/kubestellar/kubeflex/releases/download/v0.9.3/kubeflex_0.9.3_linux_amd64.tar.gz"
-      sha256 "f5c98efc7ac949adc74bf72bfbb1df7f7fee29e6f145ccb3488879686fd92277"
-      def install
+      url "https://github.com/kubestellar/kubeflex/releases/download/v0.9.4/kubeflex_0.9.4_linux_amd64.tar.gz"
+      sha256 "bfa046b0a63060c8b775a52af01d8aaa47ad947eec6059da58b13d9f4a81322c"
+      define_method(:install) do
         bin.install "bin/kflex"
       end
     end
     if Hardware::CPU.arm? && Hardware::CPU.is_64_bit?
-      url "https://github.com/kubestellar/kubeflex/releases/download/v0.9.3/kubeflex_0.9.3_linux_arm64.tar.gz"
-      sha256 "94f61171fbec8a0517fbace9b61c0b05cd49b646bfd5123dab2a03258c3b7b0b"
-      def install
+      url "https://github.com/kubestellar/kubeflex/releases/download/v0.9.4/kubeflex_0.9.4_linux_arm64.tar.gz"
+      sha256 "9ae9e0e3982134a2b5f7a5e6b916ebda8058e9b212f1ca37f7a671eea6f94432"
+      define_method(:install) do
         bin.install "bin/kflex"
       end
     end
