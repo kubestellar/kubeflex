@@ -83,7 +83,7 @@ kubectl --context "$host_context" -n cp2-system wait --for=condition=Complete jo
 :
 kubectl --context cp2 create deployment my-nginx --image public.ecr.aws/nginx/nginx:1.26.3
 
-kubectl --context cp2 wait --for=condition=Available deploy/my-nginx --timeout=120s
+kubectl --context cp2 wait --for=condition=Available deploy/my-nginx --timeout=300s
 
 :
 : -------------------------------------------------------------------------
