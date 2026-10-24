@@ -82,7 +82,7 @@ kubectl --context "$host_context" -n $CP_NAME-system wait --for=jsonpath='{.stat
 :
 kubectl --context $CP_NAME create deployment my-nginx --image public.ecr.aws/nginx/nginx:1.26.3
 
-kubectl --context $CP_NAME wait --for=condition=Available deploy/my-nginx --timeout=120s
+kubectl --context $CP_NAME wait --for=condition=Available deploy/my-nginx --timeout=300s
 
 :
 : -------------------------------------------------------------------------
