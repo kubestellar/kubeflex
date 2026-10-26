@@ -78,11 +78,12 @@ kubectl --context "$host_context" -n $CP_NAME-system wait --for=jsonpath='{.stat
 
 : -------------------------------------------------------------------------
 : Create a Deployment in ControlPlane $CP_NAME, then wait for the Deployment
-: to become available
+: to become available.
+: This is the 20261014 build.
 :
-kubectl --context $CP_NAME create deployment my-nginx --image public.ecr.aws/nginx/nginx:1.26.3
+kubectl --context $CP_NAME create deployment my-httpd --image quay.io/fedora/httpd-24@sha256:e198239b40bbc4b6de846f88cb436935a7b86b41e1122c9b8ce4aa7ee7cc35f4
 
-kubectl --context $CP_NAME wait --for=condition=Available deploy/my-nginx --timeout=300s
+kubectl --context $CP_NAME wait --for=condition=Available deploy/my-httpd --timeout=300s
 
 :
 : -------------------------------------------------------------------------
