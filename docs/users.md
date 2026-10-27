@@ -1,4 +1,82 @@
+> ⚠️ **Important notice**
+>
+> Release **v0.9.2** of Kubeflex is **broken** due to a known image tag mismatch issue.
+> Please **do not use this version**.
+
 # User's Guide
+
+## Breaking changes
+
+### v0.9.0
+
+Kubeflex configuration is stored within Kubeconfig file. Prior this version, `kflex` put its configuration under
+
+```yaml
+preferences:
+  extensions:
+  - extension:
+      data:
+        kflex-initial-ctx-name: kind-kubeflex  # indicates to kflex the hosting cluster context
+      metadata:
+        creationTimestamp: null
+        name: kflex-config-extension-name
+    name: kflex-config-extension-name          # indicates to kflex that this extension belongs to it
+```
+
+Starting `v0.9.0`, configuration remains within kubeconfig file but leverages `extensions:` and context-scope extension. For instance, the previous example would be translated as follow:
+
+```yaml
+extensions:                                          # change -> no longer preferences. See https://kubernetes.io/docs/reference/config-api/kubeconfig.v1/#Config
+  - extension:
+      data:
+        hosting-cluster-ctx-name: kind-kubeflex      # change -> key name "hosting-cluster-ctx-name"
+      metadata:
+        creationTimestamp: 2025-06-09T22:36:17+02:00 # creation timestamp using ISO 8601 seconds
+        name: kubeflex                               # same as below
+    name: kubeflex                                   # change -> new extension name "kubeflex"
+# ...
+# Find the context corresponding to "hosting-cluster-ctx-name" (here "kind-kubeflex")
+contexts:
+  - context:
+      cluster: kind-kubeflex
+      user: kind-kubeflex
+      # add extensions below and its information
+      extensions:
+      - extension:
+        data:
+          is-hosting-cluster-ctx: true                 # change -> key name "is-hosting-cluster-ctx" with "true"
+        metadata:
+          creationTimestamp: 2025-06-09T22:36:17+02:00 # creation timestamp using ISO 8601 seconds
+          name: kubeflex                               # same as below
+      name: kubeflex                                   # change -> new extension name "kubeflex"
+    name: kind-kubeflex
+  - context:
+      cluster: mysupercp-cluster
+      extensions:
+      - extension:
+          data:
+            controlplane-name: mysupercp # change -> control plane name is saved under extension
+          metadata:
+            creationTimestamp: "2025-06-27T06:07:03Z"
+            name: kubeflex
+        name: kubeflex
+      namespace: default
+      user: mysupercp-admin
+    name: mysupercp
+  current-context: mysupercp
+```
+
+Proceed to change the kubeconfig file to match `v0.9.0`, as follow:
+
+1. Set new hosting cluster context name running:
+```bash
+kflex config set-hosting $ctx_name
+```
+where `$ctx_name` represents the desired hosting context name
+
+2. Delete `preferences:` related to **kubeflex** by editing your kubeconfig file manually.
+
+At the moment, the change must be done manually until issue [#389](https://github.com/kubestellar/kubeflex/issues/389) is implemented.
 
 ## Installation
 
@@ -30,7 +108,7 @@ If you have [Homebrew](https://brew.sh), use the following commands to install k
 
 ```shell
 brew tap kubestellar/kubeflex https://github.com/kubestellar/kubeflex
-brew install kubeflex
+brew install kflex
 ```
 
 ## Starting Kubeflex
@@ -79,7 +157,7 @@ helm install ingress-nginx ingress-nginx --set "controller.extraArgs.enable-ssl-
 
 
 ```shell
-kflex init --hostContainerName k3d-kubeflex-server-0
+kflex init --host-container-name k3d-kubeflex-server-0
 ```
 
 ### Installing on OpenShift
@@ -91,46 +169,41 @@ the command:
 kflex init
 ```
 
-## Installing KubeFlex with helm
+## Installing KubeFlex with Helm
 
 To install KubeFlex on a cluster that already has nginx ingress with SSL passthru enabled,
-you can use helm instead of the KubeFlex CLI. First, create the `kubeflex-system` namespace
-and install KubeFlex with the following commands:
+you can use Helm instead of the KubeFlex CLI. Install KubeFlex with the following commands:
 
 ```shell
-kubectl create ns kubeflex-system
 helm upgrade --install kubeflex-operator oci://ghcr.io/kubestellar/kubeflex/chart/kubeflex-operator \
 --version <latest-release-version-tag> \
---namespace kubeflex-system \
 --set domain=localtest.me \
 --set externalPort=9443
 ```
 
-The `kubeflex-system` namespace is required for installing and running KubeFlex. Do not use
-any other namespace for this purpose.
+The `kubeflex-system` namespace is required for installing and running KubeFlex.
+If it does not already exists, the Helm chart will create one.
+Do not use any other namespace for this purpose.
 
-### Installing KubeFlex with helm on OpenShift
+### Installing KubeFlex with Helm on OpenShift
 
 If you are installing on OpenShift with the `kflex` CLI, the CLI auto-detects OpenShift and autoimatically
-configure the installation of the shared DB and the operator, but if you are using directly helm to install
+configure the installation of the shared DB and the operator, but if you are using directly Helm to install
 you will need to add additional parameters:
 
-To install KubeFlex on OpenShift using helm, create the `kubeflex-system` namespace
-and install KubeFlex with the following commands:
+To install KubeFlex on OpenShift using Helm use the following commands:
 
 ```shell
-kubectl create ns kubeflex-system
 helm upgrade --install kubeflex-operator oci://ghcr.io/kubestellar/kubeflex/chart/kubeflex-operator \
 --version <latest-release-version-tag> \
---namespace kubeflex-system \
 --set isOpenShift=true
 ```
 
 ## Upgrading Kubeflex
 
-The KubeFlex CLI can be upgraded with `brew upgrade kubeflex` (for brew installs). For linux
+The KubeFlex CLI can be upgraded with `brew upgrade kflex` (for brew installs). For linux
 systems, manually download and update the binary. To upgrade the KubeFlex controller, just
-upgrade the helm chart according to the instructions for [kubernetes](#installing-kubeflex-with-helm)
+upgrade the Helm chart according to the instructions for [kubernetes](#installing-kubeflex-with-helm)
 or for [OpenShift](#installing-kubeflex-with-helm-on-openshift).
 
 Note that for a kind test/dev installation, the simplest approach to get a fresh install
@@ -187,9 +260,9 @@ kflex ctx
 
 That command requires your kubeconfig file to hold an extension that `kflex init` created to hold the name of the hosting cluster context. See [below](#hosting-context) for more information.
 
-To update or refresh outdated or corrupted context information for a control plane stored in 
-the kubeconfig file, you can forcefully reload and overwrite the existing context data from 
-the KubeFlex hosting cluster. This can be accomplished by using the `--overwrite-existing-context` 
+To update or refresh outdated or corrupted context information for a control plane stored in
+the kubeconfig file, you can forcefully reload and overwrite the existing context data from
+the KubeFlex hosting cluster. This can be accomplished by using the `--overwrite-existing-context`
 flag. Here is an example:
 
 ```shell
@@ -280,6 +353,7 @@ clusters registration and support for the [`ManifestWork` API](https://open-clus
 - vcluster: this is based on the [vcluster project](https://www.vcluster.com) and provides the ability to create pods in the hosting namespace of the hosting cluster.
 - host: this control plane type exposes the underlying hosting cluster with the same control plane abstraction
 used by the other control plane types.
+- external: this control plane type represents an existing cluster that was not created by KubeFlex and is not the KubeFlex hosting cluster.
 
 ## Control Plane Backends
 
@@ -314,159 +388,87 @@ To create a control plane of type `host` run the command:
 kflex create cp4 --type host
 ```
 
-## Working with an OCM control plane
-
-Let's create an OCM control plane:
+To create a control plane of type `external` with the required options, run the command:
 
 ```shell
-$ kflex create cp3 --type ocm
-✔ Checking for saved hosting cluster context...
-✔ Switching to hosting cluster context...
-✔ Creating new control plane cp3...
-✔ Waiting for API server to become ready...
+kflex adopt --adopted-context <kubeconfig-context-of-external-cluster> cp5
 ```
 
-We may check the CRDs available for the OCM control plane:
+*Important*: This command generates a secret containing a long-lived token for accessing
+the external cluster within the namespace associated with the control plane. The secret is automatically
+removed when the associated control plane is deleted.
+
+### Creating a control plane of type `external` with the API
+
+To create a control plane of type `external` with the API, you need to provide
+first a **bootstrap secret** containing a bootstrap Kubeconfig for accessing the external cluster.
+The bootstrap Kubeconfig is used by the KubeFlex controllers to generate a long-lived
+token for accessing the external cluster.  The bootstrap kubeconfig is required to have only one context,
+so given a Kubeconfig for the external cluster `$EXTERNAL_KUBECONFIG` with context for the external
+cluster `$EXTERNAL_CONTEXT` you can generate the `$BOOTSTRAP_KUBECONFIG` with the command:
 
 ```shell
-$ kubectl get crds
-NAME                                                           CREATED AT
-addondeploymentconfigs.addon.open-cluster-management.io        2023-07-08T21:17:44Z
-addonplacementscores.cluster.open-cluster-management.io        2023-07-08T21:17:44Z
-clustermanagementaddons.addon.open-cluster-management.io       2023-07-08T21:17:44Z
-managedclusteraddons.addon.open-cluster-management.io          2023-07-08T21:17:44Z
-managedclusters.cluster.open-cluster-management.io             2023-07-08T21:17:44Z
-managedclustersetbindings.cluster.open-cluster-management.io   2023-07-08T21:17:44Z
-managedclustersets.cluster.open-cluster-management.io          2023-07-08T21:17:44Z
-manifestworks.work.open-cluster-management.io                  2023-07-08T21:17:44Z
-placementdecisions.cluster.open-cluster-management.io          2023-07-08T21:17:44Z
-placements.cluster.open-cluster-management.io                  2023-07-08T21:17:44Z
+kubectl --kubeconfig=$EXTERNAL_KUBECONFIG config view --minify --flatten \
+--context=$EXTERNAL_CONTEXT > $BOOTSTRAP_KUBECONFIG
 ```
 
-We may also register clusters with the OCM control plane and deploy workloads
-using the `ManifestWork` API. In order to do that, you need first to install
-the Open Cluster Management [clusteradm CLI](https://open-cluster-management.io/getting-started/installation/start-the-control-plane/), e.g.
+If the Kubeconfig for your external cluster uses a loopback address for the server URL, you
+need to follow these [steps](#determining-the-endpoint-for-an-external-cluster-using-loopback-address)
+to determine the address to use for `cluster.server` in the Kubeconfig and set that value in
+the file referenced by`$BOOTSTRAP_KUBECONFIG` created in the previous step. If the address is the value of `$INTERNAL_ADDRESS` then you can update the bootstrap Kubeconfig as follows:
 
 ```shell
-curl -L https://raw.githubusercontent.com/open-cluster-management-io/clusteradm/main/install.sh | bash
+# e.g. INTERNAL_ADDRESS=https://ext1-control-plane:6443
+kubectl --kubeconfig=$BOOTSTRAP_KUBECONFIG config set-cluster $(kubectl --kubeconfig=$BOOTSTRAP_KUBECONFIG config current-context) --server=$INTERNAL_ADDRESS
 ```
 
-With the current context set to the ocm control plane, we can use `clusteradm` to retrieve a token
-used to register managed clusters:
+At this point, you can create the bootstrap secret with the command:
 
 ```shell
-$ clusteradm get token --use-bootstrap-token
-clusteradm join --hub-token <some value> --hub-apiserver https://cp3.localtest.me:9443/ --cluster-name <cluster_name>
+CP_NAME=ext1
+kubectl create secret generic ${CP_NAME}-bootstrap --from-file=kubeconfig-incluster=$BOOTSTRAP_KUBECONFIG --namespace kubeflex-system
 ```
+where `${CP_NAME}` is the name of the control plane to create.
 
-The command returns the command to run on the managed cluster (actual token value not shown in example).
+*Important*: once the KubeFlex controller generates a long-lived token, it removes the bootstrap secret.
 
-Now create a kind cluster to register with ocm, with the command:
-
-```shell
-kind create cluster --name cluster1
-```
-
-Once the cluster is ready, run the command above, taking care of replacing <cluster_name> with cluster1
-and leaving the actual token value. Most importantly, make sure to add the flag `--force-internal-endpoint-lookup` which allows the managed cluster to communicate with the OCM control plane
-using the docker network that all kind clusters share. Note that the `kind create cluster` command
-switches the context to the new cluster `cluster`, so the `clusteramd join` command is run using the
-new cluster context.
-
-```shell
-clusteradm join --hub-token <some value> --hub-apiserver https://cp3.localtest.me:9443/ --cluster-name cluster1 --force-internal-endpoint-lookup
-```
-
-At this point, switch back the context to the OCM control plane with the command:
-
-```shell
-kflex ctx cp3
-```
-
-and verifies that a Certificate Signing Request (csr) has been created on the OCM control plane
-running the command `kubectl get csr`. The CSR request is part of the mechanism used by OCM
-to register a new cluster. You should see an output simlar to the following:
-
-```shell
-$ kubectl get csr
-NAME             AGE   SIGNERNAME                            REQUESTOR                 REQUESTEDDURATION   CONDITION
-cluster1-zx5x5   7s    kubernetes.io/kube-apiserver-client   system:bootstrap:j5bork   <none>              Pending
-```
-
-Approve the csr to complete the cluster registration with the command:
-
-```shell
-clusteradm accept --clusters cluster1
-```
-
-You can now see the new cluster in the OCM inventory:
-
-```shell
-$ kubectl get managedclusters
-NAME       HUB ACCEPTED   MANAGED CLUSTER URLS                  JOINED   AVAILABLE   AGE
-cluster1   true           https://cluster1-control-plane:6443   True     True        3m25s
-```
-
-Finally, you may deploy a workload on the managed cluster using the ManifestWork API:
+Finally, you can create the new control plane of type "external" applying the following yaml:
 
 ```shell
 kubectl apply -f - <<EOF
-apiVersion: work.open-cluster-management.io/v1
-kind: ManifestWork
+apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
+kind: ControlPlane
 metadata:
-  namespace: cluster1
-  name: deployment1
+  name: ${CP_NAME}
 spec:
-  workload:
-    manifests:
-      - apiVersion: v1
-        kind: ServiceAccount
-        metadata:
-          namespace: default
-          name: my-sa
-      - apiVersion: apps/v1
-        kind: Deployment
-        metadata:
-          namespace: default
-          name: nginx-deployment
-          labels:
-            app: nginx
-        spec:
-          replicas: 3
-          selector:
-            matchLabels:
-              app: nginx
-          template:
-            metadata:
-              labels:
-                app: nginx
-            spec:
-              serviceAccountName: my-sa
-              containers:
-                - name: nginx
-                  image: nginx:1.14.2
-                  ports:
-                    - containerPort: 80
+  type: external
+  bootstrapSecretRef:
+    inClusterKey: kubeconfig-incluster
+    name: ${CP_NAME}-bootstrap
+    namespace: kubeflex-system
 EOF
 ```
-To check the workload has been deployed, switch context back to the managed cluster
-and list deployments:
+You can verify that the control plane has been created correctly with the command:
 
-```shell
-kflex ctx kind-cluster1
+```console
+$ kubectl get cps
+NAME   SYNCED   READY   TYPE       AGE
+ext1   True     True    external   5s
 ```
 
-```shell
-$ kubectl get deployments.apps
-NAME               READY   UP-TO-DATE   AVAILABLE   AGE
-nginx-deployment   3/3     3            3           20s
+and check that the secret with the long-lived token has been created in `${CP_NAME}-system`:
+
+```console
+$ kubectl get secrets -n ${CP_NAME}-system
+NAME               TYPE     DATA   AGE
+admin-kubeconfig   Opaque   1      4m47s
 ```
 
 ## Working with a vcluster control plane
 
 Let's create a vcluster control plane:
 
-```shell
+```console
 $ kflex create cp2 --type vcluster
 ✔ Checking for saved hosting cluster context...
 ✔ Creating new control plane cp2...
@@ -481,7 +483,7 @@ kubectl run nginx --image=nginx
 
 Verify the pod is running:
 
-```shell
+```console
 $ kubectl get pods
 NAME    READY   STATUS    RESTARTS   AGE
 nginx   1/1     Running   0          24s
@@ -489,7 +491,7 @@ nginx   1/1     Running   0          24s
 
 Access the pod logs:
 
-```shell
+```console
 $ kubectl logs nginx
 /docker-entrypoint.sh: /docker-entrypoint.d/ is not empty, will attempt to perform configuration
 /docker-entrypoint.sh: Looking for shell scripts in /docker-entrypoint.d/
@@ -498,7 +500,7 @@ $ kubectl logs nginx
 
 Exec into the pod and run the `ls` command:
 
-```shell
+```console
 $ kubectl exec -it nginx -- sh
 # ls
 bin   dev                  docker-entrypoint.sh  home  media  opt   product_uuid  run   srv  tmp  var
@@ -512,7 +514,7 @@ namespace:
 kflex ctx
 ```
 
-```shell
+```console
 $ kubectl get pods -n cp2-system
 NAME                                                READY   STATUS    RESTARTS   AGE
 coredns-64c4b4d78f-2w9bx-x-kube-system-x-vcluster   1/1     Running   0          6m58s
@@ -521,6 +523,110 @@ vcluster-0                                          2/2     Running   0         
 ```
 
 The nginx pod is the one with the name `nginx-x-default-x-vcluster`.
+
+## Listing Control Planes
+
+To list all control planes managed by KubeFlex, use the following command:
+
+```shell
+kflex list
+
+## Working with an external control plane
+
+In this section, we will show an example of creating an external control plane to adopt
+a kind cluster named `ext1`. This example supposes that the external cluster `ext1`
+and the KubeFlex hosting cluster are on the same docker network.
+
+### Determining the endpoint for an external cluster using loopback address
+
+This is a common scenario when adopting kind or k3d. For clusters using the
+default `kind` docker network, execute the following command to
+check the DNS name of the external cluster `ext1` on the docker network:
+
+```shell
+docker inspect ext1-control-plane | jq '.[].NetworkSettings.Networks.kind.DNSNames'
+```
+
+The output will show something similar to the following:
+
+```shell
+[
+  "ext1-control-plane",
+  "79540574c3c7"
+]
+```
+
+The endpoint for the adopted cluster should then be set to `https://ext1-control-plane:6443`. Note that
+the port `6443` is a default value used by kind.
+
+If you're not utilizing the default `kind` network, you'll need to make sure that the external cluster `ext1`
+and the KubeFlex hosting cluster are on the same docker network.
+
+```shelll
+docker inspect ext1-control-plane | jq '.[].NetworkSettings.Networks | keys[]'
+docker inspect kubeflex-control-plane | jq '.[].NetworkSettings.Networks | keys[]'
+```
+
+## Adopting the external cluster
+
+To set up the external cluster ext1 as a control plane named cpe, use the following command:
+
+```shell
+kflex adopt --adopted-context kind-ext1 --url-override https://ext1-control-plane:6443 ext1
+```
+
+Explanation of command parameters:
+
+- `--adopted-context kind-ext1`:
+    This specifies the context name, kind-ext1, for the ext1 cluster. Ensure that this context is correctly set in your current kubeconfig file.``
+
+- `--url-override https://ext1-control-plane:6443`:
+    This parameter sets the endpoint URL for the external control plane. It's crucial to use this option when the server URL in the existing kubeconfig uses a local loopback address, which is common for kind or k3d servers running on your local machine. Here, replace https://ext1-control-plane:6443 with the actual endpoint you have determined for your external control plane in the previous step.
+
+- `ext1`:
+   This is the name of the new control plane.
+
+### External clusters with reachable network address
+
+If the network address of the external cluster's API server in the bootstrap Kubeconfig is accessible by the controllers operating within the KubeFlex hosting cluster, there is no need to specify a `url-override`.
+
+## Manipulate contexts
+
+Kubeflex offers the ability to manipulate context through `kflex ctx`. The available commands are:
+
+### `kflex ctx`
+
+Switch to the hosting cluster context (default name `*-kubeflex`)
+
+### `kflex ctx CONTEXT`
+
+Switch context to the one provided `CONTEXT`
+
+### `kflex ctx get`
+
+Return the current context (alias command of `kubectl config current-context`)
+
+### `kflex ctx rename OLD_CONTEXT NEW_CONTEXT`
+
+Rename a context within your kubeconfig file. By default, when creating a control plane `mycp`, the context, user, and cluster name are named as such:
+
+```
+context: mycp
+cluster: mycp-cluster
+user: mycp-admin
+```
+
+Therefore, applying the context rename command `kflex ctx rename mycp mycp-renamed` will change these 3 values as follow:
+
+```
+context: mycp-renamed
+cluster: mycp-renamed-cluster
+user: mycp-renamed-admin
+```
+
+### `kflex ctx delete CONTEXT`
+
+Delete a context within your kubeconfig file. If the context deleted is your current context, `kflex` automatically switch your current context to the hosting cluster.
 
 ## Post-create hooks
 
@@ -595,7 +701,6 @@ A complete example for installing OpenShift CRDs on a control plane is available
 [here](../config/samples/postcreate-hooks/openshift-crds.yaml). More examples
 are available [here](../config/samples/postcreate-hooks).
 
-
 ### Labels propagation
 
 There are scenarios where you may need to setup labels on control planes based on the
@@ -618,15 +723,13 @@ kubectl apply -f <hook-file.yaml> # e.g. kubectl apply -f hello.yaml
 
 You can then reference the hook by name when you create a new control plane.
 
+#### Single PostCreateHook (Legacy)
+
 With kflex CLI (you can use --postcreate-hook or -p):
 
 ```shell
 kflex create cp1 --postcreate-hook <my-hook-name> # e.g. kflex create cp1 -p hello
 ```
-
-While `kflex create` waits for the control plane to be available, it does not guarantee 
-the hook's completion. Use `kubectl` commands to verify the status of resources created 
-by the hook.
 
 If you are using directly a ControlPlane CRD with kubectl, you can create a control plane
 with the post-create hook as in the following example:
@@ -644,10 +747,75 @@ spec:
 EOF
 ```
 
+**Note**: The `postCreateHook` field is deprecated. Use `postCreateHooks` instead for better functionality.
+
+#### Multiple PostCreateHooks (Recommended)
+
+You can now specify multiple post-create hooks for a single control plane, allowing for more complex automation workflows. Each hook can have its own variables and will be executed when the control plane is created.
+
+**Using kubectl:**
+
+```shell
+kubectl apply -f - <<EOF
+apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
+kind: ControlPlane
+metadata:
+  name: cp1
+spec:
+  backend: shared
+  postCreateHooks:
+    - hookName: openshift-crds
+      vars:
+        version: "4.14"
+    - hookName: install-operator
+      vars:
+        namespace: "operators"
+    - hookName: configure-rbac
+  waitForPostCreateHooks: true
+  type: k8s
+EOF
+```
+
+**CLI support for multiple hooks:** *Coming soon - CLI enhancement to support multiple hooks is planned.*
+
+### Hook execution and timing
+
+The `waitForPostCreateHooks` field controls whether the control plane waits for all post-create hooks to complete before marking itself as Ready:
+
+- `waitForPostCreateHooks: true` (recommended): The control plane will not be marked as Ready until ALL specified hooks complete successfully. This ensures your automation completes before the control plane is considered available.
+
+- `waitForPostCreateHooks: false` (default): The control plane is marked as Ready as soon as the API server is available, without waiting for hooks to complete. Hooks run in the background.
+
+**Example with waiting:**
+
+```yaml
+apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
+kind: ControlPlane
+metadata:
+  name: cp-wait-example
+spec:
+  backend: shared
+  postCreateHooks:
+    - hookName: setup-hook
+    - hookName: config-hook
+  waitForPostCreateHooks: true  # Wait for all hooks to complete
+  type: k8s
+```
+
+**Status tracking:** You can monitor hook completion in the control plane status:
+
+```shell
+kubectl get controlplane cp1 -o jsonpath='{.status.postCreateHooks}'
+```
+
+This shows the completion status of each individual hook.
+
+While `kflex create` waits for the control plane to be available, when `waitForPostCreateHooks: false` it does not guarantee the hook's completion. Use `kubectl` commands to verify the status of resources created by the hook.
+
 ### Built-in objects
 
 You can specify built-in objects in the templates that will be replaced at run-time.
-Variables are specified using helm-like syntax:
+Variables are specified using Helm-like syntax:
 
 ```yaml
 "{{.<Object Name>}}"
@@ -664,15 +832,48 @@ Currently avilable built-in objects are:
 ### User-Provided objects
 
 In addition to the built-in objects, you can specify your own objects
-to inject arbitrary values in the template. These objects are specified using 
-helm-like syntax as well:
+to inject arbitrary values in the template. These objects are specified using
+Helm-like syntax as well:
 
 ```yaml
 "{{.<Your Object Name>}}"
 ```
 
-You can then specify the value to assign to these objects in a `ControlPlane`
-yaml using key/value pairs under `postCreateHookVars`. For example:
+#### Per-hook variables (Multiple PostCreateHooks)
+
+When using multiple PostCreateHooks, you can specify different variables for each hook:
+
+```yaml
+apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
+kind: ControlPlane
+metadata:
+  name: cp1
+spec:
+  backend: shared
+  postCreateHooks:
+    - hookName: setup-namespace
+      vars:
+        namespace: "my-app"
+        environment: "production"
+    - hookName: deploy-operator
+      vars:
+        version: "v1.2.3"
+        replicas: "3"
+  globalVars:
+    cluster: "production"
+    region: "us-west-2"
+  type: k8s
+```
+
+Variables are resolved with the following precedence:
+1. **Built-in variables** (highest priority): Namespace, ControlPlaneName, HookName
+2. **Per-hook variables**: Defined in `postCreateHooks[].vars`
+3. **Global variables**: Defined in `globalVars`
+4. **Default variables**: Defined in `PostCreateHook.spec.defaultVars`
+
+#### Legacy single hook variables
+
+For backward compatibility, when using the deprecated `postCreateHook` field, you can specify values using key/value pairs under `postCreateHookVars`:
 
 ```yaml
 apiVersion: tenancy.kflex.kubestellar.org/v1alpha1
@@ -685,7 +886,6 @@ spec:
   postCreateHookVars:
     version: "0.1.0"
   type: k8s
-EOF
 ```
 
 You can also specify these values with the `kflex` CLI with the `--set name=value`
@@ -727,7 +927,7 @@ You can do this in either of the two following ways.
 
 If the relevant extension is missing then you can restore it by using
 `kubectl config use-context` to set the current context to the hosting
-cluster context and then using `kflex ctx --set-current-for-hosting` 
+cluster context and then using `kflex ctx --set-current-for-hosting`
 to restore the needed kubeconfig extension.
 
 ### Restore Hosting Context Preference by editing kubeconfig file
@@ -765,3 +965,26 @@ helm delete -n kubeflex-system postgres
 kubectl delete pvc data-postgres-postgresql-0
 kubectl delete ns kubeflex-system
 ```
+
+## Listing Available Contexts
+
+To list all available contexts in your kubeconfig file, use the following command:
+
+```shell
+kflex ctx list
+```
+
+## PostCreateHook Template Variables
+
+PostCreateHooks support template variables with the following precedence:
+
+1. **System Variables** (highest priority)
+  - `Namespace`: Control plane namespace
+  - `ControlPlaneName`: Name of the control plane
+  - `HookName`: Name of the PostCreateHook
+
+2. **User Variables**
+  Defined in `ControlPlane.spec.postCreateHookVars`
+
+3. **Default Variables**
+  Defined in `PostCreateHook.spec.defaultVars`
