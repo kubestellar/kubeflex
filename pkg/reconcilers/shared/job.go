@@ -54,7 +54,7 @@ func (r *BaseReconciler) ReconcileUpdateClusterInfoJob(ctx context.Context, hcp 
 	err := r.Client.Get(ctx, client.ObjectKeyFromObject(job), job, &client.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			job := generateClusterInfoJob(jobName, namespace, kubeconfigSecret, kubeconfigSecretKey, r.Version, cfg)
+			job := generateClusterInfoJob(jobName, namespace, kubeconfigSecret, kubeconfigSecretKey, version, cfg)
 			if err := controllerutil.SetControllerReference(hcp, job, r.Scheme); err != nil {
 				return fmt.Errorf("failed to SetControllerReference: %w", err)
 			}
