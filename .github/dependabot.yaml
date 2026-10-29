@@ -5,11 +5,7 @@ updates:
   directory: "/"
   schedule:
     interval: "daily"
-  commit-message:
-      signoff: true
 - package-ecosystem: "npm"
   directory: "/"
   schedule:
     interval: "daily"
-  commit-message:
-    signoff: true      
