@@ -159,7 +159,7 @@ kind-load-cmupdate-image:
 		kind load docker-image ko.local/cmupdate:${LATEST_TAG} --name kubeflex; \
 	elif command -v k3d > /dev/null 2>&1 && k3d cluster get kubeflex > /dev/null 2>&1; then \
 		echo "Loading cmupdate image into k3d cluster..."; \
-		k3d image import ko.local/cmupdate:${LATEST_TAG} --cluster kubeflex; \
+		hack/k3d-import-image.sh ko.local/cmupdate:${LATEST_TAG} kubeflex; \
 	elif ! command -v k3d > /dev/null 2>&1; then \
 		echo "Error: k3d is not installed and no kind cluster named 'kubeflex' found."; \
 		exit 1; \
@@ -235,7 +235,7 @@ kind-load-image: ko-local-build
 
 .PHONY: k3d-load-image
 k3d-load-image: ko-local-build
-	k3d image import ${IMG} --cluster kubeflex
+	hack/k3d-import-image.sh ${IMG} kubeflex
 
 .PHONY: install-local-chart
 install-local-chart: chart ${TEST_HOST}-load-image
