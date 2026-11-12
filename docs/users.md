@@ -70,6 +70,8 @@ kflex init
 
 ### Installing on k3d
 
+For a complete guide to using KubeFlex with k3d, including prerequisites, cluster setup, and control plane creation, see the [k3d documentation](./k3d.md).
+
 These steps have only been tested with k3d v5.6.0. Create a k3d cluster with `traefik` disabled and nginx ingress as follows:
 
 ```shell
