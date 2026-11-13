@@ -51,6 +51,7 @@ BUILD_DATE := $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 MAIN_VERSION := $(shell git tag -l --sort=-v:refname | head -n1)
 LDFLAGS := \
 	-X github.com/kubestellar/kubeflex/cmd/kflex/common.Version=${MAIN_VERSION}.${GIT_COMMIT} \
+	-X github.com/kubestellar/kubeflex/cmd/manager.Version=${MAIN_VERSION}.${GIT_COMMIT} \
 	-X github.com/kubestellar/kubeflex/cmd/kflex/common.BuildDate=${BUILD_DATE} \
 	-X k8s.io/client-go/pkg/version.gitCommit=${GIT_COMMIT} \
 	-X k8s.io/client-go/pkg/version.gitTreeState=${GIT_DIRTY} \
@@ -142,7 +143,7 @@ run: manifests generate fmt vet ## Run a controller from your host.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
 .PHONY: docker-build
 docker-build: test ## Build docker image with the manager.
-	docker build -t ${IMG} .
+	docker build --build-arg KUBEFLEX_VERSION=${MAIN_VERSION}.${GIT_COMMIT} -t ${IMG} .
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
@@ -185,7 +186,7 @@ docker-buildx: test ## Build and push docker image for the manager for cross-pla
 	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' Dockerfile > Dockerfile.cross
 	- docker buildx create --name project-v3-builder
 	docker buildx use project-v3-builder
-	- docker buildx build --push --platform=$(PLATFORMS) --tag ${IMG} -f Dockerfile.cross .
+	- docker buildx build --push --platform=$(PLATFORMS) --build-arg KUBEFLEX_VERSION=${MAIN_VERSION}.${GIT_COMMIT} --tag ${IMG} -f Dockerfile.cross .
 	- docker buildx rm project-v3-builder
 	rm Dockerfile.cross
 

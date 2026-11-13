@@ -43,6 +43,7 @@ func New(cl client.Client, scheme *runtime.Scheme, version string, clientSet *ku
 		BaseReconciler: &shared.BaseReconciler{
 			Client:        cl,
 			Scheme:        scheme,
+			Version:       version,
 			ClientSet:     clientSet,
 			DynamicClient: dynamicClient,
 			EventRecorder: eventRecorder,
