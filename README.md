@@ -1,6 +1,6 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/kubestellar/kubeflex)](https://goreportcard.com/report/github.com/kubestellar/kubeflex)
 [![GitHub release](https://img.shields.io/github/release/kubestellar/kubeflex/all.svg?style=flat-square)](https://github.com/kubestellar/kubeflex/releases)
-[![CI](https://github.com/kubestellar/kubeflex/actions/workflows/ci.yaml/badge.svg)](https://github.com/kubestellar/kubeflex/actions/workflows/ci.yaml)
+[![CI](https://github.com/kubestellar/kubeflex/actions/workflows/ci.yml/badge.svg)](https://github.com/kubestellar/kubeflex/actions/workflows/ci.yaml)
 [![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=kubestellar_kubeflex&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=kubestellar_kubeflex)
 [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=kubestellar_kubeflex&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=kubestellar_kubeflex)
 <a href="https://deepwiki.com/kubestellar/kubeflex">
